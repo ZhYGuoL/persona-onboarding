@@ -54,6 +54,33 @@ const CASES: Case[] = [
     expect: (r, t) => t === "delta-flight" && r.kind === "answer" && /7:05/.test(r.text),
   },
   {
+    label: "a list task names several subscriptions",
+    input: { summary: "finding forgotten subscriptions" },
+    expect: (r) =>
+      r.kind === "answer" &&
+      ["netflix", "spotify", "adobe", "new york times", "nyt", "planet fitness"].filter((n) =>
+        r.text.toLowerCase().includes(n),
+      ).length >= 2,
+  },
+  {
+    label: "other ones skip what was already shown",
+    input: {
+      summary: "finding other subscriptions",
+      shown: ["nyt-trial", "adobe-renewal", "pf-renewal"],
+    },
+    expect: (r) =>
+      r.kind === "answer" &&
+      !/new york times|adobe|planet fitness/i.test(r.text) &&
+      /netflix|spotify/i.test(r.text),
+  },
+  {
+    label: "nothing found is said plainly",
+    input: { summary: "finding the car insurance renewal date" },
+    expect: (r) =>
+      (r.kind === "answer" || r.kind === "cannot" || r.kind === "question") &&
+      !/can.?t (search|access|read|check)/i.test(r.text),
+  },
+  {
     label: "a meal plan needs no inbox",
     input: { summary: "planning vegetarian dinners for the week", threadId: null },
     inbox: false,
@@ -93,6 +120,7 @@ const results = await Promise.all(
       threadId: null,
       notes: [],
       previous: null,
+      shown: [],
       userName: "Dan",
       userEmail: "dan@gmail.com",
       language: "en",

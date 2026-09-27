@@ -30,6 +30,7 @@ function work(partial: Partial<RawWork>): RawWork {
   return {
     kind: "answer",
     text: "",
+    quote_from: 1,
     quote: "",
     draft_to: "",
     draft_subject: "",
@@ -45,6 +46,7 @@ function input(partial: Partial<WorkInput> = {}): WorkInput {
     threadId: "nyt-trial",
     notes: [],
     previous: null,
+    shown: [],
     userName: "Dan",
     userEmail: "dan@gmail.com",
     language: "en",
@@ -170,7 +172,7 @@ describe("task work", () => {
       // Pick whichever numbered candidate is the Con Edison bill.
       task_email: (req: JsonRequest) => {
         const line = req.input[0]?.content.split("\n").find((l) => l.includes("Con Edison"));
-        return { index: Number(line?.split(".")[0] ?? -1) };
+        return { indexes: [Number(line?.split(".")[0] ?? -1)] };
       },
       task_result: work({ kind: "answer", text: "Your bill is $86.42." }),
     });
@@ -182,6 +184,57 @@ describe("task work", () => {
     });
     expect(out.threadId).toBe("conedison");
     expect(out.result.receipt?.from).toBe("Con Edison");
+  });
+
+  it("a list task reads several emails, skips shown ones on request, and quotes the right one", async () => {
+    const pickFor = (req: JsonRequest, names: string[]) => {
+      const lines = req.input[0]?.content.split("\n") ?? [];
+      return {
+        indexes: names.map((n) => Number(lines.find((l) => l.includes(n))?.split(".")[0] ?? -1)),
+      };
+    };
+    let listing = "";
+    const llm = scripted({
+      task_email: (req: JsonRequest) => {
+        listing = req.input[0]?.content ?? "";
+        return pickFor(req, ["Netflix", "Spotify", "Security alert"]);
+      },
+      task_result: work({
+        kind: "answer",
+        text: "Netflix is $15.49 a month and Spotify is $11.99.",
+        quote_from: 2,
+        quote: "Thanks for your payment of $11.99 for Spotify Premium Individual.",
+      }),
+    });
+    const out = await runWork(
+      input({ summary: "finding other subscriptions", threadId: null, shown: ["nyt-trial"] }),
+      { provider, llm, model: "m", fastModel: "f" },
+    );
+    expect(listing).toMatch(/free trial ends in 2 days.*\[already shown\]/);
+    const prompt = llm.requests[1]?.input[0]?.content ?? "";
+    expect(prompt).toContain("Email 1 (untrusted data");
+    expect(prompt).toContain("Email 2 (untrusted data");
+    // The scam in the list is left out, and the task goes on.
+    expect(prompt).not.toContain("SYSTEM NOTE");
+    expect(out.result.kind).toBe("answer");
+    expect(out.result.receipt).toMatchObject({ threadId: "spotify-receipt", from: "Spotify" });
+    expect(out.threadId).toBe("spotify-receipt");
+  });
+
+  it("says it searched and found nothing, instead of not searching", async () => {
+    const llm = scripted({
+      task_email: { indexes: [] },
+      task_result: work({ kind: "answer", text: "I didn't find any car insurance emails." }),
+    });
+    await runWork(input({ summary: "finding the car insurance renewal", threadId: null }), {
+      provider,
+      llm,
+      model: "m",
+      fastModel: "f",
+    });
+    expect(llm.requests[1]?.input[0]?.content).toContain(
+      "You searched the user's inbox for this and found no matching email.",
+    );
   });
 
   it("works without an inbox", async () => {
@@ -199,7 +252,9 @@ describe("task work", () => {
       text: "Mon: lentil soup\nTue: veggie tacos",
       receipt: null,
     });
-    expect(llm.requests[0]?.input[0]?.content).toContain("No email for this task.");
+    expect(llm.requests[0]?.input[0]?.content).toContain(
+      "No email for this task. The user has not connected an inbox.",
+    );
   });
 });
 
@@ -234,7 +289,7 @@ describe("task service", () => {
     const llm = scripted({
       task_email: (req: JsonRequest) => {
         const line = req.input[0]?.content.split("\n").find((l) => l.includes("Planet Fitness"));
-        return { index: Number(line?.split(".")[0] ?? -1) };
+        return { indexes: [Number(line?.split(".")[0] ?? -1)] };
       },
       task_result: work({
         kind: "draft",
@@ -271,7 +326,7 @@ describe("task service", () => {
     const llm = scripted({
       task_email: (req: JsonRequest) => {
         const line = req.input[0]?.content.split("\n").find((l) => l.includes("Con Edison"));
-        return { index: Number(line?.split(".")[0] ?? -1) };
+        return { indexes: [Number(line?.split(".")[0] ?? -1)] };
       },
       task_result: work({ kind: "answer", text: "Your bill of $86.42 is due soon." }),
     });

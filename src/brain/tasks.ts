@@ -55,6 +55,12 @@ function run(s: SessionState, task: Task, actions: Action[], previous: Draft | n
     threadId: task.threadId,
     notes: [...task.notes],
     previous,
+    shown: [
+      ...new Set([
+        ...s.inbox.findings.map((f) => f.threadId),
+        ...s.tasks.flatMap((t) => (t.result?.receipt ? [t.result.receipt.threadId] : [])),
+      ]),
+    ].filter(Boolean),
     inbox: gmail.status !== "confirmed" ? null : gmail.source === "sample_inbox" ? "demo" : "gmail",
     userName: name.status === "confirmed" || name.status === "tentative" ? name.value : null,
     userEmail: gmail.status === "confirmed" && gmail.source !== "sample_inbox" ? gmail.value : null,

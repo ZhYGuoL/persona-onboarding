@@ -492,6 +492,8 @@ export interface TaskJob {
   notes: string[];
   /** The draft to revise, when the user asked for changes. */
   previous: Draft | null;
+  /** Emails the user already saw: findings and earlier results. */
+  shown: string[];
   /** The inbox the task reads, or null to work without email. */
   inbox: InboxSource | null;
   userName: string | null;
