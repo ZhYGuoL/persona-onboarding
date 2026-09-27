@@ -498,3 +498,80 @@ The model prompt keeps the full app's features as background, but says this vers
 - **Why.** D28 kept the product pitch until milestone 4.
 With real tasks in place, the stress judge flagged "I can call places" as a false claim, and a user asked "you said you could call places" when the agent declined to call Adobe.
 The brief's rule is plain: when something cannot be done, say so instead of pretending.
+
+## Milestone 4: a real first task
+
+### D58. A task is one checked result, from a separate work step
+
+- **Choice.** A task service runs each task outside the session queue, like the inbox scan.
+It picks the emails the task is about, reads them in full, and asks the model for exactly one result: an answer, a draft, a reminder, one question, or a plain "cannot".
+Code checks the result before the brain sees it.
+- **Why.** One result per run keeps the conversation simple and testable.
+The model does the language, and code does the rules: who a draft may go to, what counts as a receipt, and when a reminder may fire.
+
+### D59. Receipts are the email's own words
+
+- **Choice.** Every result names the email it rests on: sender, date, and one sentence quoted from it.
+Code keeps the quote only if it appears in the email word for word. Otherwise it shows the subject.
+A receipt the thread already shows is not repeated.
+- **Why.** Persona's public promise is that every task comes back with its receipts.
+A made-up quote would be worse than none.
+
+### D60. Drafts wait for a yes, and sending is simulated out loud
+
+- **Choice.** A draft shows as a card, then "Send it?".
+Only a plain yes to that question sends it. "Yes, but make it shorter" is an edit, and a yes to any other question never sends.
+A send is recorded in a simulated outbox, and the text says "Sending is simulated here, so nothing left your account."
+A draft may go only to an address in the email's headers or one the user typed, never to the user.
+- **Why.** The brief's hard limits: nothing outward without a yes, no real sends, and say plainly when something is simulated.
+The address rule stops an email's text from steering a draft to a stranger.
+The stress harness checks the yes rule in code on every send (`yes_before_send`).
+
+### D61. Reminders are real
+
+- **Choice.** A reminder sets a timer in the session and texts the user at that time, in their own time zone from the browser.
+A reviewer fast-forward now steps through due timers in order, so a 9:00 AM reminder is stamped 9:00 AM.
+- **Why.** "Remind me before the bill is due" was the most common request the agent had to refuse in M3 stress runs.
+The brain already owns timers, so a reminder costs almost nothing and is fully real.
+
+### D62. One task at a time, results by text, never during a call
+
+- **Choice.** Tasks queue and run one at a time.
+A turn that asks "Send it?" or a task question waits for the answer before the next task starts.
+A task heard on a call runs after the call, and the agent says so on the call.
+- **Why.** Two results landing at once would mix up which "yes" goes with which draft.
+A call has no place to show a draft card.
+
+### D63. Findings are offered one at a time, tied to their email
+
+- **Choice.** "Want me to start on X?" carries its finding, so a yes starts a task on that exact email.
+After a task wraps up, the next unseen finding is offered with its fact.
+Each finding is offered once, and a no ends the offers.
+The offer renders from a template, so it stays a plain yes/no question.
+- **Why.** Browser QA saw the model turn the offer into an either/or question that a yes cannot answer.
+The next finding keeps the user moving into real value without nagging.
+
+### D64. The task capability follows the model key
+
+- **Choice.** Tasks run when the server has the model key, as a capability like voice and Gmail.
+Without it, the agent says plainly it cannot take care of the task yet (D56).
+- **Why.** The task service needs the model.
+A config flag could promise work the server cannot do.
+
+### D65. The sample inbox survives a restart
+
+- **Choice.** Scan and task jobs name the inbox they read.
+The sample inbox reconnects on demand. Real Gmail tokens stay in memory only, so a restart still means a fresh connect.
+- **Why.** Browser QA hit "I lost access to your inbox" after a dev server restart on the sample inbox, which has no token to lose.
+
+### D66. List tasks read several emails, and empty searches are said plainly
+
+- **Choice.** The pick step returns up to four emails for a list or search task and one for a task about one thing.
+Emails already shown are marked, so "any other ones?" finds new ones.
+When nothing matches, the model is told it searched and found nothing.
+- **Why.** Stress runs showed "find my subscriptions" answered from one email, the same email returned for "other ones", and "I can't search your gmail" when a search came up empty.
+
+### D67. A task start promises only the look
+
+- **Choice.** A task starts with "Looking into it." The result says what can and cannot be done.
+- **Why.** "On it: calling Adobe" read as a promise to call, and the next text said it could not.
