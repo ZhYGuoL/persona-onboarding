@@ -738,3 +738,30 @@ A redraft cannot fix the wrong email, because it revises the same email.
 - **A yes with a different request.** A task stated with a yes to an offer is a restatement only when it names no thing, or its thing-words match the offer (refines D77). "Draft the Adobe cancellation too" stays its own task.
 - **No "nothing" need.** A need like "nothing" or "nada" is never saved, so there is no "Want me to start with nothing?".
 - **No prompt talk.** The render guard rejects text about the brief ("goes here", "the brief", "{{"), after the model sent "lowercase acknowledgments go here.".
+
+### D88. The hosted demo has a spend cap
+
+- **Choice.** `SPEND_CAP_USD` caps what the server spends, counting every model call and call minute in SQLite, so a restart does not reset it.
+Past the cap, no new calls start and text calls fail fast, so the brain uses its keyword reader and templates.
+The deploy starts at $1.50.
+- **Why.** A public URL spends real money for every visitor, and the account is prepaid with no auto-reload.
+Each session allows three calls of up to four minutes, and anyone can start new sessions.
+Without a cap, one curious visitor could use up the balance before a reviewer tries the app. With it, the app gets plainer instead of breaking.
+
+### D89. Scripted voice runs are hidden on the hosted demo
+
+- **Choice.** The production build shows the "Voice runs" card only with `?qa` in the URL.
+- **Why.** Each run is a real call that costs money, and "Run all 9" is one click. It is a QA tool, not a reviewer control.
+
+### D90. Railway, with a volume for SQLite
+
+- **Choice.** The app runs on Railway, which keeps WebSockets open. A volume at `/data` holds the SQLite file, so sessions, the event log, and the spend ledger survive redeploys.
+`railway.json` pins the build, start, and health check.
+Railway calls this format deprecated from 2026-12-01. Its replacement imports a `railway` npm package just for config and drops the restart policy, so I kept the JSON.
+- **Also.** The first deploy crashed with `FST_ERR_DUPLICATED_ROUTE`: `@fastify/static` registers "/" for `index.html` unless `index: false`. Production mode had never run before the deploy.
+
+### D91. The phone looks like the one on yourpersona.com
+
+- **Choice.** A light titanium frame with a thin black bezel, a white page with a soft glow behind the phone, pill buttons, a back chevron, an "iMessage" label over the first timestamp, and a mic in the empty field.
+- **Why.** The brief asks to match yourpersona.com. The fonts and colors already matched. The phone itself was a generic black mockup.
+- **Also.** A first visit showed an empty phone with no hint to start. The hint sits in the reviewer panel, because the product UI must not narrate.
