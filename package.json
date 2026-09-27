@@ -1,0 +1,43 @@
+{
+  "name": "persona-onboarding",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.10"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch src/server/main.ts",
+    "start": "NODE_ENV=production node --env-file-if-exists=.env src/server/main.ts",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json && tsc -p src/web/tsconfig.json",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "stress": "node --env-file-if-exists=.env src/harness/run.ts",
+    "eval:interpreter": "node --env-file-if-exists=.env src/harness/interpreter-eval.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/middie": "^9.3.4",
+    "@fastify/static": "^10.1.4",
+    "@fastify/websocket": "^11.3.1",
+    "fastify": "^5.12.5",
+    "openai": "^7.23.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "ws": "^8.21.3"
+  }
+}
