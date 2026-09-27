@@ -136,7 +136,7 @@ for (const sessionId of store.sessionsWithEvent("voice_run", Date.now() - sinceM
   const metrics: Record<string, number[]> = {};
   for (const e of log.filter((x) => x.type === "voice_metric")) {
     const m = e.payload as { kind: string; ms: number };
-    (metrics[m.kind] ??= []).push(m.ms);
+    metrics[m.kind] = [...(metrics[m.kind] ?? []), m.ms];
   }
   runs.push({
     scenario,
