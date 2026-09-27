@@ -69,7 +69,8 @@ function grade(scenario: string, log: LogEntry[], sessionId: string): Run["check
       )?.ts;
       check(
         "no re-ask of the need",
-        !needAt || !said(/on your plate|help (you )?with|what can i help/i, needAt + 1),
+        // Only a question counts: "so I can help with that." is not a re-ask.
+        !needAt || !said(/(on your plate|help (you )?with|what can i help)[^.?!]*\?/i, needAt + 1),
       );
       check("the agent ended the call", agentEnded);
       check("recap text within 8 s", textAfterEnd);
@@ -201,9 +202,10 @@ const failed = runs.filter((r) => !r.finished || r.checks.some((c) => !c.pass));
 const lines = [
   "# Voice run results",
   "",
-  `Generated ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC by \`pnpm voice:report\`, from ${runs.length} scripted calls since ${since} UTC.`,
-  "Each call is a real GPT-Live session. The caller is prerecorded clips played through the test voice, so the end of each clip is exact.",
-  "Timings are measured in the browser on the agent's audio.",
+  `\`pnpm voice:report\` wrote this at ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC, from ${runs.length} scripted calls since ${since} UTC.`,
+  "Each call is a real GPT-Live session. The caller speaks with prerecorded clips through the test voice, so the end of each clip is exact.",
+  "The browser measures all times on the agent's audio.",
+  "GPT-Live finishes its current sentence before it yields to a caller who talks over it.",
   "",
   "## Latency",
   "",
