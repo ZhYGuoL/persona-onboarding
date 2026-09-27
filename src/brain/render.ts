@@ -127,6 +127,8 @@ export function ackText(a: Ack, f: PlanFacts): string {
       return `Marked as sent to ${v(a.to)}. Sending is simulated here, so nothing left your account.`;
     case "draft_dropped":
       return "Okay, I won't send it.";
+    case "task_canceled":
+      return a.reminder ? "Okay, I won't send that reminder." : "Okay, never mind.";
     case "task_limit":
       return "That's a lot of changes, so I'll stop here. Tell me what you want from scratch and I'll start fresh.";
     case "reminder":
@@ -678,6 +680,10 @@ function ackGuide(a: Ack, f: PlanFacts): string {
         : 'They asked for a concrete task your abilities do not cover yet. Say plainly, in their words, that you cannot do it from here yet. Never write "got it", "on it", or anything that sounds like you took it on.';
     case "task_redraft":
       return "Say only that you are updating the draft, in a few words. Do not describe what the draft says or does.";
+    case "task_canceled":
+      return a.reminder
+        ? "They took back a reminder. Say plainly, in a few words, that you won't send it."
+        : "They took back their request. Say in a few words that you dropped it.";
     case "call_dropped":
       return "The call dropped. Say so and name what you already captured, so they know nothing was lost.";
     case "call_recap":

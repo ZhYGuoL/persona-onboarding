@@ -558,6 +558,62 @@ describe("two requests in one message", () => {
   });
 });
 
+describe("taking a request back", () => {
+  // Stress run: "remind me at banana o'clock / actually nevermind" still set a reminder,
+  // and "I won't remind you" left the timer running.
+  it("a request and its take-back in one message never becomes a task", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    const t = await w.say("remind me to eat at 4 / actually nevermind", {
+      task: { summary: "a reminder to eat", needs_gmail: false },
+      cancels_task: true,
+    });
+    expect(w.state.tasks).toHaveLength(0);
+    expect(w.of("run_task")).toHaveLength(0);
+    expect(t?.texts.join(" ")).toMatch(/okay, never mind\./i);
+  });
+
+  it("calls off a pending reminder, and it never goes out", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("remind me to call mom tomorrow", {
+      task: { summary: "a reminder to call mom", needs_gmail: false },
+    });
+    const at = w.hub.now(w.sid) + DAY;
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: { kind: "remind", text: "Call mom.", at, receipt: null },
+      threadId: null,
+      ms: 500,
+    });
+    await w.advance(1000);
+    const t = await w.say("actually don't remind me", { cancels_task: true });
+    expect(t?.texts.join(" ")).toMatch(/i won't send that reminder/i);
+    expect(w.state.timers["reminder-1"]).toBeUndefined();
+    await w.advance(2 * DAY);
+    expect(w.turns().some((x) => /call mom/i.test(x.texts.join(" ")))).toBe(false);
+  });
+
+  it("drops a task that is still working, and ignores its late result", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("find my flight", { task: { summary: "finding the flight", needs_gmail: false } });
+    await w.say("never mind", { cancels_task: true });
+    expect(w.state.tasks[0]?.status).toBe("dropped");
+    const before = w.turns().length;
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: { kind: "answer", text: "Your flight is Oct 4.", receipt: null },
+      threadId: null,
+      ms: 500,
+    });
+    await w.advance(1000);
+    expect(w.turns()).toHaveLength(before);
+  });
+});
+
 describe("tasks and calls", () => {
   it("a task asked for on a call runs after the call, by text", async () => {
     const w = new World({ caps: { voice: true, tasks: true } });

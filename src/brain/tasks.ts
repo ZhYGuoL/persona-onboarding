@@ -5,7 +5,7 @@
 // simulated.
 
 import type { BrainConfig } from "./config.ts";
-import { scheduleTimer } from "./timers.ts";
+import { cancelTimer, scheduleTimer } from "./timers.ts";
 import type {
   Ack,
   Action,
@@ -140,7 +140,7 @@ export function applyTaskNotice(
       return null;
     }
     case "reminder_due": {
-      const reminder = s.reminders.find((r) => r.taskId === n.taskId && !r.sent);
+      const reminder = s.reminders.find((r) => r.taskId === n.taskId && !r.sent && !r.canceled);
       if (!reminder) return null;
       reminder.sent = true;
       acks.push({ kind: "reminder", text: reminder.text });
@@ -213,4 +213,23 @@ export function applyTaskReply(
     return true;
   }
   return false;
+}
+
+/**
+ * "Never mind": call off the latest task that is still open, or whose reminder
+ * has not gone out yet. A pending reminder's timer is canceled, so "I won't
+ * remind you" stays true. A result that arrives later is ignored.
+ */
+export function cancelLatest(s: SessionState, actions: Action[]): Ack | null {
+  const unsent = (taskId: number) =>
+    s.reminders.find((r) => r.taskId === taskId && !r.sent && !r.canceled);
+  const target = [...s.tasks].reverse().find((t) => isActive(t) || unsent(t.id));
+  if (!target) return null;
+  const reminder = unsent(target.id);
+  if (reminder) {
+    reminder.canceled = true;
+    cancelTimer(s, actions, reminderTimerId(target.id));
+  }
+  target.status = "dropped";
+  return { kind: "task_canceled", reminder: reminder !== undefined };
 }

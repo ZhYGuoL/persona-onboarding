@@ -161,6 +161,8 @@ export interface Reminder {
   at: number;
   text: string;
   sent: boolean;
+  /** The user took it back before it went out. */
+  canceled?: boolean;
 }
 
 export interface HistoryItem {
@@ -378,6 +380,8 @@ export interface Interpretation {
   draft_edit: string | null;
   /** A detail the user gave because the agent asked for it for a task. */
   task_detail: string | null;
+  /** The user takes back something they asked the agent to do ("never mind", "don't remind me"). */
+  cancels_task: boolean;
 }
 
 export interface NameClaim {
@@ -401,6 +405,8 @@ export type Ack =
   | { kind: "task_result"; taskId: number; result: TaskResult }
   | { kind: "task_redraft" }
   | { kind: "task_limit" }
+  /** `reminder` is true when a pending reminder was called off. */
+  | { kind: "task_canceled"; reminder: boolean }
   | { kind: "task_failed"; summary: string; reason: "auth" | "error" }
   | { kind: "draft_sent"; to: string }
   | { kind: "draft_dropped" }

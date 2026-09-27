@@ -252,6 +252,20 @@ const CASES: Case[] = [
     expect: (i) => i.task === null && i.asks_capabilities,
   },
   {
+    label: "never mind takes back a request",
+    text: "actually never mind, don't remind me",
+    prior: [
+      { from: "user", text: "remind me to call mom at 6" },
+      { from: "agent", text: "Done. I'll text you at 6:00 PM." },
+    ],
+    expect: (i) => i.cancels_task && !i.task,
+  },
+  {
+    label: "canceling a service is a task, not a take-back",
+    text: "can you cancel my gym membership",
+    expect: (i) => !i.cancels_task && i.task !== null,
+  },
+  {
     label: "two requests are two tasks",
     text: "could you draft a reply to adobe asking about cheaper plans? and check my bank stuff too",
     expect: (i) => i.task !== null && i.extra_tasks.length >= 1,

@@ -13,7 +13,14 @@ import {
   setSlot,
   settleExhausted,
 } from "./ledger.ts";
-import { applyTaskNotice, applyTaskReply, isActive, offerKey, startNextTask } from "./tasks.ts";
+import {
+  applyTaskNotice,
+  applyTaskReply,
+  cancelLatest,
+  isActive,
+  offerKey,
+  startNextTask,
+} from "./tasks.ts";
 import { cancelTimer, scheduleTimer } from "./timers.ts";
 import type {
   Ack,
@@ -256,7 +263,9 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   // 5. A reply to a draft ("send it?") or to a task's question. It is about
   // that task, so it never starts a new one.
   const taskReply = hasTexts && applyTaskReply(s, awaiting, i, acks, actions, now, cfg);
-  if (taskReply && i) i = { ...i, task: null, extra_tasks: [], help_need: null };
+  if (taskReply && i) {
+    i = { ...i, task: null, extra_tasks: [], help_need: null, cancels_task: false };
+  }
 
   // A yes or no to the question we asked last.
   let wantCall = false;
@@ -380,6 +389,18 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
     stopCall(s, actions);
     acks.push({ kind: "call_declined", final: s.call.declines >= cfg.maxCallDeclines });
     wantCall = false;
+  }
+
+  // "Never mind." A request and its take-back in one message never becomes a task.
+  // On its own, it calls off the latest open task or pending reminder.
+  if (hasTexts && i?.cancels_task) {
+    if (i.task || i.extra_tasks.length > 0) {
+      i = { ...i, task: null, extra_tasks: [] };
+      acks.push({ kind: "task_canceled", reminder: false });
+    } else {
+      const ack = cancelLatest(s, actions);
+      if (ack) acks.push(ack);
+    }
   }
 
   // 8. Graduation: the user wants to skip ahead, or names a concrete task.
