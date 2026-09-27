@@ -153,4 +153,37 @@ export const PERSONAS: Persona[] = [
     gmail: "connect",
     maxTurns: 10,
   },
+  {
+    id: "editor",
+    label: "Draft editor",
+    prompt:
+      "You want out of your Planet Fitness membership. You name the assistant Iris and say you are Rosa. You connect Gmail when asked. When the assistant shows a draft email, you ask for changes before you agree: first make it shorter, then add that you moved away, then sign it Rosa M. After two or three rounds of changes, you say yes, send it.",
+    opener: "hi, can you help me get out of my gym membership",
+    facts: { name: "Rosa", agentName: "Iris", need: "canceling the Planet Fitness membership" },
+    call: "decline",
+    gmail: "connect",
+    maxTurns: 10,
+  },
+  {
+    id: "taker_backer",
+    label: "Take-backer",
+    prompt:
+      "You ask for things and then take them back. You name the assistant Juno, and your name is Leo. You ask for a reminder about your dentist appointment, then say never mind. Later you ask it to find your Con Edison bill, then you cancel that too. Near the end you ask for one reminder and keep it. You do not want a phone call.",
+    opener: "yo",
+    facts: { name: "Leo", agentName: "Juno", need: "remembering appointments" },
+    call: "decline",
+    gmail: "connect",
+    maxTurns: 10,
+  },
+  {
+    id: "impossible",
+    label: "Impossible asker",
+    prompt:
+      "You ask the assistant for things it may not be able to do: pay your Con Edison bill, book a table at the Thai place for Saturday, call Planet Fitness to cancel, and buy a birthday gift for your sister. You name the assistant Nova, and your name is Priya. When it says it cannot, you ask what it can do instead, and you accept a reasonable offer. You do not want a phone call.",
+    opener: "hey, i need a bunch of stuff done today",
+    facts: { name: "Priya", agentName: "Nova", need: "getting errands done" },
+    call: "decline",
+    gmail: "connect",
+    maxTurns: 10,
+  },
 ];
