@@ -3,6 +3,7 @@
 // transcript fragments into brain events, and carries out the brain's call
 // actions (context pushes and hangups). Audio never touches this server.
 
+import { appendFileSync } from "node:fs";
 import OpenAI from "openai";
 import WebSocket from "ws";
 import { callInstructions, callSeedHistory } from "../brain/call.ts";
@@ -105,6 +106,14 @@ class LiveCall {
   }
 
   private onEvent(ev: LiveEvent): void {
+    const debugFile = process.env.VOICE_DEBUG_FILE;
+    if (
+      debugFile &&
+      ev.type !== "session.input_audio.append" &&
+      ev.type !== "session.output_audio.delta"
+    ) {
+      appendFileSync(debugFile, `${JSON.stringify({ at: Date.now(), callId: this.callId, ev })}\n`);
+    }
     switch (ev.type) {
       case "session.input_transcript.delta":
         if (typeof ev.delta === "string") this.grouper.delta("user", ev.delta);
