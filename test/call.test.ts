@@ -66,7 +66,7 @@ describe("live call", () => {
       help_need: "doing taxes",
     });
     await w.agentSays("Taxes are rough. Want to walk me through them?", 0);
-    expect(w.pushes("instructions").at(-1)).toMatch(/Say goodbye now/);
+    expect(w.pushes("commentary").at(-1)).toMatch(/Say goodbye now/);
     expect(w.of("end_call")).toHaveLength(0);
     await w.advance(w.cfg.callEndQuietMs + 100);
     expect(w.of("end_call")).toHaveLength(1);

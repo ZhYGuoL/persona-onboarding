@@ -3,7 +3,7 @@
 // tentative), decides what the live agent should know next, and when to wrap up.
 // Like `decide()`, it is pure code, so the same input always gives the same plan.
 
-import { callGoals, wrapUpInstruction } from "./call.ts";
+import { callGoals, wrapUpCue, wrapUpInstruction } from "./call.ts";
 import type { BrainConfig } from "./config.ts";
 import { cancelTimer, isStopKeyword, scheduleTimer } from "./decide.ts";
 import { applyRefusal, canAsk, recordAsk, setSlot } from "./ledger.ts";
@@ -247,6 +247,9 @@ export function startWrapUp(
   s.call.wrapUpAt = now;
   plan.wrapUp = true;
   plan.pushes.push({ kind: "instructions", text: wrapUpInstruction(reason) });
+  // An instruction alone does not make the agent speak (see D30). This cue does,
+  // so the goodbye comes even when the agent had already stopped talking.
+  plan.pushes.push({ kind: "commentary", text: wrapUpCue(reason) });
   cancelTimer(s, actions, "call_silence");
   scheduleTimer(s, actions, "call_end_fallback", now + cfg.callEndFallbackMs);
 }

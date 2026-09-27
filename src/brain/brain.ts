@@ -532,7 +532,7 @@ export class Brain {
       }
       if (startedAt >= s.call.wrapUpAt && !s.call.wrapNudged) {
         s.call.wrapNudged = true;
-        this.pushToCall(step, "instructions", SAY_GOODBYE_NOW);
+        this.pushToCall(step, "commentary", SAY_GOODBYE_NOW);
       }
       scheduleTimer(s, step.actions, "call_end_fallback", now + this.cfg.callEndQuietMs);
       return;

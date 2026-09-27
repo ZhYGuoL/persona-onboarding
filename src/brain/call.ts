@@ -181,6 +181,16 @@ export function saysAnchor(text: string, anchors: string[]): boolean {
   return anchors.some((a) => said.includes(a));
 }
 
+/** A short spoken cue that makes the agent say goodbye now. */
+export function wrapUpCue(reason: Parameters<typeof wrapUpInstruction>[0]): string {
+  if (reason === "done") return "Wrap up now: say you'll text a quick recap, then say goodbye.";
+  if (reason === "gmail_later")
+    return "Wrap up now: say the Gmail link is in their texts whenever they want it, then say goodbye.";
+  if (reason === "underage")
+    return "End the call now, kindly: Persona is for adults only. Say goodbye.";
+  return "Wrap up now and say goodbye.";
+}
+
 export const SAY_GOODBYE_NOW = "Say goodbye now, in one short sentence. Do not ask anything.";
 
 export const CHECK_IN_INSTRUCTION =
