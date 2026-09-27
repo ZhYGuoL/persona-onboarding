@@ -89,6 +89,13 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
           const ctx = new AudioContext();
           audioCtx.current = ctx;
           clipDest.current = ctx.createMediaStreamDestination();
+          // Stream silence between clips, like an open mic. GPT-Live's timeline only
+          // moves while audio arrives, so a silent gap would freeze the agent.
+          const hum = ctx.createOscillator();
+          const mute = ctx.createGain();
+          mute.gain.value = 0;
+          hum.connect(mute).connect(clipDest.current);
+          hum.start();
           stream = clipDest.current.stream;
         } else {
           stream = await navigator.mediaDevices.getUserMedia({
