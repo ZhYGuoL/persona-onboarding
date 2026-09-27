@@ -4,7 +4,7 @@ import { Brain } from "../brain/brain.ts";
 import { DEFAULT_CONFIG } from "../brain/config.ts";
 import { LlmInterpreter } from "../brain/interpret.ts";
 import { LlmRenderer, TemplateRenderer } from "../brain/render.ts";
-import { type LlmClient, modelsFromEnv, OpenAiClient } from "../llm/openai.ts";
+import { type CostMeter, type LlmClient, modelsFromEnv, OpenAiClient } from "../llm/openai.ts";
 import { signLink } from "./oauth.ts";
 
 export interface BuiltBrain {
@@ -17,7 +17,12 @@ export interface BuiltBrain {
   summary: string;
 }
 
-export function buildBrain(env: NodeJS.ProcessEnv, baseUrl: string, secret: string): BuiltBrain {
+export function buildBrain(
+  env: NodeJS.ProcessEnv,
+  baseUrl: string,
+  secret: string,
+  meter?: CostMeter,
+): BuiltBrain {
   const cfg = DEFAULT_CONFIG;
   const template = new TemplateRenderer(cfg.nameIdeas);
   const links = (sessionId: string) => ({
@@ -34,7 +39,7 @@ export function buildBrain(env: NodeJS.ProcessEnv, baseUrl: string, secret: stri
       summary: "none (keyword interpreter, template replies)",
     };
   }
-  const llm = new OpenAiClient(env.OPENAI_API_KEY);
+  const llm = new OpenAiClient(env.OPENAI_API_KEY, meter);
   return {
     brain: new Brain({
       cfg,

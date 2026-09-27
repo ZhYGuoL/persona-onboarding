@@ -23,6 +23,10 @@ export interface VoiceOptions {
   apiKey: string;
   clock: Clock;
   voice?: string;
+  /** False when the spend cap is reached. No new calls start. */
+  allowed?: () => boolean;
+  /** Billed seconds of a finished call. */
+  onUsage?: (seconds: number) => void;
   log: {
     info: (obj: object, msg: string) => void;
     warn: (obj: object, msg: string) => void;
@@ -194,6 +198,7 @@ class LiveCall {
       reason,
     });
     this.mgr.opts.log.info({ callId: this.callId, reason, seconds: this.seconds }, "call ended");
+    this.mgr.opts.onUsage?.(this.seconds);
     this.mgr.forget(this);
     this.mgr.opts.clock.setTimeout(() => this.socket?.close(), 2000);
   }
@@ -249,6 +254,7 @@ export class VoiceManager {
     const s = this.opts.hub.state(sessionId);
     if (s.call.callId !== callId || s.call.status !== "active") throw new CallNotActiveError();
     if (this.calls.has(callId)) throw new CallNotActiveError();
+    if (this.opts.allowed && !this.opts.allowed()) throw new SpendCapError();
     const result = await this.client.live.create({
       session: {
         model: LIVE_MODEL,
@@ -299,5 +305,11 @@ export class VoiceManager {
 export class CallNotActiveError extends Error {
   constructor() {
     super("no active call with that id");
+  }
+}
+
+export class SpendCapError extends Error {
+  constructor() {
+    super("the spend cap is reached, so calls are off");
   }
 }

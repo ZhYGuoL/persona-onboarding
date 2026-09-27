@@ -19,12 +19,14 @@ const MAX_TEXTS_PER_MINUTE = 40;
 export interface ChannelDeps {
   hub: Hub;
   voice: VoiceManager | null;
+  /** False once the spend cap is reached. */
+  voiceAllowed: () => boolean;
   /** The Gmail connect popup closed. No callback by then means the user backed out. */
   onOAuthClosed: (sessionId: string) => void;
 }
 
 export function attachChannel(
-  { hub, voice, onOAuthClosed }: ChannelDeps,
+  { hub, voice, voiceAllowed, onOAuthClosed }: ChannelDeps,
   sessionId: string,
   socket: WebSocket,
 ): void {
@@ -104,7 +106,7 @@ export function attachChannel(
     if (msg?.t === "hello") {
       void hub.dispatch(sessionId, {
         type: "capabilities",
-        caps: { voice: voice !== null && msg.voice === true },
+        caps: { voice: voice !== null && msg.voice === true && voiceAllowed() },
       });
       if (typeof msg.timeZone === "string" && msg.timeZone.length <= 64) {
         void hub.dispatch(sessionId, { type: "client_info", timeZone: msg.timeZone });

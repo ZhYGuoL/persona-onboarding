@@ -46,7 +46,24 @@ export class Store {
         payload text not null,
         primary key (session_id, seq)
       );
+      create table if not exists spend (
+        at integer not null,
+        kind text not null,
+        usd real not null
+      );
     `);
+  }
+
+  /** Records money spent on a model call or a voice call. */
+  addSpend(kind: "text" | "voice", usd: number, at: number): void {
+    this.db.prepare("insert into spend (at, kind, usd) values (?, ?, ?)").run(at, kind, usd);
+  }
+
+  spentUsd(): number {
+    const row = this.db.prepare("select coalesce(sum(usd), 0) as usd from spend").get() as {
+      usd: number;
+    };
+    return row.usd;
   }
 
   load(id: string): SessionRow | null {

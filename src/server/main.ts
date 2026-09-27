@@ -12,9 +12,10 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { InboxService } from "../inbox/service.ts";
 import { RealClock } from "../runtime/clock.ts";
 import { Hub } from "../runtime/hub.ts";
+import { GuardedMeter, SpendGuard } from "../runtime/spend.ts";
 import { Store } from "../runtime/store.ts";
 import { TaskService } from "../tasks/service.ts";
-import { CallNotActiveError, VoiceManager } from "../voice/live.ts";
+import { CallNotActiveError, SpendCapError, VoiceManager } from "../voice/live.ts";
 import { buildBrain } from "./deps.ts";
 import { registerOAuth } from "./oauth.ts";
 import { legalPage, privacyPage, termsPage } from "./pages.ts";
@@ -39,7 +40,15 @@ const app = Fastify({
 
 const store = new Store(env.DATABASE_PATH ?? join(root, "data/persona.db"));
 const clock = new RealClock();
-const { brain, llm, fastModel, replyModel, summary } = buildBrain(env, baseUrl, secret);
+// A public deploy spends real money on every visitor. Past the cap, voice is off
+// and the text side uses its keyword reader and templates. Unset means no cap.
+const spend = new SpendGuard(store, Number(env.SPEND_CAP_USD || Number.POSITIVE_INFINITY));
+const { brain, llm, fastModel, replyModel, summary } = buildBrain(
+  env,
+  baseUrl,
+  secret,
+  new GuardedMeter(spend, () => Date.now()),
+);
 const hub = new Hub({
   store,
   clock,
@@ -61,6 +70,8 @@ const voice = env.OPENAI_API_KEY
       apiKey: env.OPENAI_API_KEY,
       clock,
       voice: env.LIVE_VOICE || "marin",
+      allowed: () => !spend.exhausted,
+      onUsage: (seconds) => spend.addVoiceSeconds(seconds, Date.now()),
       log: app.log,
     })
   : null;
@@ -139,6 +150,7 @@ app.post<{ Body: { callId?: unknown; sdp?: unknown } }>("/api/call/offer", async
     return { sdp: await voice.connect(id, callId, sdp) };
   } catch (err) {
     if (err instanceof CallNotActiveError) return reply.code(409).send({ error: err.message });
+    if (err instanceof SpendCapError) return reply.code(503).send({ error: err.message });
     req.log.error({ err }, "live session creation failed");
     return reply.code(502).send({ error: "could not start the call" });
   }
@@ -212,7 +224,16 @@ app.get("/ws", { websocket: true }, (socket, req) => {
     socket.close(4401, "no session");
     return;
   }
-  attachChannel({ hub, voice, onOAuthClosed: (sid) => oauth?.popupClosed(sid) }, id, socket);
+  attachChannel(
+    {
+      hub,
+      voice,
+      voiceAllowed: () => !spend.exhausted,
+      onOAuthClosed: (sid) => oauth?.popupClosed(sid),
+    },
+    id,
+    socket,
+  );
 });
 
 const html = (body: string) => (_req: FastifyRequest, reply: FastifyReply) =>
@@ -245,7 +266,10 @@ if (isProd) {
 
 const restored = hub.restore();
 await app.listen({ port, host: "0.0.0.0" });
-app.log.info({ models: summary, restored, baseUrl }, "persona onboarding is up");
+app.log.info(
+  { models: summary, restored, baseUrl, spendCapUsd: spend.capUsd, spentUsd: spend.spentUsd },
+  "persona onboarding is up",
+);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {
