@@ -188,7 +188,7 @@ export function Reviewer({
             {voiceRuns.state.results.map((r) => (
               <li key={r.id}>
                 <span className={`pill ${r.ok ? "confirmed" : "declined"}`}>
-                  {r.ok ? "done" : "stopped"}
+                  {r.ok ? "done" : r.detail === "stopped" ? "stopped" : "failed"}
                 </span>{" "}
                 {r.id}
                 {r.detail && <span className="muted"> · {r.detail}</span>}
