@@ -208,7 +208,8 @@ export function decideCall(
       callGoals(s).length === 0 ? " You already know what they need, so do not ask anything." : "";
     plan.pushes.push({
       kind: "commentary",
-      text: `You just texted them a link to connect Gmail${why}. Tell them in one sentence. Do not read the link.${nothingLeft}`,
+      // Voice runs: this landed mid-question, and the agent broke off ("What's the first name? Hey, I just texted...").
+      text: `Finish your current sentence first. You just texted them a link to connect Gmail${why}. Then tell them in one sentence. Do not read the link.${nothingLeft}`,
     });
   }
 
