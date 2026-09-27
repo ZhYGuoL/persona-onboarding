@@ -3,6 +3,7 @@
 // the brain steers the call with short context updates.
 
 import type { BrainConfig } from "./config.ts";
+import { PERSONA_FACTS, UNKNOWN_FACTS_RULE } from "./facts.ts";
 import { agentDisplayName } from "./ledger.ts";
 import type { HistoryItem, SessionState, WrapUpReason } from "./types.ts";
 
@@ -67,6 +68,10 @@ Delegate to the backend when:
 
 Do not delegate to the backend when:
 - Any request. If they ask for something you cannot do on the call, say so plainly and say you will follow up by text.
+
+About Persona (the only facts you know about it):
+${PERSONA_FACTS.map((f) => `- ${f}`).join("\n")}
+${UNKNOWN_FACTS_RULE}
 
 Goal of the call: get to know them so you can help. ${goals.length ? `Still to learn, in this order: ${goals.join("; ")}.` : "You already know what you need. Keep it short."}
 

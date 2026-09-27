@@ -1,6 +1,9 @@
 // Milestone 2: the brain steering a live call from transcripts.
 
 import { describe, expect, it } from "vitest";
+import { callInstructions } from "../src/brain/call.ts";
+import { PERSONA_FACTS } from "../src/brain/facts.ts";
+import { RENDERER_INSTRUCTIONS } from "../src/brain/render.ts";
 import { World } from "./world.ts";
 
 const name = (value: string, correction = false) => ({ value, correction });
@@ -304,6 +307,21 @@ describe("live call", () => {
     await w.settle();
     expect(w.state.slots.user_name).toMatchObject({ value: "Kate", status: "confirmed" });
     expect(w.pushes("commentary").at(-1)).toMatch(/acknowledge the text/);
+  });
+});
+
+// Voice runs: asked "is this free?", the agent said "we do have both free and paid options".
+describe("facts about Persona", () => {
+  it("calls and texts share one fact list and a rule against guessing", async () => {
+    const w = new World({ caps: { voice: true } });
+    await onCall(w);
+    const call = callInstructions(w.state, w.cfg);
+    for (const fact of PERSONA_FACTS) {
+      expect(call).toContain(fact);
+      expect(RENDERER_INSTRUCTIONS).toContain(fact);
+    }
+    expect(call).toMatch(/such as price or plans, say you are not sure\. Never guess\./);
+    expect(RENDERER_INSTRUCTIONS).toMatch(/Never guess\./);
   });
 });
 

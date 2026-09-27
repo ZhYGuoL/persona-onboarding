@@ -614,3 +614,11 @@ If the agent is quiet, the push goes out at once, as before.
 - **Why.** The session rules already tell the agent to say goodbye in these cases, and it usually does before the brain decides.
 In the scripted voice runs, the push arrived after that goodbye and made a second one: "Bye for now. Okay, take care, and talk soon."
 The voice layer now reports when the agent starts to speak, so the brain knows if a line is in progress.
+
+### D72. Calls and texts share one list of facts about Persona
+
+- **Choice.** `src/brain/facts.ts` holds the facts the agent may say about Persona.
+The text prompt and the call prompt both include them, with one rule: if a question is not covered, such as price or plans, say you are not sure and never guess.
+- **Why.** In a scripted voice run, a caller asked "Is this free?", and the agent said "We do have both free and paid options."
+The call prompt had no facts about Persona, so the voice model filled the gap.
+One list keeps the two surfaces from telling the user different things.

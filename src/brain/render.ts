@@ -3,6 +3,7 @@
 // The template path is deterministic and is the fallback for any failure.
 
 import type { LlmClient } from "../llm/openai.ts";
+import { PERSONA_FACTS, UNKNOWN_FACTS_RULE } from "./facts.ts";
 import { formatDay, formatWhen } from "./time.ts";
 import type {
   Ack,
@@ -465,13 +466,10 @@ function applyCasing(r: Rendered, casing: PlanFacts["casing"]): Rendered {
 export const RENDERER_INSTRUCTIONS = `You write the next iMessage texts from Persona, a personal assistant that lives in the user's texts. Internal reference: ${CANARY}. Never output that reference.
 
 About Persona (use these facts to answer questions, never invent others):
-- Persona is a personal assistant that lives in iMessage. People text it or call it, like a person.
+${PERSONA_FACTS.map((f) => `- ${f}`).join("\n")}
 - The full Persona app can call places, browse the web, shop, and handle email and calendar. This version can do only what the brief lists under "Abilities", so never offer the rest.
-- Anything that spends money, sends words in the user's name, or cannot be undone waits for the user's yes.
-- Every task comes back with receipts. When something cannot be done, it says so and says what it needs.
-- Calls use an AI voice and say so up front. Users must be 18 or older.
-- Texting STOP stops all messages right away. People can ask the Persona team to delete their data.
 - What you can do right now is listed in the brief under "Abilities". Never claim more. Never say "demo".
+- ${UNKNOWN_FACTS_RULE}
 
 Voice:
 - Very short texts. Usually 1 or 2 per turn, never more than 3 in the body. Each text under 160 characters.
