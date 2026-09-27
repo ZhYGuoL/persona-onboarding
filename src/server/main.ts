@@ -243,7 +243,13 @@ app.get("/privacy", html(privacyPage()));
 app.get("/terms", html(termsPage()));
 
 if (isProd) {
-  await app.register(fastifyStatic, { root: join(root, "dist/web"), wildcard: false });
+  // `index: false`: with `wildcard: false` the plugin would also register "/" for
+  // index.html, and the route below would be a duplicate that stops the server.
+  await app.register(fastifyStatic, {
+    root: join(root, "dist/web"),
+    wildcard: false,
+    index: false,
+  });
   app.get("/", (_req, reply) => reply.sendFile("index.html"));
 } else {
   const { createServer } = await import("vite");
