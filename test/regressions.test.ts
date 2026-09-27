@@ -231,6 +231,19 @@ describe("render guard", () => {
     expect(body("I’m unable to resend that link.")).toMatch(/cannot send a link/);
     expect(body("The link is in your texts whenever you want it.")).not.toMatch(/link/);
   });
+
+  // Stress run: the model sent "lowercase acknowledgments go here." as a whole text.
+  it("rejects a text about the brief instead of to the user", async () => {
+    const { guard } = await import("../src/brain/render.ts");
+    const { emptyPlan } = await import("../src/brain/decide.ts");
+    const w = new World();
+    await w.say("hi");
+    const plan = emptyPlan(w.state, w.cfg);
+    const body = (text: string) => guard({ intro: [], body: [text] }, plan).join(" ");
+    expect(body("lowercase acknowledgments go here.")).toMatch(/talks about the brief/);
+    expect(body("Hi {{v1}}, text me anytime.")).toMatch(/talks about the brief/);
+    expect(body("Text me whenever something lands on your plate.")).not.toMatch(/brief/);
+  });
 });
 
 describe("lowercase mirroring", () => {

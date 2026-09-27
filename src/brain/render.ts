@@ -929,6 +929,13 @@ const EMAIL_LIKE = /[^\s@()]+@[^\s@()]+\.[a-z]{2,}/gi;
 const CANT_SEND_LINK =
   /\b(can(no|')t|can’t|can not|unable to) (re)?(send|share|give)\b[^.?!]*\blink/i;
 
+/**
+ * Words about the prompt, not to the user. Stress run: the model sent the text
+ * "lowercase acknowledgments go here." as a whole message.
+ */
+const META_TEXT =
+  /\b(go(es)? here|placeholder|reference wording|the brief|brief item|acknowledg(e)?ments?|lorem ipsum)\b|\{\{|\[(insert|name|todo)\b/i;
+
 /** Returns a list of broken rules. Empty means the draft is safe to send. */
 export function guard(r: Rendered, plan: Plan, history: HistoryItem[] = []): string[] {
   const problems: string[] = [];
@@ -952,6 +959,8 @@ export function guard(r: Rendered, plan: Plan, history: HistoryItem[] = []): str
     if (t.length > 320) problems.push("a text over 320 characters");
     if (URL_LIKE.test(t.replace(EMAIL_LIKE, ""))) problems.push("a link or URL in the text");
     if (t.includes(CANARY)) problems.push("leaked the internal reference");
+    if (META_TEXT.test(t))
+      problems.push(`talks about the brief instead of to the user ("${t.trim()}")`);
     if (plan.facts.gmailAvailable && CANT_SEND_LINK.test(t)) {
       problems.push("says it cannot send a link, but it can send the Gmail link");
     }
