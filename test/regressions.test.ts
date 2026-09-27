@@ -220,3 +220,22 @@ describe("render guard", () => {
     expect(body("The link is in your texts whenever you want it.")).not.toMatch(/link/);
   });
 });
+
+describe("lowercase mirroring", () => {
+  // Browser QA: a lowercase texter got a sentence-case Gmail ask from the model.
+  it("lowercases a model draft but keeps the user's own values exact", async () => {
+    const { lowerDraft } = await import("../src/brain/render.ts");
+    const { emptyPlan } = await import("../src/brain/decide.ts");
+    const w = new World();
+    await w.say("hi");
+    const facts = { ...emptyPlan(w.state, w.cfg).facts, agentName: "Iris", userName: "McKenzie" };
+    const out = lowerDraft(
+      { intro: [], body: ["Nice to meet you, McKenzie. Iris here, want to connect Gmail?"] },
+      facts,
+    );
+    expect(out.body[0]).toBe("nice to meet you, McKenzie. Iris here, want to connect gmail?");
+    // A value inside a longer word is not a value.
+    const inner = lowerDraft({ intro: [], body: ["Irises bloom."] }, facts);
+    expect(inner.body[0]).toBe("irises bloom.");
+  });
+});

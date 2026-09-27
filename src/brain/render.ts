@@ -299,6 +299,27 @@ function mergeShort(lines: string[]): string[] {
   return out;
 }
 
+/**
+ * The model does not always follow "Casing: lower", so an LLM draft for a
+ * lowercase texter is lowercased in code. The user's own values keep their form.
+ */
+export function lowerDraft(r: Rendered, f: PlanFacts): Rendered {
+  const keep = [f.agentName, f.userName, f.gmail]
+    .filter((x): x is string => x !== null && x !== x.toLowerCase())
+    .sort((a, b) => b.length - a.length);
+  const escaped = keep.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const values = escaped.length
+    ? new RegExp(`(?<![\\p{L}\\p{N}])(${escaped.join("|")})(?![\\p{L}\\p{N}])`, "giu")
+    : null;
+  const fix = (t: string) => {
+    const marked = values
+      ? t.replace(values, (m) => v(keep.find((x) => x.toLowerCase() === m.toLowerCase()) ?? m))
+      : t;
+    return stripMarks(lowerOutsideValues(marked));
+  };
+  return { intro: r.intro.map(fix), body: r.body.map(fix) };
+}
+
 function applyCasing(r: Rendered, casing: PlanFacts["casing"]): Rendered {
   const fix = casing === "lower" ? (t: string) => stripMarks(lowerOutsideValues(t)) : stripMarks;
   return { intro: r.intro.map(fix), body: r.body.map(fix) };
@@ -741,8 +762,10 @@ export async function renderTurn(
         const draft = tidy(await llm.render(input, feedback));
         const problems = guard(draft, input.plan, input.history);
         if (problems.length === 0) {
+          const cased =
+            input.plan.facts.casing === "lower" ? lowerDraft(draft, input.plan.facts) : draft;
           return {
-            bubbles: toBubbles(draft, input),
+            bubbles: toBubbles(cased, input),
             renderer: "llm",
             guardFailures: failures,
             ms: performance.now() - started,
