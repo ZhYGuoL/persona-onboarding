@@ -30,8 +30,10 @@ export interface CallControls {
   setTestVoice(on: boolean): void;
   /** Play a prerecorded clip into the call, as if the user said it. Resolves when it ends. Test voice only. */
   sayClip(url: string): Promise<void>;
-  /** The agent's audio is playing right now. */
+  /** The agent is in the middle of speaking. Short pauses between words count as speaking. */
   agentSpeaking(): boolean;
+  /** The agent's audio has sound at this moment. */
+  agentLoud(): boolean;
   onServerMessage(msg: ServerMessage): void;
 }
 
@@ -314,6 +316,7 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
   }, []);
 
   const agentSpeaking = useCallback(() => meter.current?.isSpeaking ?? false, []);
+  const agentLoud = useCallback(() => meter.current?.isLoud ?? false, []);
 
   useEffect(
     () => () => {
@@ -336,6 +339,7 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
     setTestVoice,
     sayClip,
     agentSpeaking,
+    agentLoud,
     onServerMessage,
   };
 }

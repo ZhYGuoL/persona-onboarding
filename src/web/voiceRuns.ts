@@ -117,7 +117,8 @@ class Driver {
 
   /**
    * Talk over the agent once it has spoken for `afterMs` without a break, so a
-   * short "mm" is not taken for the reply.
+   * short "mm" is not taken for the reply. Cut in on a sound, not in the pause
+   * between two sentences, or the barge-in is not measured.
    */
   async interrupt(clip: keyof typeof CLIP, afterMs: number): Promise<void> {
     let since: number | null = null;
@@ -129,7 +130,7 @@ class Driver {
           return false;
         }
         since ??= performance.now();
-        return performance.now() - since >= afterMs;
+        return performance.now() - since >= afterMs && this.deps.call().agentLoud();
       },
       20_000,
     );

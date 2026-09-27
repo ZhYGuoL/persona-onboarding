@@ -22,6 +22,7 @@ export class VoiceMeter {
   private readonly timer: ReturnType<typeof setInterval>;
   private readonly events: VoiceMeterEvents;
   private speaking = false;
+  private lastLoudAt = Number.NEGATIVE_INFINITY;
   private loudSince: number | null = null;
   private quietSince: number | null = null;
 
@@ -39,6 +40,11 @@ export class VoiceMeter {
     return this.speaking;
   }
 
+  /** Sound right now, not the pause between two words or two sentences. */
+  get isLoud(): boolean {
+    return performance.now() - this.lastLoudAt <= POLL_MS * 2;
+  }
+
   private poll(): void {
     if (this.ctx.state === "suspended") void this.ctx.resume();
     this.analyser.getFloatTimeDomainData(this.buffer);
@@ -47,6 +53,7 @@ export class VoiceMeter {
     const rms = Math.sqrt(sum / this.buffer.length);
     const now = performance.now();
     if (rms >= SPEECH_RMS) {
+      this.lastLoudAt = now;
       this.quietSince = null;
       this.loudSince ??= now;
       if (!this.speaking && now - this.loudSince >= START_HOLD_MS) {
