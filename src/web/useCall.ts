@@ -53,11 +53,13 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
   const ringtone = useRef<Ringtone | null>(null);
   const endedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const dropTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const keepAlive = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const stopRinging = useCallback(() => ringtone.current?.stop(), []);
 
   const teardown = useCallback(() => {
     clearTimeout(dropTimer.current);
+    clearInterval(keepAlive.current);
     pc.current?.close();
     pc.current = null;
     for (const t of mic.current?.getTracks() ?? []) t.stop();
@@ -96,6 +98,13 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
           mute.gain.value = 0;
           hum.connect(mute).connect(clipDest.current);
           hum.start();
+          // Chrome can suspend audio in a background tab (for example, behind the
+          // Gmail popup). Resume it, or the silence stops and the call freezes.
+          keepAlive.current = setInterval(() => {
+            if (ctx.state === "suspended") void ctx.resume();
+          }, 500);
+          (window as unknown as { __testVoiceState?: () => string }).__testVoiceState = () =>
+            ctx.state;
           stream = clipDest.current.stream;
         } else {
           stream = await navigator.mediaDevices.getUserMedia({
