@@ -182,7 +182,7 @@ export function ackText(a: Ack, f: PlanFacts): string {
         case "cancelled":
           return "Looks like the Google window closed before it finished. Nothing's connected.";
         case "access_denied":
-          return "Google said no access, so nothing's connected.";
+          return "No problem, nothing's connected.";
         case "admin_blocked":
           return "Your organization's admin blocks this app, so I can't connect that account. A personal Gmail works.";
         case "wrong_account":
@@ -708,6 +708,8 @@ function ackGuide(a: Ack, f: PlanFacts): string {
       }
       if (a.reason === "cancelled")
         return "The Google sign-in did not finish. Say so plainly and that nothing is connected.";
+      if (a.reason === "access_denied")
+        return "They chose not to connect on Google's screen. Say in a few words, with no pressure, that nothing is connected. Do not ask for Gmail again.";
       return "Say plainly what happened with Google and that nothing is connected.";
     case "gmail_connected": {
       const which = a.demo

@@ -246,6 +246,11 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         acks.push({ kind: "gmail_scope_denied" });
         break;
       case "gmail_failed":
+        // Google sends access_denied only when the user clicks Cancel or Deny. That is
+        // their no, so Gmail waits for a natural moment instead of a re-ask right away.
+        if (n.reason === "access_denied" && s.slots.gmail.status !== "confirmed") {
+          applyRefusal(s.slots.gmail, false);
+        }
         acks.push({ kind: "gmail_failed", reason: n.reason });
         break;
       case "nudge":

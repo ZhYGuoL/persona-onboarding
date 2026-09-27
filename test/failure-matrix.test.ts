@@ -229,6 +229,24 @@ describe("failure matrix", () => {
     expect(w.state.slots.gmail.status).toBe("unknown");
   });
 
+  // Browser QA with real Google: Cancel on the consent screen got "google denied access"
+  // and an immediate re-ask for Gmail.
+  it("Cancel on Google's screen is the user's no: no blame, and no re-ask right away", async () => {
+    const w = new World({ caps: { gmail: true } });
+    await w.say("hi");
+    await w.say("juno", { agent_name: { value: "juno", correction: false } });
+    await w.say("dan", { user_name: { value: "dan", correction: false } });
+    await w.say("bills", { help_need: "keeping up with bills" });
+    expect(w.awaiting()).toBe("gmail_link");
+    await w.event({ type: "oauth_failed", reason: "access_denied" });
+    await w.advance(1000);
+    const text = w.last()?.texts.join(" ") ?? "";
+    expect(text).toMatch(/nothing's connected/i);
+    expect(text).not.toMatch(/google (said|denied)/i);
+    expect(w.last()?.links ?? []).toHaveLength(0);
+    expect(w.state.slots.gmail.status).toBe("deferred");
+  });
+
   it("Workspace admin block: says what it needs", async () => {
     const w = new World({ caps: { gmail: true } });
     await w.say("hi");
