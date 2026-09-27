@@ -82,7 +82,7 @@ describe("a task from an inbox finding", () => {
     );
 
     const started = await w.say("yes", { reply_to_pending: "yes" });
-    expect(started?.texts.join(" ")).toMatch(/on it: canceling the New York Times trial/i);
+    expect(started?.texts.join(" ")).toMatch(/looking into it\./i);
     // "On it" asks nothing else. The result is the next thing they hear.
     expect(questionCount(started)).toBe(0);
     expect(w.of("run_task").at(-1)).toMatchObject({
@@ -218,7 +218,7 @@ describe("a task stated by text", () => {
     const text = w.last()?.texts.join(" ") ?? "";
     expect(text).toMatch(/sample inbox is connected\./i);
     expect(text).not.toMatch(/quick look/i);
-    expect(text).toMatch(/on it: canceling the gym membership/i);
+    expect(text).toMatch(/looking into it\./i);
   });
 
   it("runs without the inbox when the user says no to Gmail", async () => {
@@ -297,6 +297,17 @@ describe("other task results", () => {
     expect(w.hub.now(w.sid)).toBeGreaterThanOrEqual(at + DAY);
   });
 
+  // Stress run: "text me anytime." was glued onto the end of a receipt's quote.
+  it("nothing is glued after a receipt's quote", async () => {
+    const { mergeShort } = await import("../src/brain/render.ts");
+    const receipt = "From Con Edison, Sep 23: “Due date: Tue, Oct 6”";
+    expect(mergeShort([receipt, "Text me anytime."])).toEqual([receipt, "Text me anytime."]);
+    // Short lines still merge elsewhere.
+    expect(mergeShort(["Juno it is.", "Nice to meet you."])).toEqual([
+      "Juno it is. Nice to meet you.",
+    ]);
+  });
+
   it("a question waits for the answer, then runs again with it", async () => {
     const w = new World({ caps: { tasks: true } });
     await started(w);
@@ -367,6 +378,6 @@ describe("tasks and calls", () => {
     await w.event({ type: "call_ended", callId: w.callId(), reason: "remote_hangup" });
     await w.advance(1000);
     expect(w.of("run_task")).toHaveLength(1);
-    expect(w.last()?.texts.join(" ")).toMatch(/on it: planning meals for the week/i);
+    expect(w.last()?.texts.join(" ")).toMatch(/looking into it\./i);
   });
 });

@@ -112,7 +112,8 @@ export function ackText(a: Ack, f: PlanFacts): string {
       // "Got it: <task>" reads as a promise when the agent cannot do the task.
       // A summary is the agent's paraphrase, so it follows the thread's casing.
       if (!f.canRunTasks) return `I can't take care of ${a.summary} from here yet.`;
-      return a.again ? "On it." : `On it: ${a.summary}.`;
+      // Only the look is promised. Whether the task itself can be done comes with the result.
+      return "Looking into it.";
     case "task_result":
       // Rendered line by line in ackLines.
       return "";
@@ -356,12 +357,14 @@ export class TemplateRenderer implements Renderer {
 }
 
 /** Join very short lines so a turn does not become five tiny bubbles. */
-function mergeShort(lines: string[]): string[] {
+export function mergeShort(lines: string[]): string[] {
   const out: string[] = [];
   for (const line of lines) {
     const last = out[out.length - 1];
     if (
       last !== undefined &&
+      // A receipt ends in the email's own words. Nothing is glued after the quote.
+      !last.endsWith("”") &&
       (last.length < 40 || line.length < 25) &&
       last.length + line.length < 150
     ) {
@@ -653,9 +656,9 @@ function ackGuide(a: Ack, f: PlanFacts): string {
         : "They named you. React in a few words.";
     case "task_started":
       if (f.canRunTasks && a.again)
-        return "They answered your question. Say you're on it, in two words.";
+        return "They answered your question. Say you're looking into it, in a few words.";
       return f.canRunTasks
-        ? "They asked for a concrete task. Acknowledge it in their words and say you are on it."
+        ? "They asked for a concrete task. Say in a few words that you're looking into it. Do not say you will do the task itself, like calling or canceling: the result comes in the next text."
         : 'They asked for a concrete task your abilities do not cover yet. Say plainly, in their words, that you cannot do it from here yet. Never write "got it", "on it", or anything that sounds like you took it on.';
     case "call_dropped":
       return "The call dropped. Say so and name what you already captured, so they know nothing was lost.";
