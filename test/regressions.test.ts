@@ -246,6 +246,21 @@ describe("render guard", () => {
   });
 });
 
+describe("call recap brief", () => {
+  // Browser QA: after a silent call the model texted "i captured your name as unknown".
+  it("an empty recap says nothing was caught and never offers the word unknown", async () => {
+    const { briefFor } = await import("../src/brain/render.ts");
+    const { emptyPlan } = await import("../src/brain/decide.ts");
+    const w = new World({ caps: { voice: true } });
+    await w.say("hi");
+    const plan = emptyPlan(w.state, w.cfg);
+    plan.acks = [{ kind: "call_recap", captured: [] }];
+    const brief = briefFor(plan, w.cfg.nameIdeas);
+    expect(brief).toMatch(/you caught nothing on it/);
+    expect(brief).not.toMatch(/\bunknown\b/);
+  });
+});
+
 describe("lowercase mirroring", () => {
   // Browser QA: a lowercase texter got a sentence-case Gmail ask from the model.
   it("lowercases a model draft but keeps the user's own values exact", async () => {

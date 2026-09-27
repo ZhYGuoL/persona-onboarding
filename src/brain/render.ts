@@ -600,8 +600,9 @@ export function briefFor(plan: Plan, ideas: string[], history: HistoryItem[] = [
 
   const facts = [
     `your name: ${f.agentName ?? "none yet (you go by Persona)"}`,
-    `user's name: ${f.userName ?? "unknown"}`,
-    `user needs help with: ${f.helpNeed ?? "unknown"}`,
+    // Not "unknown": the model once read it as the name ("i captured your name as unknown").
+    `user's name: ${f.userName ?? "not given yet"}`,
+    `user needs help with: ${f.helpNeed ?? "not given yet"}`,
     `gmail: ${f.gmail ?? "not connected"}`,
     `open task: ${f.openTask ?? "none"}`,
     `inbox findings: ${f.inboxFindings.length ? f.inboxFindings.join(" / ") : "none"}`,
@@ -769,8 +770,12 @@ function ackGuide(a: Ack, f: PlanFacts): string {
       return "The call connected, but your voice never came through, so it was ended. Say sorry in a few words.";
     case "call_dropped":
       return "The call dropped. Say so and name what you already captured, so they know nothing was lost.";
-    case "call_recap":
-      return "The call ended. Recap exactly what you captured and invite corrections.";
+    case "call_recap": {
+      const got = capturedLine(a.captured, f);
+      return got
+        ? `The call ended. Recap exactly this and invite corrections: ${stripMarks(got)}.`
+        : "The call ended, and you caught nothing on it. Thank them in a few words. Do not mention names or details.";
+    }
     case "name_blocked":
       return "The proposed name is a slur. Decline it playfully in a few words. Do not repeat it.";
     case "resume":
