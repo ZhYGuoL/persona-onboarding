@@ -389,6 +389,7 @@ interface ReminderView {
   taskId: number;
   at: number;
   sent: boolean;
+  canceled?: boolean;
 }
 
 /** Task statuses, in the ledger's pill colors. */
@@ -420,8 +421,8 @@ function taskDetail(t: TaskView, reminders: ReminderView[]): string | null {
     case "draft":
       return `Draft to ${r.draft.to}: “${r.draft.subject}”`;
     case "remind": {
-      const sent = reminders.find((x) => x.taskId === t.id)?.sent;
-      return `Reminder ${when(r.at)}${sent ? " · sent" : ""}`;
+      const rem = reminders.find((x) => x.taskId === t.id);
+      return `Reminder ${when(r.at)}${rem?.sent ? " · sent" : rem?.canceled ? " · canceled" : ""}`;
     }
     case "question":
       return `Asked: ${r.text}`;
