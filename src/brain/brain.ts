@@ -147,6 +147,7 @@ export class Brain {
         break;
       case "scan_failed":
         s.inbox.scanning = false;
+        s.inbox.failures += 1;
         if (ev.reason === "auth") {
           // The token is gone (expired, revoked, or lost in a restart). Gmail needs a new link.
           s.slots.gmail.status = "unknown";
@@ -156,7 +157,9 @@ export class Brain {
           this.pushToCall(
             step,
             "commentary",
-            "Say the inbox did not load just now, and that you will follow up by text.",
+            ev.reason === "auth"
+              ? "Say you lost access to their inbox, so they would need to connect Gmail again."
+              : "Say the inbox did not load just now, and that they can text you to try again.",
           );
           this.awaitDelivery(step, now, []);
         } else {
@@ -734,7 +737,13 @@ export class Brain {
       if (live && !s.call.captured.includes("gmail")) s.call.captured.push("gmail");
       cancelTimer(s, step.actions, "call_gmail_wait");
       // Look through the inbox right away. The agent keeps talking meanwhile.
-      s.inbox = { source: demo ? "demo" : "gmail", scanning: true, scannedAt: null, findings: [] };
+      s.inbox = {
+        source: demo ? "demo" : "gmail",
+        scanning: true,
+        scannedAt: null,
+        findings: [],
+        failures: 0,
+      };
       step.actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
     }
     if (name && !demo) crossCheckName(s, name, now, this.cfg);
@@ -770,6 +779,7 @@ export class Brain {
     const s = step.state;
     s.inbox.scanning = false;
     s.inbox.scannedAt = now;
+    s.inbox.failures = 0;
     s.inbox.findings = findings
       .slice(0, 3)
       .map((f) => ({ fact: sanitize(f.fact).slice(0, 200), related: f.related }));
@@ -793,7 +803,7 @@ export class Brain {
         this.pushToCall(
           step,
           "commentary",
-          "The inbox scan found nothing urgent. Say so in one sentence, and say you'll keep an eye on it.",
+          "The inbox scan found nothing that needs attention right now. Say so in one sentence. Do not promise to watch it.",
         );
       }
       this.awaitDelivery(step, now, top ? anchorsOf(top.fact) : []);

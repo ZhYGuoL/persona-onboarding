@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 import { GMAIL_SCOPE } from "../src/brain/brain.ts";
-import { World } from "./world.ts";
+import { planFacts } from "../src/brain/decide.ts";
+import { questionCount, World } from "./world.ts";
 
 const name = (value: string, correction = false) => ({ value, correction });
 const SCOPES = ["openid", "email", "profile", GMAIL_SCOPE];
@@ -130,7 +131,8 @@ describe("the magic moment on a call", () => {
     await onCallWithNeed(w);
     await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
     await w.event({ type: "scan_done", findings: [], source: "gmail", ms: 900 });
-    expect(w.pushes("commentary").at(-1)).toMatch(/nothing urgent/);
+    expect(w.pushes("commentary").at(-1)).toMatch(/nothing that needs attention/);
+    expect(w.pushes("commentary").at(-1)).toMatch(/do not promise to watch it/i);
   });
 });
 
@@ -185,5 +187,40 @@ describe("inbox by text", () => {
         .flatMap((t) => t.texts)
         .join(" "),
     ).toMatch(/lost access to your inbox/);
+  });
+
+  // Stress run: a scan failed, the agent said "I'll try again later", nothing retried,
+  // and later it claimed the scan found nothing.
+  it("a failed scan retries on the next text and never claims it found nothing", async () => {
+    const w = new World({ caps: { gmail: true } });
+    await toGmailAsk(w);
+    await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
+    await w.event({ type: "scan_failed", reason: "error" });
+    await w.advance(1000);
+    expect(w.last()?.texts.join(" ")).toMatch(/try again when you text me next/i);
+    expect(w.last()?.texts.join(" ")).not.toMatch(/later/i);
+    expect(planFacts(w.state, w.cfg).inboxStatus).toBe("failed");
+
+    const scans = () => w.of("scan_inbox").length;
+    const before = scans();
+    const t = await w.say("ok can you check again?");
+    expect(scans()).toBe(before + 1);
+    expect(t?.texts.join(" ")).toMatch(/another look/i);
+    expect(questionCount(t)).toBe(0);
+  });
+
+  it("stops retrying after the limit, and says so", async () => {
+    const w = new World({ caps: { gmail: true } });
+    await toGmailAsk(w);
+    await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
+    for (let n = 0; n < w.cfg.maxScanFailures; n++) {
+      await w.event({ type: "scan_failed", reason: "error" });
+      await w.advance(1000);
+      if (n < w.cfg.maxScanFailures - 1) await w.say("try again");
+    }
+    expect(w.last()?.texts.join(" ")).toMatch(/still won't load/i);
+    const before = w.of("scan_inbox").length;
+    await w.say("hello?");
+    expect(w.of("scan_inbox").length).toBe(before);
   });
 });

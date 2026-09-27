@@ -69,7 +69,7 @@ export function newSession(id: string, now: number, caps: Capabilities): Session
     nudges: 0,
     askedWhatsFirst: false,
     turnsInMain: 0,
-    inbox: { source: null, scanning: false, scannedAt: null, findings: [] },
+    inbox: { source: null, scanning: false, scannedAt: null, findings: [], failures: 0 },
   };
 }
 

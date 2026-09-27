@@ -217,7 +217,11 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         acks.push({ kind: "inbox_findings", facts: s.inbox.findings.map((f) => f.fact) });
         break;
       case "scan_failed":
-        acks.push({ kind: "scan_failed", reason: n.reason });
+        acks.push({
+          kind: "scan_failed",
+          reason: n.reason,
+          retry: n.reason === "error" && s.inbox.failures < cfg.maxScanFailures,
+        });
         break;
       case "gmail_scope_denied":
         acks.push({ kind: "gmail_scope_denied" });
@@ -389,6 +393,19 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   // 10. Slots whose ask budget ran out move down the ladder.
   const newlyDeferred = settleExhausted(s, cfg);
   if (newlyDeferred.includes("agent_name")) acks.push({ kind: "agent_name_deferred" });
+
+  // A scan that failed gets another try when the user texts again.
+  if (
+    hasTexts &&
+    s.slots.gmail.status === "confirmed" &&
+    !s.inbox.scanning &&
+    s.inbox.failures > 0 &&
+    s.inbox.failures < cfg.maxScanFailures
+  ) {
+    s.inbox.scanning = true;
+    actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
+    acks.push({ kind: "rescanning" });
+  }
 
   // 11. Place a call when the user said yes.
   let ringing = false;
@@ -693,6 +710,13 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     canRunTasks: cfg.tasksEnabled,
     inboxFindings: s.inbox.findings.map((f) => f.fact),
     sampleInbox: s.inbox.source === "demo",
+    inboxStatus: s.inbox.scanning
+      ? "scanning"
+      : s.inbox.failures > 0
+        ? "failed"
+        : s.inbox.scannedAt !== null
+          ? "scanned"
+          : "none",
     voice: s.caps.voice,
     gmailAvailable: s.caps.gmail,
     language: s.language,

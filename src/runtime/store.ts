@@ -3,7 +3,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { SessionState } from "../brain/types.ts";
+import type { InboxState, SessionState } from "../brain/types.ts";
 
 export type LogDir = "in" | "out" | "note";
 
@@ -53,7 +53,17 @@ export class Store {
       | { state: string; clock_offset: number }
       | undefined;
     if (!row) return null;
-    return { state: JSON.parse(row.state) as SessionState, clockOffsetMs: row.clock_offset };
+    const state = JSON.parse(row.state) as SessionState;
+    // Sessions saved by an older build lack newer inbox fields.
+    state.inbox = {
+      source: null,
+      scanning: false,
+      scannedAt: null,
+      findings: [],
+      failures: 0,
+      ...(state.inbox as Partial<InboxState> | undefined),
+    };
+    return { state, clockOffsetMs: row.clock_offset };
   }
 
   save(state: SessionState, clockOffsetMs: number, now: number): void {

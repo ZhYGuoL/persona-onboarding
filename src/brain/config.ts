@@ -15,6 +15,8 @@ export interface BrainConfig {
   callMaxMs: number;
   /** Answered calls per session. After this, the agent keeps it to text. */
   maxCallsPerSession: number;
+  /** Failed inbox scans in a row before the agent stops retrying. */
+  maxScanFailures: number;
   /** After asking the agent to wrap up, end the call anyway after this long. */
   callEndFallbackMs: number;
   /** After the wrap-up, hang up this long after the agent stops talking without a clear goodbye. */
@@ -55,6 +57,7 @@ export const DEFAULT_CONFIG: BrainConfig = {
   callSilenceGiveUpMs: 12_000,
   callMaxMs: 4 * 60_000,
   maxCallsPerSession: 3,
+  maxScanFailures: 3,
   callEndFallbackMs: 15_000,
   callEndQuietMs: 3_000,
   callGmailWaitMs: 75_000,

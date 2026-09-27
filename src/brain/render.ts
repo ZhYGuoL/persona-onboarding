@@ -149,9 +149,13 @@ export function ackText(a: Ack, f: PlanFacts): string {
         ? `Took a look. ${v(a.facts[0])}`
         : "Took a look. Nothing urgent jumped out.";
     case "scan_failed":
-      return a.reason === "auth"
-        ? "I lost access to your inbox, so I couldn't look. You'd need to connect it again."
-        : "Your inbox didn't load just now. I'll try again later.";
+      if (a.reason === "auth")
+        return "I lost access to your inbox, so I couldn't look. You'd need to connect it again.";
+      return a.retry
+        ? "Your inbox didn't load just now. I'll try again when you text me next."
+        : "Your inbox still won't load, so I'll leave it for now.";
+    case "rescanning":
+      return "Taking another look at your inbox.";
     case "gmail_scope_denied":
       return "Google connected, but the Gmail box was unchecked, so I still can't read your email.";
     case "gmail_failed":
@@ -465,11 +469,19 @@ function abilities(f: PlanFacts): string {
   const can = ["text"];
   if (f.voice) can.push("a quick voice call");
   if (f.gmail) {
-    can.push(
-      f.sampleInbox
-        ? "reading the sample inbox the user chose (not their real email)"
-        : "reading their connected Gmail (read-only); you already scanned it and can talk about what you found",
-    );
+    const inbox = f.sampleInbox
+      ? "reading the sample inbox the user chose (not their real email)"
+      : "reading their connected Gmail (read-only)";
+    const scan = {
+      none: "",
+      scanning: "; a scan is running now, so do not guess what it will find",
+      failed:
+        "; the last scan failed to load, so you do not know what is in it. Never say it found nothing",
+      scanned: f.inboxFindings.length
+        ? "; you scanned it and can talk about what you found"
+        : "; you scanned it and nothing needed attention",
+    }[f.inboxStatus];
+    can.push(inbox + scan);
   } else if (f.gmailAvailable) {
     can.push("connecting Gmail");
   }
@@ -575,6 +587,14 @@ function ackGuide(a: Ack, f: PlanFacts): string {
       return a.demo
         ? "They connected the sample inbox, not their real email. Say so plainly, and say you're taking a quick look."
         : "Gmail just connected. Say you're taking a quick look. Do not guess what you will find.";
+    case "scan_failed":
+      return a.reason === "auth"
+        ? "You lost access to their inbox. Say so plainly, and that they would need to connect Gmail again."
+        : a.retry
+          ? "Their inbox did not load. Say so plainly, and that you will try again when they text next. Do not say what is in it."
+          : "Their inbox still did not load. Say so plainly, and that you will leave it for now. Do not say what is in it.";
+    case "rescanning":
+      return "Say you are taking another look at their inbox, in a few words. Do not guess what you will find.";
     case "inbox_findings":
       return "You just scanned their inbox. Share the single most useful finding in one short text, in your own words, keeping numbers, dates, and names exact. Do not list more than one.";
     default:

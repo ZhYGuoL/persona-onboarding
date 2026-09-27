@@ -184,6 +184,8 @@ export interface InboxState {
   scanning: boolean;
   scannedAt: number | null;
   findings: InboxFinding[];
+  /** Scans that failed since the last success. The next text retries while this is under the limit. */
+  failures: number;
 }
 
 export type BrainEvent =
@@ -285,7 +287,8 @@ export type Ack =
   | { kind: "mic_denied" }
   | { kind: "gmail_connected"; email: string; demo: boolean }
   | { kind: "inbox_findings"; facts: string[] }
-  | { kind: "scan_failed"; reason: "auth" | "error" }
+  | { kind: "scan_failed"; reason: "auth" | "error"; retry: boolean }
+  | { kind: "rescanning" }
   | { kind: "gmail_scope_denied" }
   | { kind: "gmail_failed"; reason: OAuthFailure }
   | { kind: "resume"; agentName: string | null; userName: string | null; topic: string | null }
@@ -329,6 +332,8 @@ export interface PlanFacts {
   inboxFindings: string[];
   /** The connected inbox is the sample inbox, not the user's real email. */
   sampleInbox: boolean;
+  /** Where the inbox scan stands, so the agent never guesses what a failed scan found. */
+  inboxStatus: "none" | "scanning" | "failed" | "scanned";
   language: string;
   casing: "lower" | "normal";
 }
