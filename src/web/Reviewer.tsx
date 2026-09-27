@@ -56,6 +56,7 @@ const JUMPS: Array<[string, number]> = [
   ["+10 min", 10 * 60_000],
   ["+1 h", 60 * 60_000],
   ["+3 h", 3 * 60 * 60_000],
+  ["+1 day", 24 * 60 * 60_000],
 ];
 
 export function Reviewer({
@@ -157,6 +158,15 @@ export function Reviewer({
           </button>
         </div>
         <Inbox inbox={state?.inbox as InboxView | undefined} />
+      </section>
+
+      <section className="rv-card">
+        <h2>Tasks</h2>
+        <Tasks
+          tasks={(state?.tasks ?? []) as TaskView[]}
+          outbox={(state?.outbox ?? []) as SentView[]}
+          reminders={(state?.reminders ?? []) as ReminderView[]}
+        />
       </section>
 
       <section className="rv-card">
@@ -346,6 +356,124 @@ function Inbox({ inbox }: { inbox: InboxView | undefined }) {
             </li>
           ))}
         </ol>
+      )}
+    </div>
+  );
+}
+
+interface DraftView {
+  to: string;
+  subject: string;
+  body: string;
+}
+
+interface TaskView {
+  id: number;
+  summary: string;
+  status: string;
+  result:
+    | { kind: "draft"; draft: DraftView }
+    | { kind: "remind"; at: number }
+    | { kind: "question" | "answer" | "cannot"; text: string }
+    | null;
+}
+
+interface SentView {
+  taskId: number;
+  draft: DraftView;
+  at: number;
+}
+
+interface ReminderView {
+  taskId: number;
+  at: number;
+  sent: boolean;
+}
+
+/** Task statuses, in the ledger's pill colors. */
+const TASK_PILLS: Record<string, [label: string, tone: string]> = {
+  open: ["queued", "deferred"],
+  waiting_gmail: ["needs Gmail", "deferred"],
+  working: ["working", "tentative"],
+  needs_yes: ["needs yes", "tentative"],
+  needs_info: ["asked", "tentative"],
+  done: ["done", "confirmed"],
+  dropped: ["dropped", ""],
+  failed: ["failed", "declined"],
+};
+
+function when(at: number): string {
+  return new Date(at).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function taskDetail(t: TaskView, reminders: ReminderView[]): string | null {
+  const r = t.result;
+  if (!r) return null;
+  switch (r.kind) {
+    case "draft":
+      return `Draft to ${r.draft.to}: “${r.draft.subject}”`;
+    case "remind": {
+      const sent = reminders.find((x) => x.taskId === t.id)?.sent;
+      return `Reminder ${when(r.at)}${sent ? " · sent" : ""}`;
+    }
+    case "question":
+      return `Asked: ${r.text}`;
+    case "answer":
+      return "Answered in the thread";
+    case "cannot":
+      return `Said it can't: ${r.text}`;
+  }
+}
+
+function Tasks({
+  tasks,
+  outbox,
+  reminders,
+}: {
+  tasks: TaskView[];
+  outbox: SentView[];
+  reminders: ReminderView[];
+}) {
+  if (tasks.length === 0) return <p className="rv-note">No tasks yet.</p>;
+  return (
+    <div className="rv-tasks">
+      <ul>
+        {tasks.map((t) => {
+          const [label, tone] = TASK_PILLS[t.status] ?? [t.status, ""];
+          const detail = taskDetail(t, reminders);
+          return (
+            <li key={t.id}>
+              <div className="rv-task-row">
+                <span className="rv-task-name">{t.summary}</span>
+                <span className={`pill ${tone}`}>{label}</span>
+              </div>
+              {detail && <div className="rv-task-detail">{detail}</div>}
+            </li>
+          );
+        })}
+      </ul>
+      {outbox.length > 0 && (
+        <>
+          <h3>Outbox (simulated, nothing sent)</h3>
+          <ul>
+            {outbox.map((o) => (
+              <li key={`${o.taskId}-${o.at}`}>
+                <details>
+                  <summary>
+                    {when(o.at)} · to {o.draft.to} · “{o.draft.subject}”
+                  </summary>
+                  <pre>{o.draft.body}</pre>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

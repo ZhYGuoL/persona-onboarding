@@ -888,6 +888,63 @@ button {
   margin-top: 4px;
 }
 
+.rv-tasks ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.rv-tasks li + li {
+  margin-top: 8px;
+}
+
+.rv-task-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rv-task-name {
+  min-width: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.rv-task-row .pill {
+  flex: none;
+}
+
+.rv-task-detail {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.rv-tasks h3 {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-mute);
+}
+
+.rv-tasks summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.rv-tasks pre {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--step-200);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .ledger {
   width: 100%;
   border-collapse: collapse;
