@@ -104,9 +104,33 @@ The stress runs found these bugs, and each one is fixed with a regression test:
 Not verified: the last step of real Google consent (pick an account, then Allow).
 QA stayed read-only on Google. Zhiyuan should run it once with a test user.
 
-## Milestone 4: next
+## Milestone 4: a real first task
 
 Graduation into a real first task: read the full email behind a finding, and draft the outward action (a cancellation email, a reply to a landlord), which waits for the user's yes.
+
+### Plan
+
+A task starts from a stated request ("cancel my gym") or from a yes to an inbox finding ("want me to start on the NYT trial?").
+A task service does the work outside the session queue, like the inbox scan, and sends the result back to the brain as an event.
+Every result is real or plainly simulated:
+
+| Result | What the user sees |
+| --- | --- |
+| Answer | The answer, with the receipt: sender, date, and the exact number from the email. |
+| Draft email | The receipt, a draft card, and "Send it?". A yes marks it sent and says plainly that nothing left their account. |
+| Reminder | "I'll text you on Oct 4 at 9 AM." A timer sends the reminder text for real. |
+| Help in the thread | A short answer right in the chat, like a meal plan or the steps to cancel. |
+| Cannot | A plain "I can't do that from here yet", plus the closest real thing it can do. |
+
+Steps, each with tests and its own commits:
+1. Inbox providers read a full thread. The sample inbox gets fuller bodies with real next steps.
+2. Scan findings keep their thread and a suggested next action.
+3. A work step picks the thread, reads it, and asks the model for one result in a strict schema.
+Code validates the result: a draft goes only to an address in that thread, and no URLs or scam content pass.
+4. The brain starts tasks, handles results, and runs the yes, no, and edit loop for drafts.
+5. The phone shows a draft card. The reviewer panel shows tasks and the simulated outbox.
+6. Calls hand tasks to text: the work runs after the call ends.
+7. The stress harness runs the real task service on the sample inbox, and a new code invariant checks that nothing is sent without a yes.
 
 Inputs from the M3 stress run:
 - A "yes" to "want me to start there?" leads nowhere today.
