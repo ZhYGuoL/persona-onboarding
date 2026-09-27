@@ -501,7 +501,16 @@ export class Brain {
       if (s.call.wrapUpAt === null) {
         const pending = s.call.pendingDelivery;
         const lineStart = now - startedAgoMs;
-        if (pending && lineStart >= pending.since && saysAnchor(text, pending.anchors)) {
+        // Anchors come from the finding itself, which the agent had not seen before
+        // the push, so saying one proves delivery even when the line started earlier
+        // (the agent often runs "taking a look" straight into the finding). With no
+        // anchors, only a line that starts after the push counts.
+        const delivered =
+          pending !== null &&
+          (pending.anchors.length > 0
+            ? saysAnchor(text, pending.anchors)
+            : lineStart >= pending.since);
+        if (pending && delivered) {
           // The agent just shared what the inbox scan found. That was the point of the call.
           s.call.pendingDelivery = null;
           cancelTimer(s, step.actions, "call_finding_wait");

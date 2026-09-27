@@ -64,6 +64,23 @@ describe("the magic moment on a call", () => {
     expect(recap).toContain(PF);
   });
 
+  it("a finding said in the same breath as 'taking a look' counts as delivered", async () => {
+    const w = new World({ caps: { voice: true, gmail: true } });
+    await onCallWithNeed(w);
+    await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
+    await w.event({
+      type: "scan_done",
+      findings: [{ fact: PF, related: true }],
+      source: "gmail",
+      ms: 1800,
+    });
+    await w.agentSays(
+      "I'm in, taking a look. Your Planet Fitness renews October 3rd for twenty-five dollars.",
+      4000,
+    );
+    expect(w.pushes("instructions").at(-1)).toMatch(/say goodbye/i);
+  });
+
   it("if the agent never says the finding, the call still wraps up and the text has it", async () => {
     const w = new World({ caps: { voice: true, gmail: true } });
     await onCallWithNeed(w);
