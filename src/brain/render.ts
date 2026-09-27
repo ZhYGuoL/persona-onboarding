@@ -190,7 +190,7 @@ export function ackText(a: Ack, f: PlanFacts): string {
   return "";
 }
 
-export function answerText(a: Answer): string {
+export function answerText(a: Answer, f: PlanFacts): string {
   switch (a.kind) {
     case "is_ai":
       return "Yes, I'm an AI assistant.";
@@ -201,7 +201,9 @@ export function answerText(a: Answer): string {
     case "injection":
       return "Nice try. I'm staying me.";
     case "confused":
-      return "I'm Persona, an assistant that lives in your texts. I'm getting set up so I can be useful to you.";
+      return f.agentName
+        ? `I'm ${v(f.agentName)}, your assistant from Persona. I live in your texts, and I'm getting set up so I can be useful to you.`
+        : "I'm Persona, an assistant that lives in your texts. I'm getting set up so I can be useful to you.";
     case "question":
       return "Good question. I don't have a good answer for that one yet.";
   }
@@ -274,7 +276,7 @@ export class TemplateRenderer implements Renderer {
       if (t) body.push(t);
     }
     for (const a of plan.answers) {
-      body.push(a.kind === "injection" ? injectionText(history) : answerText(a));
+      body.push(a.kind === "injection" ? injectionText(history) : answerText(a, f));
     }
     if (ringing) body.push(ackText(ringing, f));
     if (needsClosing(plan)) body.push(closingText(f, history));
@@ -402,7 +404,7 @@ export function briefFor(plan: Plan, ideas: string[], history: HistoryItem[] = [
       item(`ACK ${a.kind}`, `${ackGuide(a, f)}${ref ? ` Reference wording: "${ref}"` : ""}`);
     }
     for (const a of plan.answers) {
-      const ref = a.kind === "injection" ? injectionText(history) : answerText(a);
+      const ref = a.kind === "injection" ? injectionText(history) : answerText(a, f);
       item(
         `ANSWER ${a.kind}`,
         a.kind === "question" ? answerGuide(a) : `${answerGuide(a)} Reference wording: "${ref}"`,
