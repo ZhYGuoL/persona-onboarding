@@ -3,8 +3,9 @@
 // exchanges the SDP offer and watches the call through its sideband.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClientMessage, ServerMessage } from "../shared/protocol.ts";
+import type { ClientMessage, ServerMessage, VoiceMetricKind } from "../shared/protocol.ts";
 import { Ringtone } from "./ringtone.ts";
+import { VoiceMeter } from "./voiceMeter.ts";
 
 export type CallPhase =
   | { phase: "idle" }
@@ -27,8 +28,10 @@ export interface CallControls {
   startCall(callerName: string): void;
   toggleMute(): void;
   setTestVoice(on: boolean): void;
-  /** Play a prerecorded clip into the call, as if the user said it. Test voice only. */
+  /** Play a prerecorded clip into the call, as if the user said it. Resolves when it ends. Test voice only. */
   sayClip(url: string): Promise<void>;
+  /** The agent's audio is playing right now. */
+  agentSpeaking(): boolean;
   onServerMessage(msg: ServerMessage): void;
 }
 
@@ -54,12 +57,34 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
   const endedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const dropTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const keepAlive = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  // Voice timings, measured on the audio the phone plays.
+  const meter = useRef<VoiceMeter | null>(null);
+  const tapAt = useRef<number | null>(null);
+  const metricCallId = useRef<string | null>(null);
+  const firstAudioSent = useRef(false);
+  const clipEndedAt = useRef<number | null>(null);
+  const bargeInAt = useRef<number | null>(null);
+
+  const metric = useCallback(
+    (kind: VoiceMetricKind, ms: number) => {
+      const callId = metricCallId.current;
+      if (callId) send({ t: "voice_metric", callId, kind, ms: Math.round(ms) });
+    },
+    [send],
+  );
 
   const stopRinging = useCallback(() => ringtone.current?.stop(), []);
 
   const teardown = useCallback(() => {
     clearTimeout(dropTimer.current);
     clearInterval(keepAlive.current);
+    meter.current?.stop();
+    meter.current = null;
+    tapAt.current = null;
+    metricCallId.current = null;
+    firstAudioSent.current = false;
+    clipEndedAt.current = null;
+    bargeInAt.current = null;
     pc.current?.close();
     pc.current = null;
     for (const t of mic.current?.getTracks() ?? []) t.stop();
@@ -85,6 +110,8 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
   const connect = useCallback(
     async (callId: string, callerName: string) => {
       setCall({ phase: "connecting", callId, callerName });
+      metricCallId.current = callId;
+      tapAt.current ??= performance.now();
       let stream: MediaStream;
       try {
         if (testVoiceRef.current) {
@@ -126,8 +153,28 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
         }
         conn.addEventListener("track", (e) => {
           if (!player.current) return;
-          player.current.srcObject = new MediaStream([e.track]);
+          const remote = new MediaStream([e.track]);
+          player.current.srcObject = remote;
           void player.current.play().catch(() => {});
+          meter.current?.stop();
+          meter.current = new VoiceMeter(remote, {
+            onStart: (at) => {
+              if (!firstAudioSent.current && tapAt.current !== null) {
+                firstAudioSent.current = true;
+                metric("first_audio", at - tapAt.current);
+              }
+              if (clipEndedAt.current !== null && at >= clipEndedAt.current) {
+                metric("turn_latency", at - clipEndedAt.current);
+                clipEndedAt.current = null;
+              }
+            },
+            onEnd: (at) => {
+              if (bargeInAt.current !== null) {
+                metric("barge_in_stop", at - bargeInAt.current);
+                bargeInAt.current = null;
+              }
+            },
+          });
         });
         for (const track of stream.getAudioTracks()) conn.addTrack(track, stream);
         // GPT-Live needs this data channel. The server allows it to carry only start and close.
@@ -135,6 +182,7 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
         events.addEventListener("message", ({ data }) => {
           const ev = JSON.parse(String(data)) as { type: string };
           if (ev.type === "session.started") {
+            if (tapAt.current !== null) metric("connect", performance.now() - tapAt.current);
             setCall((c) =>
               c.phase === "connecting" && c.callId === callId
                 ? { phase: "active", callId, callerName, startedAt: Date.now() }
@@ -173,7 +221,7 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
         }
       }
     },
-    [send, showEnded],
+    [send, showEnded, metric],
   );
 
   const onServerMessage = useCallback(
@@ -206,6 +254,7 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
     const c = callRef.current;
     if (c.phase !== "ringing") return;
     stopRinging();
+    tapAt.current = performance.now();
     send({ t: "call", action: "accept", callId: c.callId });
     void connect(c.callId, c.callerName);
   }, [connect, send, stopRinging]);
@@ -227,6 +276,7 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
   const startCall = useCallback(
     (callerName: string) => {
       if (callRef.current.phase !== "idle") return;
+      tapAt.current = performance.now();
       setCall({ phase: "outgoing", callerName });
       send({ t: "call", action: "start" });
     },
@@ -249,8 +299,19 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(dest);
-    source.start();
+    // Talking over the agent: time how long it takes to go quiet.
+    if (meter.current?.isSpeaking) bargeInAt.current = performance.now();
+    clipEndedAt.current = null;
+    await new Promise<void>((resolve) => {
+      source.onended = () => {
+        clipEndedAt.current = performance.now();
+        resolve();
+      };
+      source.start();
+    });
   }, []);
+
+  const agentSpeaking = useCallback(() => meter.current?.isSpeaking ?? false, []);
 
   useEffect(
     () => () => {
@@ -272,6 +333,7 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
     toggleMute,
     setTestVoice,
     sayClip,
+    agentSpeaking,
     onServerMessage,
   };
 }

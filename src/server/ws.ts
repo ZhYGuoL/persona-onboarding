@@ -110,6 +110,29 @@ export function attachChannel(
       onOAuthClosed(sessionId);
       return;
     }
+    if (msg?.t === "voice_metric") {
+      const kinds = ["connect", "first_audio", "turn_latency", "barge_in_stop"];
+      const ms = Number(msg.ms);
+      if (!kinds.includes(msg.kind) || !Number.isFinite(ms) || ms < 0 || ms > 120_000) return;
+      void hub.dispatch(sessionId, {
+        type: "voice_metric",
+        callId: String(msg.callId).slice(0, 200),
+        kind: msg.kind,
+        ms: Math.round(ms),
+      });
+      return;
+    }
+    if (msg?.t === "voice_run") {
+      if (typeof msg.scenario !== "string" || (msg.status !== "start" && msg.status !== "end"))
+        return;
+      void hub.dispatch(sessionId, {
+        type: "voice_run",
+        scenario: msg.scenario.slice(0, 60),
+        status: msg.status,
+        detail: typeof msg.detail === "string" ? msg.detail.slice(0, 300) : null,
+      });
+      return;
+    }
     if (msg?.t === "call") {
       onCallAction(
         msg.action,

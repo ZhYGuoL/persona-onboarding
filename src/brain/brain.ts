@@ -171,6 +171,10 @@ export class Brain {
       case "client_info":
         s.timeZone = safeTimeZone(ev.timeZone);
         break;
+      case "voice_metric":
+      case "voice_run":
+        // The hub logs these for the voice report. The conversation does not change.
+        break;
       case "scan_failed":
         s.inbox.scanning = false;
         s.inbox.failures += 1;

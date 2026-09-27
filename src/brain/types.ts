@@ -317,6 +317,9 @@ export type BrainEvent =
   | { type: "task_done"; taskId: number; result: TaskResult; threadId: string | null; ms: number }
   | { type: "task_failed"; taskId: number; reason: "auth" | "error" }
   | { type: "client_info"; timeZone: string }
+  /** Measured by the phone. Logged for the voice report, and changes nothing. */
+  | { type: "voice_metric"; callId: string; kind: string; ms: number }
+  | { type: "voice_run"; scenario: string; status: "start" | "end"; detail: string | null }
   | { type: "oauth_failed"; reason: OAuthFailure }
   | { type: "timer_fired"; timerId: string; kind: TimerKind }
   | { type: "turn_ready"; turnId: number; result: TurnResult };

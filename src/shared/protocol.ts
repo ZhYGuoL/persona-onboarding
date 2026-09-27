@@ -43,12 +43,23 @@ export type ServerMessage =
 
 export type CallAction = "accept" | "decline" | "hangup" | "mic_denied" | "failed" | "start";
 
+/**
+ * Voice timings the phone measures on the agent's audio, in milliseconds:
+ * connect (tap to live session), first_audio (tap to the agent's first
+ * sound), turn_latency (end of the caller's clip to the agent's reply), and
+ * barge_in_stop (caller starts talking over the agent to the agent going quiet).
+ */
+export type VoiceMetricKind = "connect" | "first_audio" | "turn_latency" | "barge_in_stop";
+
 export type ClientMessage =
   | { t: "text"; text: string; clientId: string }
   | { t: "hello"; voice: boolean; timeZone?: string }
   | { t: "call"; action: CallAction; callId?: string }
   /** The Gmail connect popup closed. */
-  | { t: "oauth_closed" };
+  | { t: "oauth_closed" }
+  | { t: "voice_metric"; callId: string; kind: VoiceMetricKind; ms: number }
+  /** A scripted voice run starts or ends, so the report can grade it. */
+  | { t: "voice_run"; scenario: string; status: "start" | "end"; detail?: string };
 
 export function threadFromLog(entries: LogView[]): ThreadItem[] {
   const items: ThreadItem[] = [];
