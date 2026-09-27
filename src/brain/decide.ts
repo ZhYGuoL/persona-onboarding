@@ -501,6 +501,11 @@ function applyNameClaim(
   }
   const slot = s.slots[name];
   if (slot.value === check.value && slot.status === "confirmed") return;
+  // The same name heard on a call, now typed: confirm it quietly. It is not a correction.
+  if (slot.value?.toLowerCase() === check.value.toLowerCase()) {
+    setSlot(slot, check.value, "confirmed", "text", now);
+    return;
+  }
   const isCorrection = correction || (slot.value !== null && slot.value !== check.value);
   setSlot(slot, check.value, "confirmed", "text", now);
   acks.push(

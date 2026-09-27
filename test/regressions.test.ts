@@ -283,3 +283,35 @@ describe("a task the agent cannot do yet", () => {
     expect(check("I can't set bill reminders from here yet.")).not.toMatch(/task/);
   });
 });
+
+describe("a typed name that matches the call", () => {
+  // Stress run: the call heard "Dan", the user typed "i'm Dan", and the agent said
+  // "Fixed. It's Dan." twice. The "Fixed" ack also crowded out the reply to their question.
+  it("confirms quietly, with no 'Fixed', and still gets a normal reply", async () => {
+    const w = new World({ caps: { voice: true } });
+    await w.say("hi");
+    await w.say("juno", { agent_name: { value: "juno", correction: false } });
+    await w.say("sure", { reply_to_pending: "yes" });
+    await w.event({ type: "call_answered", callId: w.of("ring_phone").at(-1)?.callId ?? "" });
+    await w.hear("i'm dan", { user_name: { value: "Dan", correction: false } });
+    await w.hear("subscriptions", { help_need: "forgotten subscriptions" });
+    await w.event({ type: "call_ended", callId: w.callId(), reason: "hangup" });
+    await w.advance(1000);
+    expect(w.state.slots.user_name.status).toBe("tentative");
+    const t = await w.say("i'm Dan, can you cancel adobe for me?", {
+      user_name: { value: "Dan", correction: true },
+    });
+    expect(w.state.slots.user_name).toMatchObject({ value: "Dan", status: "confirmed" });
+    expect(t?.texts.join(" ")).not.toMatch(/fixed/i);
+  });
+});
+
+describe("the confused answer", () => {
+  it("uses the agent's own name, not Persona", async () => {
+    const w = new World();
+    await w.say("hi");
+    await w.say("juno", { agent_name: { value: "juno", correction: false } });
+    const t = await w.say("what is this even", { confused: true });
+    expect(t?.texts.join(" ")).toMatch(/I'm juno, your assistant from Persona/i);
+  });
+});
