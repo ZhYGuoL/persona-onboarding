@@ -13,6 +13,7 @@ import {
   setSlot,
   settleExhausted,
 } from "./ledger.ts";
+import { cancelTimer, scheduleTimer } from "./timers.ts";
 import type {
   Ack,
   Action,
@@ -25,6 +26,8 @@ import type {
   SlotName,
 } from "./types.ts";
 import { checkName, cleanHelpNeed } from "./validate.ts";
+
+export { cancelTimer, scheduleTimer };
 
 export interface DecideInput {
   texts: PendingText[];
@@ -669,22 +672,6 @@ function stopCall(s: SessionState, actions: Action[]): void {
   actions.push({ type: "end_call", callId: s.call.callId });
   cancelTimer(s, actions, "ring_timeout");
   s.call.status = "idle";
-}
-
-export function scheduleTimer(
-  s: SessionState,
-  actions: Action[],
-  kind: SessionState["timers"][string]["kind"],
-  fireAt: number,
-): void {
-  s.timers[kind] = { kind, fireAt };
-  actions.push({ type: "schedule_timer", timerId: kind, kind, fireAt });
-}
-
-export function cancelTimer(s: SessionState, actions: Action[], timerId: string): void {
-  if (!s.timers[timerId]) return;
-  delete s.timers[timerId];
-  actions.push({ type: "cancel_timer", timerId });
 }
 
 function updateCasing(s: SessionState, texts: PendingText[]): void {
