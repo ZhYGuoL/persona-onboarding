@@ -3,6 +3,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { DEFAULT_TIME_ZONE } from "../brain/time.ts";
 import type { InboxState, SessionState } from "../brain/types.ts";
 
 export type LogDir = "in" | "out" | "note";
@@ -54,7 +55,7 @@ export class Store {
       | undefined;
     if (!row) return null;
     const state = JSON.parse(row.state) as SessionState;
-    // Sessions saved by an older build lack newer inbox fields.
+    // Sessions saved by an older build lack newer fields.
     state.inbox = {
       source: null,
       scanning: false,
@@ -63,6 +64,16 @@ export class Store {
       failures: 0,
       ...(state.inbox as Partial<InboxState> | undefined),
     };
+    state.outbox ??= [];
+    state.reminders ??= [];
+    state.timeZone ??= DEFAULT_TIME_ZONE;
+    state.tasks = (state.tasks ?? []).map((t) => ({
+      ...t,
+      threadId: t.threadId ?? null,
+      notes: t.notes ?? [],
+      result: t.result ?? null,
+      runs: t.runs ?? 0,
+    }));
     return { state, clockOffsetMs: row.clock_offset };
   }
 

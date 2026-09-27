@@ -69,7 +69,11 @@ export type Question =
   | { kind: "confirm_name"; slot: "user_name"; value: string }
   | { kind: "offer_call"; variant: "first" | "again" }
   | { kind: "offer_callback" }
-  | { kind: "whats_first" };
+  | { kind: "whats_first" }
+  /** A draft is ready. Nothing goes out without a yes. */
+  | { kind: "confirm_send"; taskId: number }
+  /** The task needs one detail from the user. The work step wrote the question. */
+  | { kind: "task_info"; taskId: number; text: string };
 
 /**
  * A task's life: `open` (ready to run) or `waiting_gmail` (needs the inbox
@@ -162,7 +166,9 @@ export type TimerKind =
   | "call_max"
   | "call_end_fallback"
   | "call_gmail_wait"
-  | "call_finding_wait";
+  | "call_finding_wait"
+  /** A reminder the user asked for. Its timer id is `reminder-<taskId>`. */
+  | "reminder";
 
 export interface TimerEntry {
   kind: TimerKind;
@@ -179,6 +185,9 @@ export type Notice =
   | { kind: "gmail_failed"; reason: OAuthFailure }
   | { kind: "inbox_findings" }
   | { kind: "scan_failed"; reason: "auth" | "error" }
+  | { kind: "task_result"; taskId: number }
+  | { kind: "task_failed"; taskId: number; reason: "auth" | "error" }
+  | { kind: "reminder_due"; taskId: number }
   | { kind: "nudge" };
 
 export type OAuthFailure =
@@ -235,6 +244,11 @@ export interface SessionState {
   turnsInMain: number;
   /** What the last inbox scan found. Only facts, never credentials. */
   inbox: InboxState;
+  /** Drafts the user said yes to. Sending is simulated, so nothing left their account. */
+  outbox: SentItem[];
+  reminders: Reminder[];
+  /** The user's IANA time zone, from their browser. Reminders use it. */
+  timeZone: string;
 }
 
 export interface InboxFinding {
@@ -275,11 +289,18 @@ export type BrainEvent =
   | { type: "oauth_done"; scopes: string[]; email: string; name: string | null; demo?: boolean }
   | { type: "scan_done"; findings: InboxFinding[]; source: "gmail" | "demo"; ms: number }
   | { type: "scan_failed"; reason: "auth" | "error" }
+  | { type: "task_done"; taskId: number; result: TaskResult; threadId: string | null; ms: number }
+  | { type: "task_failed"; taskId: number; reason: "auth" | "error" }
+  | { type: "client_info"; timeZone: string }
   | { type: "oauth_failed"; reason: OAuthFailure }
   | { type: "timer_fired"; timerId: string; kind: TimerKind }
   | { type: "turn_ready"; turnId: number; result: TurnResult };
 
-export type Bubble = { kind: "text"; text: string } | { kind: "link"; url: string; title: string };
+export type Bubble =
+  | { kind: "text"; text: string }
+  | { kind: "link"; url: string; title: string }
+  /** An email draft, shown as a card. It waits for the user's yes. */
+  | { kind: "draft"; to: string; subject: string; body: string };
 
 export type PushKind = "thinking" | "commentary" | "instructions";
 
@@ -293,6 +314,10 @@ export type Action =
   | { type: "end_call"; callId: string }
   /** Look through the connected inbox for what matters to this user. */
   | { type: "scan_inbox"; need: string | null }
+  /** Do the work behind a task. The result comes back as `task_done` or `task_failed`. */
+  | { type: "run_task"; taskId: number; job: TaskJob }
+  /** The user said yes to a draft. Sending is simulated: this only records it. */
+  | { type: "simulated_send"; taskId: number; draft: Draft }
   | { type: "schedule_timer"; timerId: string; kind: TimerKind; fireAt: number }
   | { type: "cancel_timer"; timerId: string };
 
@@ -324,6 +349,10 @@ export interface Interpretation {
   leaving: boolean;
   /** The user confirmed or spelled out their name (mostly on calls). */
   confirms_name: string | null;
+  /** A change the user wants in the draft waiting for their yes. */
+  draft_edit: string | null;
+  /** A detail the user gave because the agent asked for it for a task. */
+  task_detail: string | null;
 }
 
 export interface NameClaim {
@@ -343,6 +372,12 @@ export type Ack =
   | { kind: "refusal"; slot: SlotName | "call"; hard: boolean }
   | { kind: "skip_setup" }
   | { kind: "task_started"; summary: string; needsGmail: boolean }
+  | { kind: "task_result"; taskId: number; result: TaskResult }
+  | { kind: "task_redraft" }
+  | { kind: "task_failed"; summary: string; reason: "auth" | "error" }
+  | { kind: "draft_sent"; to: string }
+  | { kind: "draft_dropped" }
+  | { kind: "reminder"; text: string }
   | { kind: "call_declined"; final: boolean }
   | { kind: "calling_now" }
   | { kind: "voice_unavailable" }
@@ -397,12 +432,15 @@ export interface PlanFacts {
   gmailAvailable: boolean;
   /** Findings from the last inbox scan, most useful first. */
   inboxFindings: string[];
+  /** What the agent could do about the top finding, as a short noun phrase. */
+  inboxNext: string | null;
   /** The connected inbox is the sample inbox, not the user's real email. */
   sampleInbox: boolean;
   /** Where the inbox scan stands, so the agent never guesses what a failed scan found. */
   inboxStatus: "none" | "scanning" | "failed" | "scanned";
   language: string;
   casing: "lower" | "normal";
+  timeZone: string;
 }
 
 /** What one call turn does: context for the live call, and any texts sent meanwhile. */
@@ -430,4 +468,19 @@ export interface TurnMeta {
   textsSeen: number;
   noticesSeen: number;
   utterancesSeen: number;
+}
+
+/** Everything the task service needs to run one task, fixed when the brain starts it. */
+export interface TaskJob {
+  summary: string;
+  threadId: string | null;
+  notes: string[];
+  /** The draft to revise, when the user asked for changes. */
+  previous: Draft | null;
+  /** True when the task should read the connected inbox. */
+  useInbox: boolean;
+  userName: string | null;
+  userEmail: string | null;
+  language: string;
+  timeZone: string;
 }

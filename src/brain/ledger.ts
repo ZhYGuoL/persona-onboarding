@@ -2,6 +2,7 @@
 // over a mutable draft of the session state.
 
 import type { BrainConfig } from "./config.ts";
+import { DEFAULT_TIME_ZONE } from "./time.ts";
 import type {
   Capabilities,
   SessionState,
@@ -71,6 +72,9 @@ export function newSession(id: string, now: number, caps: Capabilities): Session
     askedWhatsFirst: false,
     turnsInMain: 0,
     inbox: { source: null, scanning: false, scannedAt: null, findings: [], failures: 0 },
+    outbox: [],
+    reminders: [],
+    timeZone: DEFAULT_TIME_ZONE,
   };
 }
 

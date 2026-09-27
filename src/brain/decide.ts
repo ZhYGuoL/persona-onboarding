@@ -713,6 +713,7 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     openTask: s.tasks.find((t) => t.status !== "done")?.summary ?? null,
     canRunTasks: cfg.tasksEnabled,
     inboxFindings: s.inbox.findings.map((f) => f.fact),
+    inboxNext: s.inbox.findings[0]?.next || null,
     sampleInbox: s.inbox.source === "demo",
     inboxStatus: s.inbox.scanning
       ? "scanning"
@@ -725,5 +726,6 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     gmailAvailable: s.caps.gmail,
     language: s.language,
     casing: s.casing,
+    timeZone: s.timeZone,
   };
 }
