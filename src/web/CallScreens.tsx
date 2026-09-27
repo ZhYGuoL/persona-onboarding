@@ -183,10 +183,12 @@ export function Banner({
   item,
   sender,
   onDone,
+  onOpenLink,
 }: {
   item: ThreadItem;
   sender: string;
   onDone(): void;
+  onOpenLink: (url: string) => boolean;
 }) {
   useEffect(() => {
     const t = setTimeout(onDone, 6000);
@@ -218,7 +220,10 @@ export function Banner({
       href={item.url}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={onDone}
+      onClick={(e) => {
+        if (onOpenLink(item.url)) e.preventDefault();
+        onDone();
+      }}
     >
       {content}
     </a>

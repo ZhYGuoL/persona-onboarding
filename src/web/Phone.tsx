@@ -24,6 +24,8 @@ interface PhoneProps {
   onSend: (text: string) => boolean;
   call: CallControls;
   voiceAvailable: boolean;
+  /** Opens a link the app handles itself (the Gmail connect popup). True when handled. */
+  onOpenLink: (url: string) => boolean;
 }
 
 export function Phone({
@@ -36,6 +38,7 @@ export function Phone({
   onSend,
   call,
   voiceAvailable,
+  onOpenLink,
 }: PhoneProps) {
   const { visible, revealing } = useStaggered(thread, fresh);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -78,7 +81,14 @@ export function Phone({
           />
         )}
         {showCall && <ActiveCall controls={call} onMinimize={() => setMinimized(true)} />}
-        {banner.item && <Banner item={banner.item} sender={contactName} onDone={banner.dismiss} />}
+        {banner.item && (
+          <Banner
+            item={banner.item}
+            sender={contactName}
+            onDone={banner.dismiss}
+            onOpenLink={onOpenLink}
+          />
+        )}
         <header className="thread-header">
           <button
             type="button"
@@ -118,6 +128,7 @@ export function Phone({
                 {separator && <div className="separator">{formatSeparator(item.ts, now)}</div>}
                 <Bubble
                   item={item}
+                  onOpenLink={onOpenLink}
                   tail={groupEnd && !(showTyping && item === lastItem && item.from === "agent")}
                   spaced={groupStart}
                   animate={fresh.has(item.id)}
@@ -150,11 +161,13 @@ function Bubble({
   tail,
   spaced,
   animate,
+  onOpenLink,
 }: {
   item: ThreadItem;
   tail: boolean;
   spaced: boolean;
   animate: boolean;
+  onOpenLink: (url: string) => boolean;
 }) {
   const side = item.from === "user" ? "me" : "them";
   const cls = `row ${side}${spaced ? " spaced" : ""}${animate ? " pop" : ""}`;
@@ -166,6 +179,9 @@ function Bubble({
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => {
+            if (onOpenLink(item.url)) e.preventDefault();
+          }}
         >
           <span className="link-title">{item.title}</span>
           <span className="link-domain">{domainOf(item.url)}</span>
