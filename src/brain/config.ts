@@ -19,6 +19,8 @@ export interface BrainConfig {
   callEndQuietMs: number;
   /** After the Gmail link goes out on a call, wait this long for the connect before wrapping up. */
   callGmailWaitMs: number;
+  /** After an inbox result goes to the agent, wrap up anyway if it is not said within this long. */
+  callFindingWaitMs: number;
   /** One gentle follow-up when the user goes quiet on an open question. */
   idleNudgeMs: number;
   maxNudges: number;
@@ -53,6 +55,7 @@ export const DEFAULT_CONFIG: BrainConfig = {
   callEndFallbackMs: 15_000,
   callEndQuietMs: 3_000,
   callGmailWaitMs: 75_000,
+  callFindingWaitMs: 20_000,
   idleNudgeMs: 10 * 60_000,
   maxNudges: 2,
   resumeGapMs: 60 * 60_000,

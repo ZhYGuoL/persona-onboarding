@@ -53,7 +53,7 @@ export function newSession(id: string, now: number, caps: Capabilities): Session
       silenceStage: 0,
       wrapNudged: false,
       userLeaving: false,
-      wrapAfterAgentLine: false,
+      pendingDelivery: null,
     },
     caps: { ...caps },
     awaiting: null,

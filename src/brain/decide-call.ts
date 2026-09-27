@@ -228,7 +228,7 @@ export function decideCall(
       goals.length === 0 &&
       !gmailPending &&
       !s.inbox.scanning &&
-      !s.call.wrapAfterAgentLine
+      s.call.pendingDelivery === null
     ) {
       startWrapUp(s, plan, actions, cfg, now, "done");
     }

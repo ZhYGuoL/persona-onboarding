@@ -9,7 +9,14 @@
 // interpreter and applied by `decideCall()`. They run in order on their own
 // track and are never dropped, so a hangup cannot lose what the user said.
 
-import { CHECK_IN_INSTRUCTION, openingPushes, SAY_GOODBYE_NOW, soundsLikeGoodbye } from "./call.ts";
+import {
+  anchorsOf,
+  CHECK_IN_INSTRUCTION,
+  openingPushes,
+  SAY_GOODBYE_NOW,
+  saysAnchor,
+  soundsLikeGoodbye,
+} from "./call.ts";
 import type { BrainConfig } from "./config.ts";
 import {
   cancelTimer,
@@ -151,7 +158,7 @@ export class Brain {
             "commentary",
             "Say the inbox did not load just now, and that you will follow up by text.",
           );
-          s.call.wrapAfterAgentLine = true;
+          this.awaitDelivery(step, now, []);
         } else {
           this.addNotice(step, { kind: "scan_failed", reason: ev.reason }, now);
         }
@@ -276,6 +283,13 @@ export class Brain {
       case "call_end_fallback":
         if (live) this.endCall(step);
         break;
+      case "call_finding_wait":
+        // The agent never clearly said the finding. Wrap up anyway; the recap text has it.
+        if (live && s.call.pendingDelivery) {
+          s.call.pendingDelivery = null;
+          if (s.call.wrapUpAt === null) this.wrapUp(step, now, "done");
+        }
+        break;
       case "call_gmail_wait":
         // They did not connect Gmail during the call. No pressure: the link stays in their texts.
         if (
@@ -298,6 +312,12 @@ export class Brain {
     const plan: CallPlan = { pushes: [], texts: [], wrapUp: false, end: false };
     startWrapUp(step.state, plan, step.actions, this.cfg, now, reason);
     for (const p of plan.pushes) this.pushToCall(step, p.kind, p.text);
+  }
+
+  /** Wait for the agent line that delivers an inbox result, then wrap up. */
+  private awaitDelivery(step: Step, now: number, anchors: string[]): void {
+    step.state.call.pendingDelivery = { since: now, anchors };
+    scheduleTimer(step.state, step.actions, "call_finding_wait", now + this.cfg.callFindingWaitMs);
   }
 
   private endCall(step: Step): void {
@@ -479,9 +499,12 @@ export class Brain {
       s.lastAgentAt = now;
       if (!live) return;
       if (s.call.wrapUpAt === null) {
-        if (s.call.wrapAfterAgentLine) {
+        const pending = s.call.pendingDelivery;
+        const lineStart = now - startedAgoMs;
+        if (pending && lineStart >= pending.since && saysAnchor(text, pending.anchors)) {
           // The agent just shared what the inbox scan found. That was the point of the call.
-          s.call.wrapAfterAgentLine = false;
+          s.call.pendingDelivery = null;
+          cancelTimer(s, step.actions, "call_finding_wait");
           this.wrapUp(step, now, "done");
           return;
         }
@@ -627,7 +650,7 @@ export class Brain {
     s.call.silenceStage = 0;
     s.call.wrapNudged = false;
     s.call.userLeaving = false;
-    s.call.wrapAfterAgentLine = false;
+    s.call.pendingDelivery = null;
     s.awaiting = null;
     cancelTimer(s, step.actions, "ring_timeout");
     cancelTimer(s, step.actions, "idle_nudge");
@@ -645,6 +668,7 @@ export class Brain {
     s.call.status = "idle";
     s.call.lastEnd = { reason, at: now };
     for (const t of [
+      "call_finding_wait",
       "ring_timeout",
       "call_silence",
       "call_max",
@@ -761,7 +785,7 @@ export class Brain {
           "The inbox scan found nothing urgent. Say so in one sentence, and say you'll keep an eye on it.",
         );
       }
-      s.call.wrapAfterAgentLine = true;
+      this.awaitDelivery(step, now, top ? anchorsOf(top.fact) : []);
       return;
     }
     this.addNotice(step, { kind: "inbox_findings" }, now);

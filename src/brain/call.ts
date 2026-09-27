@@ -143,6 +143,44 @@ export function soundsLikeGoodbye(text: string): boolean {
   return GOODBYE.test(text);
 }
 
+const NOT_ANCHORS = new Set([
+  "your",
+  "you",
+  "the",
+  "a",
+  "an",
+  "it",
+  "its",
+  "this",
+  "that",
+  "sun",
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+]);
+
+/**
+ * Words that show the agent actually said a finding: names, months, and
+ * numbers from it. Speech transcripts may spell numbers out, so names matter most.
+ */
+export function anchorsOf(fact: string): string[] {
+  const words = fact.match(/\p{Lu}[\p{L}'’-]+|\d[\d,.:]*\d|\d/gu) ?? [];
+  const anchors = words
+    .map((w) => w.toLowerCase().replace(/[.,:]+$/, ""))
+    .filter((w) => w.length >= 2 && !NOT_ANCHORS.has(w));
+  return [...new Set(anchors)];
+}
+
+/** True when the line says one of the anchors, or when there are none to check. */
+export function saysAnchor(text: string, anchors: string[]): boolean {
+  if (anchors.length === 0) return true;
+  const said = text.toLowerCase();
+  return anchors.some((a) => said.includes(a));
+}
+
 export const SAY_GOODBYE_NOW = "Say goodbye now, in one short sentence. Do not ask anything.";
 
 export const CHECK_IN_INSTRUCTION =

@@ -54,8 +54,11 @@ export interface CallState {
   wrapNudged: boolean;
   /** The user said they have to go, so the recap does not chase. */
   userLeaving: boolean;
-  /** An inbox finding went to the agent. Wrap up after the agent's next line. */
-  wrapAfterAgentLine: boolean;
+  /**
+   * An inbox result went to the agent. The call wraps up after the agent line
+   * that delivers it: one that starts after `since` and says one of the anchors.
+   */
+  pendingDelivery: { since: number; anchors: string[] } | null;
 }
 
 export type AskableSlot = "agent_name" | "user_name" | "help_need";
@@ -95,7 +98,8 @@ export type TimerKind =
   | "call_silence"
   | "call_max"
   | "call_end_fallback"
-  | "call_gmail_wait";
+  | "call_gmail_wait"
+  | "call_finding_wait";
 
 export interface TimerEntry {
   kind: TimerKind;

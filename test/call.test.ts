@@ -297,3 +297,17 @@ describe("gmail link on calls", () => {
     expect(new Set(leads).size).toBe(leads.length);
   });
 });
+
+describe("finding anchors", () => {
+  it("picks names, months, and numbers, and matches spoken forms", async () => {
+    const { anchorsOf, saysAnchor } = await import("../src/brain/call.ts");
+    const anchors = anchorsOf(
+      "Your New York Times free trial ends Tue, Sep 29; then $17 every 4 weeks.",
+    );
+    expect(anchors).toEqual(expect.arrayContaining(["new", "york", "times", "sep", "29", "17"]));
+    expect(anchors).not.toContain("your");
+    expect(saysAnchor("Heads up, your Times trial ends September 29th", anchors)).toBe(true);
+    expect(saysAnchor("Give me one second", anchors)).toBe(false);
+    expect(saysAnchor("anything", [])).toBe(true);
+  });
+});

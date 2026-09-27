@@ -49,7 +49,10 @@ describe("the magic moment on a call", () => {
     expect(w.pushes("commentary").at(-1)).toContain(PF);
     expect(w.state.call.wrapUpAt).toBeNull();
 
-    await w.agentSays("Found it: your Planet Fitness renews October 3rd for $24.99.", 3000);
+    // A line still queued from before the finding is not the finding.
+    await w.agentSays("Thanks, I just texted you a link to connect your Gmail.", 0);
+    expect(w.state.call.wrapUpAt).toBeNull();
+    await w.agentSays("Found it: your Planet Fitness renews October 3rd for $24.99.", 0);
     expect(w.pushes("instructions").at(-1)).toMatch(/say goodbye/i);
     await w.agentSays("I'll text you a recap. Bye!", 0);
     expect(w.of("end_call").at(-1)?.callId).toBe(callId);
@@ -59,6 +62,22 @@ describe("the magic moment on a call", () => {
     const recap = w.last()?.texts.join(" ") ?? "";
     expect(recap).toMatch(/gmail is connected/i);
     expect(recap).toContain(PF);
+  });
+
+  it("if the agent never says the finding, the call still wraps up and the text has it", async () => {
+    const w = new World({ caps: { voice: true, gmail: true } });
+    await onCallWithNeed(w);
+    await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
+    await w.event({
+      type: "scan_done",
+      findings: [{ fact: PF, related: true }],
+      source: "gmail",
+      ms: 1800,
+    });
+    await w.agentSays("Give me one second.", 0);
+    expect(w.state.call.wrapUpAt).toBeNull();
+    await w.advance(w.cfg.callFindingWaitMs + 100);
+    expect(w.pushes("instructions").at(-1)).toMatch(/say goodbye/i);
   });
 
   it("if they never connect, the call wraps up with the link left in their texts", async () => {
