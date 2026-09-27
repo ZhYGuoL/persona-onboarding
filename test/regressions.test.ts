@@ -147,3 +147,19 @@ describe("call placement", () => {
     expect(t?.texts.at(-1)).toMatch(/calling you now\.$/i);
   });
 });
+
+describe("under-18 evidence", () => {
+  it("needs the user's own words, and ignores ages about someone else", async () => {
+    const { readingToInterpretation } = await import("../src/brain/interpret.ts");
+    const read = (value: string | null) =>
+      readingToInterpretation({
+        language: "en",
+        reply_to_pending: "none",
+        signals: [{ kind: "under_18", value, flag: false }],
+      }).under_18;
+    expect(read("i'm 15")).toBe(true);
+    expect(read(null)).toBe(false);
+    expect(read("my son is 15")).toBe(false);
+    expect(read("our daughter is 12")).toBe(false);
+  });
+});

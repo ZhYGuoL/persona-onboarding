@@ -113,6 +113,9 @@ export const READING_SCHEMA = {
   },
 } as const;
 
+const ABOUT_SOMEONE_ELSE =
+  /\b(my|our|his|her|their)\s+(son|daughter|kid|kids|child|children|brother|sister|nephew|niece|cousin|friend|student|students|grandson|granddaughter)\b/i;
+
 export function readingToInterpretation(raw: RawReading): Interpretation {
   const out = blankInterpretation(raw.language || "en");
   out.reply_to_pending = raw.reply_to_pending;
@@ -160,12 +163,16 @@ export function readingToInterpretation(raw: RawReading): Interpretation {
       case "offensive_user_name":
         out.offensive_names.push("user_name");
         break;
+      case "under_18":
+        // A false positive ends the session for good, so the model must quote its evidence,
+        // and a quote about someone else does not count.
+        if (value && !ABOUT_SOMEONE_ELSE.test(value)) out.under_18 = true;
+        break;
       case "wants_call":
       case "skip_setup":
       case "let_agent_pick_name":
       case "opt_out":
       case "opt_in":
-      case "under_18":
       case "asks_if_ai":
       case "asks_about_recording":
       case "asks_capabilities":
@@ -205,7 +212,7 @@ Signal kinds:
 - let_agent_pick_name: the user lets the assistant choose its own name ("you pick", "surprise me").
 - opt_out: the user wants no more messages at all ("stop texting me", "unsubscribe", "leave me alone"). "stop asking about my email" is refuses_gmail, not opt_out.
 - opt_in: the user wants messages again after opting out.
-- under_18: the user says THEY are under 18. Not about someone else.
+- under_18 (value): the user says THEY THEMSELVES are under 18 ("I'm 15", "im in 9th grade"). Value = the user's exact words that say it. Leave it out when the age is about someone else ("my son is 15", "my sister is 12").
 - asks_if_ai: asks if the assistant is a bot, AI, or human.
 - asks_about_recording: asks if they are being recorded, or what is stored.
 - asks_capabilities: asks what the assistant is or can do ("what's a persona?", "what is this?", "what can you do?").
@@ -215,7 +222,7 @@ Signal kinds:
 - typing_fatigue: the user complains about typing or says they would rather talk.
 - confused: the user does not understand what is happening.
 - leaving: the user says they have to go now ("gotta go", "brb", "ttyl").
-- confirms_name (value): the user confirms or spells out their own name after the assistant checked it. "yes, that's right" after "Is that David with a V?" gives "David". "D-A-V-E" gives "Dave". Value = the confirmed spelling.
+- confirms_name (value): the user confirms their own name after the assistant checked it, or spells it out letter by letter, even unprompted. "yes, that's right" after "Is that David with a V?" gives "David". "D-A-V-E" gives "Dave". "my name is David, D, A, V, I, D" gives both user_name "David" and confirms_name "David". Value = the confirmed spelling.
 
 On a phone call, the new texts are speech recognition of what the user said. Names can be misheard, so trust a spelled-out name over a spoken one.
 
