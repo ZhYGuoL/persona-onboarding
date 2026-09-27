@@ -50,6 +50,7 @@ function input(partial: Partial<WorkInput> = {}): WorkInput {
     previous: null,
     shown: [],
     avoid: [],
+    known: [],
     search: true,
     userName: "Dan",
     userEmail: "dan@gmail.com",
@@ -188,6 +189,38 @@ describe("task work", () => {
     });
     expect(out.threadId).toBe("conedison");
     expect(out.result.receipt?.from).toBe("Con Edison");
+  });
+
+  // Stress run: "send that nytimes cancellation email" searched, missed the NYT email
+  // the user had just seen, and said it found nothing.
+  it("always considers emails an earlier result quoted, even when a search misses them", async () => {
+    let listing = "";
+    const llm = scripted({
+      task_email: (req: JsonRequest) => {
+        listing = req.input[0]?.content ?? "";
+        const line = listing.split("\n").find((l) => l.includes("The New York Times"));
+        return { indexes: [Number(line?.split(".")[0] ?? -1)] };
+      },
+      task_result: work({ kind: "answer", text: "Your trial ends Sep 29." }),
+    });
+    const out = await runWork(
+      input({
+        summary: "zzq",
+        threadId: null,
+        known: [
+          {
+            threadId: "nyt-trial",
+            from: "The New York Times",
+            subject: "Your free trial ends in 2 days",
+            date: NOW,
+            quote: "Cancel before Tue, Sep 29 and you won't be charged.",
+          },
+        ],
+      }),
+      { provider, llm, model: "m", fastModel: "f" },
+    );
+    expect(listing).toMatch(/^0\. From: The New York Times/m);
+    expect(out.threadId).toBe("nyt-trial");
   });
 
   it("never offers an email the user said is the wrong one", async () => {

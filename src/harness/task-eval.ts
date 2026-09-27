@@ -122,6 +122,7 @@ const results = await mapPool(runs, 6, async (c) => {
     previous: null,
     shown: [],
     avoid: [],
+    known: [],
     search: true,
     userName: "Dan",
     userEmail: "dan@gmail.com",

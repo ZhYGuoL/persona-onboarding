@@ -553,6 +553,15 @@ export interface TurnMeta {
 }
 
 /** Everything the task service needs to run one task, fixed when the brain starts it. */
+/** An email the user already saw in a result, by its receipt. */
+export interface KnownEmail {
+  threadId: string;
+  from: string;
+  subject: string;
+  date: number;
+  quote: string | null;
+}
+
 export interface TaskJob {
   summary: string;
   threadId: string | null;
@@ -563,6 +572,8 @@ export interface TaskJob {
   shown: string[];
   /** Emails the user said are the wrong ones. */
   avoid: string[];
+  /** Emails earlier results quoted. The work step always considers them, even when a search misses them. */
+  known: KnownEmail[];
   /** False when the task needs no email, so the work step does not search. */
   search: boolean;
   /** The inbox the task reads, or null to work without email. */

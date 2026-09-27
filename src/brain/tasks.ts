@@ -64,6 +64,14 @@ function run(s: SessionState, task: Task, actions: Action[], previous: Draft | n
     previous,
     search: task.search,
     avoid: [...task.avoid],
+    // Stress run: "send that nytimes cancellation email" searched, missed the NYT
+    // email the user had just seen, and said it found nothing.
+    known: s.tasks.flatMap((t) => {
+      const r = t.result?.receipt;
+      return r
+        ? [{ threadId: r.threadId, from: r.from, subject: r.subject, date: r.date, quote: r.quote }]
+        : [];
+    }),
     shown: [
       ...new Set([
         ...s.inbox.findings.map((f) => f.threadId),

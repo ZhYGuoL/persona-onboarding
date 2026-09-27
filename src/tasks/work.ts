@@ -6,7 +6,7 @@
 // stops the task.
 
 import { formatNow, zonedToEpoch } from "../brain/time.ts";
-import type { Draft, Receipt, TaskResult } from "../brain/types.ts";
+import type { Draft, KnownEmail, Receipt, TaskResult } from "../brain/types.ts";
 import { CATEGORY_QUERIES, needQuery } from "../inbox/scan.ts";
 import {
   addressesIn,
@@ -29,6 +29,8 @@ export interface WorkInput {
   shown: string[];
   /** Emails the user said are the wrong ones. Never picked. */
   avoid: string[];
+  /** Emails earlier results quoted. Always among the candidates. */
+  known: KnownEmail[];
   /** False when the task needs no email: skip the search. */
   search: boolean;
   userName: string | null;
@@ -209,6 +211,19 @@ async function pickThreads(
   }
   const seen = new Set<string>(input.avoid);
   const pool: ThreadSummary[] = [];
+  // Emails the user already saw come first: a search can miss "NYT" for "New York Times".
+  for (const k of input.known) {
+    if (seen.has(k.threadId)) continue;
+    seen.add(k.threadId);
+    pool.push({
+      id: k.threadId,
+      from: k.from,
+      subject: k.subject,
+      date: k.date,
+      snippet: k.quote ?? "",
+      unread: false,
+    });
+  }
   for (const r of results) {
     if (r.status !== "fulfilled") continue;
     for (const t of r.value) {

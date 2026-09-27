@@ -189,6 +189,24 @@ describe("a task from an inbox finding", () => {
     expect(w.of("simulated_send")).toHaveLength(0);
   });
 
+  it("a later task knows the emails earlier results quoted", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toDraft(w);
+    await w.say("yes", { reply_to_pending: "yes" });
+    await w.say("did i already reply to the times?", {
+      task: { summary: "checking the reply to the Times", needs_gmail: true },
+    });
+    expect(w.of("run_task").at(-1)?.job.known).toEqual([
+      {
+        threadId: "nyt-trial",
+        from: "The New York Times",
+        subject: "Your free trial ends in 2 days",
+        date: Date.UTC(2026, 8, 26, 15),
+        quote: "Cancel before Tue, Sep 29 and you won't be charged.",
+      },
+    ]);
+  });
+
   it("a yes to some other question never sends a waiting draft", async () => {
     const w = new World({ caps: { gmail: true, tasks: true } });
     await toDraft(w);
