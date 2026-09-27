@@ -23,6 +23,7 @@
     "src/harness",
     "src/shared",
     "src/voice",
+    "src/inbox",
     "test",
     "vite.config.ts",
     "vitest.config.ts"
