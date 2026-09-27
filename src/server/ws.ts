@@ -101,6 +101,9 @@ export function attachChannel(
         type: "capabilities",
         caps: { voice: voice !== null && msg.voice === true },
       });
+      if (typeof msg.timeZone === "string" && msg.timeZone.length <= 64) {
+        void hub.dispatch(sessionId, { type: "client_info", timeZone: msg.timeZone });
+      }
       return;
     }
     if (msg?.t === "oauth_closed") {

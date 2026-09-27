@@ -3,7 +3,16 @@
 export type ThreadItem =
   | { id: string; from: "user"; kind: "text"; text: string; ts: number; clientId?: string }
   | { id: string; from: "agent"; kind: "text"; text: string; ts: number }
-  | { id: string; from: "agent"; kind: "link"; url: string; title: string; ts: number };
+  | { id: string; from: "agent"; kind: "link"; url: string; title: string; ts: number }
+  | {
+      id: string;
+      from: "agent";
+      kind: "draft";
+      to: string;
+      subject: string;
+      body: string;
+      ts: number;
+    };
 
 export interface LogView {
   seq: number;
@@ -36,7 +45,7 @@ export type CallAction = "accept" | "decline" | "hangup" | "mic_denied" | "faile
 
 export type ClientMessage =
   | { t: "text"; text: string; clientId: string }
-  | { t: "hello"; voice: boolean }
+  | { t: "hello"; voice: boolean; timeZone?: string }
   | { t: "call"; action: CallAction; callId?: string }
   /** The Gmail connect popup closed. */
   | { t: "oauth_closed" };
@@ -54,18 +63,31 @@ export function threadItemsFor(e: LogView): ThreadItem[] {
     return [{ id: `u${e.seq}`, from: "user", kind: "text", text: p.text, ts: e.ts, clientId }];
   }
   if (e.dir === "out" && e.type === "send_text" && Array.isArray(p.bubbles)) {
-    return (p.bubbles as Array<Record<string, string>>).map((b, i) =>
-      b.kind === "link"
-        ? {
-            id: `a${e.seq}-${i}`,
-            from: "agent",
-            kind: "link",
-            url: b.url ?? "",
-            title: b.title ?? "",
-            ts: e.ts,
-          }
-        : { id: `a${e.seq}-${i}`, from: "agent", kind: "text", text: b.text ?? "", ts: e.ts },
-    );
+    return (p.bubbles as Array<Record<string, string>>).map((b, i): ThreadItem => {
+      const id = `a${e.seq}-${i}`;
+      if (b.kind === "link") {
+        return {
+          id,
+          from: "agent",
+          kind: "link",
+          url: b.url ?? "",
+          title: b.title ?? "",
+          ts: e.ts,
+        };
+      }
+      if (b.kind === "draft") {
+        return {
+          id,
+          from: "agent",
+          kind: "draft",
+          to: b.to ?? "",
+          subject: b.subject ?? "",
+          body: b.body ?? "",
+          ts: e.ts,
+        };
+      }
+      return { id, from: "agent", kind: "text", text: b.text ?? "", ts: e.ts };
+    });
   }
   return [];
 }

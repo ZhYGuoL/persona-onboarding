@@ -55,7 +55,8 @@ export function useSession({ voice, onMessage }: SessionOptions) {
       socketRef.current = ws;
       ws.onopen = () => {
         retry = 0;
-        ws.send(JSON.stringify({ t: "hello", voice } satisfies ClientMessage));
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        ws.send(JSON.stringify({ t: "hello", voice, timeZone } satisfies ClientMessage));
       };
       ws.onmessage = (e) => {
         const msg = JSON.parse(String(e.data)) as ServerMessage;
