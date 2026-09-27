@@ -222,6 +222,7 @@ export function questionText(q: Question, f: PlanFacts, ideas: string[]): string
         ? "What's the most annoying thing on your plate this week?"
         : "What's one thing you'd hand off this week if you could?";
     case "gmail_link":
+      if (q.variant === "requested") return "Here's the link to connect Gmail.";
       if (q.variant === "again") return "Here's the Gmail link again if you want it.";
       if (f.openTask) return "For that I need to look through your email. Connect Gmail here.";
       if (f.helpNeed) return "To help with that I need to see your email. Connect Gmail here.";
@@ -588,6 +589,9 @@ function questionGuide(q: Question): string {
       if (q.slot === "user_name") return "Ask for the USER's own name, what you should call them.";
       return "Ask what the user could use help with.";
     case "gmail_link":
+      if (q.variant === "requested") {
+        return "They asked for the Gmail link. Say here it is, in a few words. A link card follows this text. Do not mention the app or how links appear.";
+      }
       return "Ask them to connect Gmail. Tie it to what they need only if email plausibly helps with it. Otherwise give a general reason: receipts, renewals, and bills that need attention. A link card follows this text. Do not mention the link, the app, or how links appear.";
     case "offer_call":
       return "Offer a quick phone call as a yes/no question.";
@@ -647,6 +651,8 @@ export class LlmRenderer implements Renderer {
 
 const URL_LIKE = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|app|ai|co)\b)/i;
 const EMAIL_LIKE = /[^\s@()]+@[^\s@()]+\.[a-z]{2,}/gi;
+const CANT_SEND_LINK =
+  /\b(can(no|')t|can’t|can not|unable to) (re)?(send|share|give)\b[^.?!]*\blink/i;
 
 /** Returns a list of broken rules. Empty means the draft is safe to send. */
 export function guard(r: Rendered, plan: Plan, history: HistoryItem[] = []): string[] {
@@ -671,6 +677,9 @@ export function guard(r: Rendered, plan: Plan, history: HistoryItem[] = []): str
     if (t.length > 320) problems.push("a text over 320 characters");
     if (URL_LIKE.test(t.replace(EMAIL_LIKE, ""))) problems.push("a link or URL in the text");
     if (t.includes(CANARY)) problems.push("leaked the internal reference");
+    if (plan.facts.gmailAvailable && CANT_SEND_LINK.test(t)) {
+      problems.push("says it cannot send a link, but it can send the Gmail link");
+    }
   }
   const q = plan.question;
   const last = r.body[r.body.length - 1] ?? "";

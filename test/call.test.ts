@@ -296,6 +296,18 @@ describe("gmail link on calls", () => {
       .filter((t) => /gmail link|connect gmail/i.test(t));
     expect(new Set(leads).size).toBe(leads.length);
   });
+
+  it("texts the link again when the caller asks for it", async () => {
+    const w = new World({ caps: { voice: true, gmail: true } });
+    await onCall(w);
+    await w.hear("bills", { help_need: "keeping up with bills" });
+    const before = w.turns().flatMap((t) => t.links).length;
+    await w.hear("can you text me that link again", { wants_gmail_link: true });
+    const links = w.turns().flatMap((t) => t.links);
+    expect(links.length).toBe(before + 1);
+    expect(links.at(-1)).toContain("/connect/gmail");
+    expect(w.turns().at(-1)?.texts.join(" ")).toMatch(/gmail link again/i);
+  });
 });
 
 describe("finding anchors", () => {

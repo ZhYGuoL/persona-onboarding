@@ -410,10 +410,14 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
     if (!s.graduated) acks.push({ kind: "finishing" });
   }
 
-  // 13. At most one question per turn.
-  if (!ringing && !noChase && s.call.status === "idle") {
+  // 13. At most one question per turn. A link the user asked for always goes out,
+  // even past the ask budget or after an earlier no.
+  const wantGmailLink =
+    hasTexts && i?.wants_gmail_link === true && s.slots.gmail.status !== "confirmed";
+  if (!ringing && (!noChase || wantGmailLink) && s.call.status === "idle") {
     const question = pickQuestion(s, cfg, {
       wantCallback,
+      wantGmailLink,
       nudge,
       typingFatigue: i?.typing_fatigue === true,
       // The link just went out during the call. Do not send it again in the recap.
@@ -502,6 +506,7 @@ export function onboardingComplete(s: SessionState): boolean {
 
 interface PickContext {
   wantCallback: boolean;
+  wantGmailLink: boolean;
   nudge: boolean;
   typingFatigue: boolean;
   gmailJustSent: boolean;
@@ -513,6 +518,8 @@ function pickQuestion(s: SessionState, cfg: BrainConfig, ctx: PickContext): Ques
   if (ctx.wantCallback && s.caps.voice && s.call.declines < cfg.maxCallDeclines) {
     return { kind: "offer_callback" };
   }
+
+  if (ctx.wantGmailLink && s.caps.gmail) return { kind: "gmail_link", variant: "requested" };
 
   if (s.inbox.scanning) return null;
 

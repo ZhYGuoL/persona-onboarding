@@ -180,14 +180,17 @@ export function decideCall(
   }
 
   // The Gmail link goes out by text once the need is known, tied to that need.
+  // A link the user asks for always goes out.
+  const requested = i.wants_gmail_link && s.slots.gmail.status !== "confirmed";
   if (
     live &&
-    !leaving &&
     s.caps.gmail &&
-    s.slots.help_need.status === "confirmed" &&
-    s.slots.gmail.status === "unknown" &&
-    !s.call.linkSentOnCall &&
-    canAsk(s.slots.gmail, cfg, false)
+    (requested ||
+      (!leaving &&
+        s.slots.help_need.status === "confirmed" &&
+        s.slots.gmail.status === "unknown" &&
+        !s.call.linkSentOnCall &&
+        canAsk(s.slots.gmail, cfg, false)))
   ) {
     recordAsk(s.slots.gmail);
     s.call.linkSentOnCall = true;
@@ -200,9 +203,10 @@ export function decideCall(
       { kind: "text", text: s.casing === "lower" ? lead.toLowerCase() : lead },
       { kind: "link", url: links.gmail, title: "Connect Gmail" },
     );
+    const why = s.slots.help_need.value ? `, so you can help with ${s.slots.help_need.value}` : "";
     plan.pushes.push({
       kind: "commentary",
-      text: `You just texted them a link to connect Gmail, so you can help with ${s.slots.help_need.value}. Tell them in one sentence. Do not read the link.`,
+      text: `You just texted them a link to connect Gmail${why}. Tell them in one sentence. Do not read the link.`,
     });
   }
 

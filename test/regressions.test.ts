@@ -163,3 +163,60 @@ describe("under-18 evidence", () => {
     expect(read("our daughter is 12")).toBe(false);
   });
 });
+
+describe("a Gmail link the user asks for", () => {
+  // Stress run: the ask budget was spent, the user asked "can you send the link again?",
+  // and the agent said it could not send links.
+  it("goes out even after the ask budget is spent", async () => {
+    const w = new World({ caps: { gmail: true } });
+    await w.say("hi i'm dan, call yourself juno, subscriptions are killing me", {
+      user_name: { value: "dan", correction: false },
+      agent_name: { value: "juno", correction: false },
+      help_need: "forgotten subscriptions",
+    });
+    expect(w.awaiting()).toBe("gmail_link");
+    await w.say("not now", { refusals: [{ slot: "gmail", hard: true }] });
+    expect(w.state.slots.gmail.status).toBe("declined");
+    const t = await w.say("wait can you send the link again?", { wants_gmail_link: true });
+    expect(t?.links.at(-1)).toContain("/connect/gmail");
+    expect(t?.texts.join(" ")).toMatch(/link to connect gmail/i);
+  });
+
+  it("goes out even when the user is leaving", async () => {
+    const w = new World({ caps: { gmail: true } });
+    await w.say("hi");
+    const t = await w.say("send me the gmail link, gotta run", {
+      wants_gmail_link: true,
+      leaving: true,
+    });
+    expect(t?.links.at(-1)).toContain("/connect/gmail");
+  });
+
+  it("is not sent again once Gmail is connected", async () => {
+    const w = new World({ caps: { gmail: true } });
+    await w.say("hi");
+    await w.event({
+      type: "oauth_done",
+      scopes: ["openid", "https://www.googleapis.com/auth/gmail.readonly"],
+      email: "dan@gmail.com",
+      name: null,
+    });
+    await w.advance(1000);
+    const t = await w.say("send the link again", { wants_gmail_link: true });
+    expect(t?.links ?? []).not.toContainEqual(expect.stringContaining("/connect/gmail"));
+  });
+});
+
+describe("render guard", () => {
+  it("rejects a claim that the agent cannot send a link", async () => {
+    const { guard } = await import("../src/brain/render.ts");
+    const { emptyPlan } = await import("../src/brain/decide.ts");
+    const w = new World({ caps: { gmail: true } });
+    await w.say("hi");
+    const plan = emptyPlan(w.state, w.cfg);
+    const body = (text: string) => guard({ intro: [], body: [text] }, plan).join(" ");
+    expect(body("i can't send the gmail link from here.")).toMatch(/cannot send a link/);
+    expect(body("I’m unable to resend that link.")).toMatch(/cannot send a link/);
+    expect(body("The link is in your texts whenever you want it.")).not.toMatch(/link/);
+  });
+});
