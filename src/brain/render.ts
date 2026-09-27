@@ -3,14 +3,17 @@
 // The template path is deterministic and is the fallback for any failure.
 
 import type { LlmClient } from "../llm/openai.ts";
+import { formatDay, formatWhen } from "./time.ts";
 import type {
   Ack,
   Answer,
   Bubble,
+  Draft,
   HistoryItem,
   Plan,
   PlanFacts,
   Question,
+  Receipt,
   SlotName,
 } from "./types.ts";
 
@@ -108,9 +111,22 @@ export function ackText(a: Ack, f: PlanFacts): string {
     case "task_started":
       // "Got it: <task>" reads as a promise when the agent cannot do the task.
       if (!f.canRunTasks) return `I can't take care of ${v(a.summary)} from here yet.`;
-      return a.needsGmail
-        ? `On it: ${v(a.summary)}. I'll need to look through your email for the details.`
-        : `On it: ${v(a.summary)}. I'll check with you before anything goes out.`;
+      return `On it: ${v(a.summary)}.`;
+    case "task_result":
+      // Rendered line by line in ackLines.
+      return "";
+    case "task_redraft":
+      return "On it. Updating the draft.";
+    case "task_failed":
+      return a.reason === "auth"
+        ? "I lost access to your inbox, so I couldn't finish that. You'd need to connect Gmail again."
+        : `I couldn't finish ${v(a.summary)} on my end. Try asking again in a bit.`;
+    case "draft_sent":
+      return `Marked as sent to ${v(a.to)}. Sending is simulated here, so nothing left your account.`;
+    case "draft_dropped":
+      return "Okay, I won't send it.";
+    case "reminder":
+      return `Reminder: ${a.text}`;
     case "call_declined":
       return a.final ? "No problem. We'll keep it to text." : "No problem, texting works.";
     case "calling_now":
@@ -190,6 +206,42 @@ export function ackText(a: Ack, f: PlanFacts): string {
   return "";
 }
 
+/** "From Con Edison, Sep 23: "Due date: Fri, Oct 2"". The quote is the email's own words. */
+function receiptLine(r: Receipt, f: PlanFacts): string {
+  return `From ${v(r.from)}, ${formatDay(r.date, f.timeZone)}: "${v(r.quote ?? r.subject)}"`;
+}
+
+/** The lines an ack adds. Most acks are one line. A task result can be several. */
+export function ackLines(a: Ack, f: PlanFacts): string[] {
+  if (a.kind !== "task_result") {
+    const t = ackText(a, f);
+    return t ? [t] : [];
+  }
+  const r = a.result;
+  const receipt = r.receipt ? [receiptLine(r.receipt, f)] : [];
+  switch (r.kind) {
+    case "draft":
+      return [...receipt, r.text];
+    case "answer":
+      return [...paragraphs(r.text), ...receipt];
+    case "remind":
+      return [`Done. I'll text you ${formatWhen(r.at, f.timeZone)}.`, ...receipt];
+    case "question":
+      // The question itself is the turn's question.
+      return receipt;
+    case "cannot":
+      return [r.text, ...receipt];
+  }
+}
+
+function paragraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
 export function answerText(a: Answer, f: PlanFacts): string {
   switch (a.kind) {
     case "is_ai":
@@ -243,10 +295,15 @@ export function questionText(q: Question, f: PlanFacts, ideas: string[]): string
     case "offer_callback":
       return "Want me to call back, or keep going here?";
     case "whats_first":
+      if (f.inboxNext) return `Want me to start on ${v(f.inboxNext)}?`;
       if (f.inboxFindings[0]) return "Want me to start there?";
       return f.helpNeed
         ? `Want me to start on ${v(f.helpNeed)}?`
         : "What should I take off your plate first?";
+    case "confirm_send":
+      return "Send it?";
+    case "task_info":
+      return q.text;
   }
 }
 
@@ -272,19 +329,21 @@ export class TemplateRenderer implements Renderer {
     // "Calling you now" is always the last line before the phone rings.
     const ringing = plan.acks.find((a) => a.kind === "calling_now");
     for (const a of plan.acks) {
-      const t = a === ringing ? "" : ackText(a, f);
-      if (t) body.push(t);
+      if (a !== ringing) body.push(...ackLines(a, f));
     }
     for (const a of plan.answers) {
       body.push(a.kind === "injection" ? injectionText(history) : answerText(a, f));
     }
     if (ringing) body.push(ackText(ringing, f));
     if (needsClosing(plan)) body.push(closingText(f, history));
-    if (plan.question) body.push(questionText(plan.question, f, this.ideas));
-    return applyCasing(
-      { intro: plan.intro ? [...INTRO_EN] : [], body: mergeShort(body) },
-      f.casing,
-    );
+    const merged = mergeShort(body);
+    if (plan.question) {
+      const q = questionText(plan.question, f, this.ideas);
+      // "Send it?" sits under the draft card, so it is never merged into the line above.
+      if (plan.question.kind === "confirm_send") merged.push(q);
+      else merged.splice(0, merged.length, ...mergeShort([...body, q]));
+    }
+    return applyCasing({ intro: plan.intro ? [...INTRO_EN] : [], body: merged }, f.casing);
   }
 }
 
@@ -488,9 +547,15 @@ function abilities(f: PlanFacts): string {
   } else if (f.gmailAvailable) {
     can.push("connecting Gmail");
   }
-  if (f.canRunTasks) can.push("drafting messages that wait for the user's yes");
+  if (f.canRunTasks) {
+    can.push(
+      "drafting emails that wait for the user's yes (sending is simulated here, so nothing leaves their account)",
+      "setting reminders that arrive by text",
+      "answering and planning right here in the chat",
+    );
+  }
   const cannot = f.canRunTasks
-    ? "You cannot place real calls to businesses, browse the web, or buy things yet."
+    ? "You cannot pay, buy, book, call businesses, browse websites, or sign in to accounts. Never say you sent something unless the thread shows it was marked as sent."
     : `You cannot ${f.gmail ? "take actions in their email, " : ""}draft, call businesses, browse, or buy things yet, and nothing runs in the background.${f.gmail ? "" : " You can read email only after they connect Gmail."} If the user asks you to do real work now, say plainly you cannot do that from here yet. When they only describe what they need help with, do not list what you cannot do.`;
   return `${can.join(", ")}. ${cannot}`;
 }
@@ -499,7 +564,16 @@ function abilities(f: PlanFacts): string {
 function hasOwnNextStep(plan: Plan): boolean {
   // "Taking a quick look" promises the findings text that follows a moment later.
   return plan.acks.some(
-    (a) => a.kind === "leaving" || a.kind === "call_recap" || a.kind === "gmail_connected",
+    (a) =>
+      a.kind === "leaving" ||
+      a.kind === "call_recap" ||
+      a.kind === "gmail_connected" ||
+      // The result follows a moment later.
+      a.kind === "task_started" ||
+      a.kind === "task_redraft" ||
+      // "I'll text you Oct 4 at 9 AM" says what happens next.
+      (a.kind === "task_result" && a.result.kind === "remind") ||
+      a.kind === "reminder",
   );
 }
 
@@ -645,6 +719,10 @@ function questionGuide(q: Question): string {
       return "Check the name you got from their Google account.";
     case "whats_first":
       return "Ask what to do first, or offer to start on what they already said or on the inbox finding you just shared.";
+    case "confirm_send":
+      return 'Ask if they want you to send the draft above, as a short yes/no question like "Send it?".';
+    case "task_info":
+      return `Ask exactly this, in your own words: "${q.text}"`;
   }
 }
 
@@ -791,7 +869,7 @@ export async function renderTurn(
 ): Promise<RenderOutcome> {
   const started = performance.now();
   const failures: string[] = [];
-  if (llm) {
+  if (llm && !needsTemplate(input.plan)) {
     let feedback: string | undefined;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -828,6 +906,27 @@ export function templateBubbles(template: TemplateRenderer, input: RenderInput):
   return toBubbles(template.renderSync(input), input);
 }
 
+function draftOf(plan: Plan): Draft | null {
+  for (const a of plan.acks) {
+    if (a.kind === "task_result" && a.result.kind === "draft") return a.result.draft;
+  }
+  return null;
+}
+
+/**
+ * Turns that carry task results use templates only: receipts and drafts must
+ * reach the user exactly as the work step checked them.
+ */
+export function needsTemplate(plan: Plan): boolean {
+  return plan.acks.some(
+    (a) =>
+      a.kind === "task_result" ||
+      a.kind === "draft_sent" ||
+      a.kind === "reminder" ||
+      a.kind === "task_failed",
+  );
+}
+
 function toBubbles(r: Rendered, input: RenderInput): Bubble[] {
   const bubbles: Bubble[] = [];
   const seen = new Set<string>();
@@ -841,6 +940,16 @@ function toBubbles(r: Rendered, input: RenderInput): Bubble[] {
   if (input.plan.intro)
     bubbles.push({ kind: "link", url: input.links.legal, title: "Terms and Privacy" });
   for (const t of r.body) text(t);
+  const draft = draftOf(input.plan);
+  if (draft) {
+    const card: Bubble = { kind: "draft", to: draft.to, subject: draft.subject, body: draft.body };
+    // The card goes right above "Send it?".
+    if (input.plan.question?.kind === "confirm_send" && bubbles.length > 0) {
+      bubbles.splice(bubbles.length - 1, 0, card);
+    } else {
+      bubbles.push(card);
+    }
+  }
   if (input.plan.question?.kind === "gmail_link") {
     bubbles.push({ kind: "link", url: input.links.gmail, title: "Connect Gmail" });
   }

@@ -179,7 +179,7 @@ describe("inbox by text", () => {
       findings: [
         {
           fact: "Your Con Edison bill of $86.42 is due Oct 6.",
-          next: "a reminder before the Con Edison bill is due",
+          next: "setting a reminder before the Con Edison bill is due",
           threadId: "conedison",
           related: true,
         },
@@ -190,7 +190,9 @@ describe("inbox by text", () => {
     await w.advance(1000);
     const found = w.last()?.texts.join(" ") ?? "";
     expect(found).toContain("Your Con Edison bill of $86.42 is due Oct 6.");
-    expect(found).toMatch(/start there\?/i);
+    expect(found).toMatch(
+      /want me to start on setting a reminder before the con edison bill is due\?/i,
+    );
   });
 
   it("the sample inbox is labeled as such, never passed off as their email", async () => {
