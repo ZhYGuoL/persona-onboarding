@@ -77,7 +77,8 @@ export function startNextTask(s: SessionState, acks: Ack[], actions: Action[]): 
   const task = s.tasks.find((t) => t.status === "open");
   if (!task) return;
   run(s, task, actions, null);
-  acks.push({ kind: "task_started", summary: task.summary, needsGmail: task.needsGmail });
+  const next = acks.some((a) => a.kind === "task_result" || a.kind === "draft_sent");
+  acks.push({ kind: "task_started", summary: task.summary, needsGmail: task.needsGmail, next });
 }
 
 /**

@@ -387,8 +387,17 @@ export type Ack =
   | { kind: "name_too_long"; slot: "agent_name" | "user_name" }
   | { kind: "refusal"; slot: SlotName | "call"; hard: boolean }
   | { kind: "skip_setup" }
-  /** `again` is a re-run after the user answered the task's question. */
-  | { kind: "task_started"; summary: string; needsGmail: boolean; again?: boolean }
+  /**
+   * `again` is a re-run after the user answered the task's question. `next`
+   * is a queued task that starts right after another one's result.
+   */
+  | {
+      kind: "task_started";
+      summary: string;
+      needsGmail: boolean;
+      again?: boolean;
+      next?: boolean;
+    }
   | { kind: "task_result"; taskId: number; result: TaskResult }
   | { kind: "task_redraft" }
   | { kind: "task_limit" }

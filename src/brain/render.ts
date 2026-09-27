@@ -113,7 +113,7 @@ export function ackText(a: Ack, f: PlanFacts): string {
       // A summary is the agent's paraphrase, so it follows the thread's casing.
       if (!f.canRunTasks) return `I can't take care of ${a.summary} from here yet.`;
       // Only the look is promised. Whether the task itself can be done comes with the result.
-      return "Looking into it.";
+      return a.next ? "Now the next one. Looking into it." : "Looking into it.";
     case "task_result":
       // Rendered line by line in ackLines.
       return "";
@@ -216,13 +216,20 @@ function receiptLine(r: Receipt, f: PlanFacts): string {
 }
 
 /** The lines an ack adds. Most acks are one line. A task result can be several. */
-export function ackLines(a: Ack, f: PlanFacts): string[] {
+export function ackLines(a: Ack, f: PlanFacts, history: HistoryItem[] = []): string[] {
   if (a.kind !== "task_result") {
     const t = ackText(a, f);
     return t ? [t] : [];
   }
   const r = a.result;
-  const receipt = r.receipt ? [receiptLine(r.receipt, f)] : [];
+  // A receipt the thread already shows adds nothing the second time.
+  const line = r.receipt ? receiptLine(r.receipt, f) : null;
+  const shown =
+    line !== null &&
+    history.some(
+      (h) => h.from === "agent" && h.text.toLowerCase() === stripMarks(line).toLowerCase(),
+    );
+  const receipt = line && !shown ? [line] : [];
   switch (r.kind) {
     case "draft":
       return [...receipt, r.text];
@@ -338,7 +345,7 @@ export class TemplateRenderer implements Renderer {
     // "Calling you now" is always the last line before the phone rings.
     const ringing = plan.acks.find((a) => a.kind === "calling_now");
     for (const a of plan.acks) {
-      if (a !== ringing) body.push(...ackLines(a, f));
+      if (a !== ringing) body.push(...ackLines(a, f, history));
     }
     for (const a of plan.answers) {
       body.push(a.kind === "injection" ? injectionText(history) : answerText(a, f));
@@ -560,7 +567,7 @@ function abilities(f: PlanFacts): string {
   }
   if (f.canRunTasks) {
     can.push(
-      "drafting emails that wait for the user's yes (sending is simulated here, so nothing leaves their account)",
+      "drafting emails that wait for the user's yes, like a cancellation request or a reply (sending is simulated here, so nothing leaves their account)",
       "setting reminders that arrive by text",
       "answering and planning right here in the chat",
     );

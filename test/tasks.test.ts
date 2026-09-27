@@ -308,6 +308,39 @@ describe("other task results", () => {
     ]);
   });
 
+  // Stress run: the same receipt line came back in two turns in a row.
+  it("does not repeat a receipt the thread already shows", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await started(w);
+    const receipt = {
+      threadId: "adobe-renewal",
+      from: "Adobe",
+      subject: "Your Creative Cloud plan renews in 7 days",
+      date: Date.UTC(2026, 8, 25, 15),
+      quote: null,
+    };
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: { kind: "question", text: "Which plan should I ask about?", receipt },
+      threadId: "adobe-renewal",
+      ms: 700,
+    });
+    await w.advance(1000);
+    const line = /from adobe, sep 25/i;
+    expect(w.last()?.texts.some((t) => line.test(t))).toBe(true);
+    await w.say("all apps", { task_detail: "all apps" });
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: { kind: "answer", text: "All Apps renews Oct 4 for $659.88.", receipt },
+      threadId: "adobe-renewal",
+      ms: 700,
+    });
+    await w.advance(1000);
+    expect(w.last()?.texts.some((t) => line.test(t))).toBe(false);
+  });
+
   it("a question waits for the answer, then runs again with it", async () => {
     const w = new World({ caps: { tasks: true } });
     await started(w);
