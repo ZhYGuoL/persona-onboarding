@@ -69,7 +69,7 @@ describe("the magic moment on a call", () => {
     await w.advance(1000);
     const recap = w.last()?.texts.join(" ") ?? "";
     expect(recap).toMatch(/gmail is connected/i);
-    expect(recap).toContain(PF);
+    expect(recap.toLowerCase()).toContain(PF.toLowerCase());
   });
 
   it("a finding said in the same breath as 'taking a look' counts as delivered", async () => {
@@ -189,7 +189,7 @@ describe("inbox by text", () => {
     });
     await w.advance(1000);
     const found = w.last()?.texts.join(" ") ?? "";
-    expect(found).toContain("Your Con Edison bill of $86.42 is due Oct 6.");
+    expect(found).toMatch(/your con edison bill of \$86\.42 is due oct 6\./i);
     expect(found).toMatch(
       /want me to start on setting a reminder before the con edison bill is due\?/i,
     );

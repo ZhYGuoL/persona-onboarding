@@ -110,8 +110,9 @@ export function ackText(a: Ack, f: PlanFacts): string {
       return "Sure, skipping the setup.";
     case "task_started":
       // "Got it: <task>" reads as a promise when the agent cannot do the task.
-      if (!f.canRunTasks) return `I can't take care of ${v(a.summary)} from here yet.`;
-      return `On it: ${v(a.summary)}.`;
+      // A summary is the agent's paraphrase, so it follows the thread's casing.
+      if (!f.canRunTasks) return `I can't take care of ${a.summary} from here yet.`;
+      return a.again ? "On it." : `On it: ${a.summary}.`;
     case "task_result":
       // Rendered line by line in ackLines.
       return "";
@@ -120,7 +121,7 @@ export function ackText(a: Ack, f: PlanFacts): string {
     case "task_failed":
       return a.reason === "auth"
         ? "I lost access to your inbox, so I couldn't finish that. You'd need to connect Gmail again."
-        : `I couldn't finish ${v(a.summary)} on my end. Try asking again in a bit.`;
+        : `I couldn't finish ${a.summary} on my end. Try asking again in a bit.`;
     case "draft_sent":
       return `Marked as sent to ${v(a.to)}. Sending is simulated here, so nothing left your account.`;
     case "draft_dropped":
@@ -162,9 +163,7 @@ export function ackText(a: Ack, f: PlanFacts): string {
       return a.looking ? `${connected} Taking a quick look.` : connected;
     }
     case "inbox_findings":
-      return a.facts[0]
-        ? `Took a look. ${v(a.facts[0])}`
-        : "Took a look. Nothing urgent jumped out.";
+      return a.facts[0] ? `Took a look. ${a.facts[0]}` : "Took a look. Nothing urgent jumped out.";
     case "scan_failed":
       if (a.reason === "auth")
         return "I lost access to your inbox, so I couldn't look. You'd need to connect it again.";
@@ -300,8 +299,8 @@ export function questionText(q: Question, f: PlanFacts, ideas: string[]): string
       return "Want me to call back, or keep going here?";
     case "whats_first":
       if (q.finding) {
-        const ask = `Want me to start on ${v(q.finding.next)}?`;
-        return q.finding.fact ? `${v(q.finding.fact)} ${ask}` : ask;
+        const ask = `Want me to start on ${q.finding.next}?`;
+        return q.finding.fact ? `${q.finding.fact} ${ask}` : ask;
       }
       if (f.inboxFindings[0]) return "Want me to start there?";
       return f.helpNeed
@@ -651,6 +650,8 @@ function ackGuide(a: Ack, f: PlanFacts): string {
         ? "They renamed you. Take the new name."
         : "They named you. React in a few words.";
     case "task_started":
+      if (f.canRunTasks && a.again)
+        return "They answered your question. Say you're on it, in two words.";
       return f.canRunTasks
         ? "They asked for a concrete task. Acknowledge it in their words and say you are on it."
         : 'They asked for a concrete task your abilities do not cover yet. Say plainly, in their words, that you cannot do it from here yet. Never write "got it", "on it", or anything that sounds like you took it on.';

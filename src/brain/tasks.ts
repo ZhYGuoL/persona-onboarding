@@ -187,7 +187,12 @@ export function applyTaskReply(
     }
     task.notes.push(`You asked "${awaiting.text}" They said: ${answer}`);
     run(s, task, actions, null);
-    acks.push({ kind: "task_started", summary: task.summary, needsGmail: task.needsGmail });
+    acks.push({
+      kind: "task_started",
+      summary: task.summary,
+      needsGmail: task.needsGmail,
+      again: true,
+    });
     return true;
   }
   return false;
