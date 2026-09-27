@@ -7,6 +7,7 @@ import type { TaskResult } from "../brain/types.ts";
 import { DemoInbox } from "../inbox/demo.ts";
 import { modelsFromEnv, OpenAiClient } from "../llm/openai.ts";
 import { runWork, type WorkInput } from "../tasks/work.ts";
+import { mapPool } from "./pool.ts";
 
 interface Case {
   label: string;
@@ -116,33 +117,31 @@ const provider = new DemoInbox(NOW);
 
 const selected = CASES.filter((c) => !only || c.label.includes(only));
 const runs = selected.flatMap((c) => Array.from({ length: repeat }, () => c));
-const results = await Promise.all(
-  runs.map(async (c) => {
-    const input: WorkInput = {
-      threadId: null,
-      notes: [],
-      previous: null,
-      shown: [],
-      userName: "Dan",
-      userEmail: "dan@gmail.com",
-      language: "en",
-      now: NOW,
-      timeZone: "America/New_York",
-      ...c.input,
-    };
-    try {
-      const out = await runWork(input, {
-        provider: c.inbox === false ? null : provider,
-        llm,
-        model: models.reply,
-        fastModel: models.fast,
-      });
-      return { c, ok: c.expect(out.result, out.threadId), out };
-    } catch (err) {
-      return { c, ok: false, out: null, err: String(err) };
-    }
-  }),
-);
+const results = await mapPool(runs, 6, async (c) => {
+  const input: WorkInput = {
+    threadId: null,
+    notes: [],
+    previous: null,
+    shown: [],
+    userName: "Dan",
+    userEmail: "dan@gmail.com",
+    language: "en",
+    now: NOW,
+    timeZone: "America/New_York",
+    ...c.input,
+  };
+  try {
+    const out = await runWork(input, {
+      provider: c.inbox === false ? null : provider,
+      llm,
+      model: models.reply,
+      fastModel: models.fast,
+    });
+    return { c, ok: c.expect(out.result, out.threadId), out };
+  } catch (err) {
+    return { c, ok: false, out: null, err: String(err) };
+  }
+});
 let pass = 0;
 for (const r of results) {
   if (r.ok) pass++;
