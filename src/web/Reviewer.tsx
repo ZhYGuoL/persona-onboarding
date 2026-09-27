@@ -109,6 +109,14 @@ export function Reviewer({
         </div>
       </div>
 
+      {/* A first visit shows an empty phone. The hint lives here, never in the product UI. */}
+      {Array.isArray(state?.history) && state.history.length === 0 && (
+        <p className="rv-start">
+          Start on the phone: text it the way a new user would. Accept its call, pick the sample
+          inbox when it asks for Gmail, and use the controls below to break things.
+        </p>
+      )}
+
       <section className="rv-card">
         <h2>Time</h2>
         <div className="rv-buttons">

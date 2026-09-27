@@ -842,6 +842,16 @@ button {
   background: #30d158;
 }
 
+.rv-start {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .rv-card {
   padding: 14px 16px;
   border: 1px solid var(--line);
