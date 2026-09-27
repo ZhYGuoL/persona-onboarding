@@ -108,6 +108,27 @@ QA stayed read-only on Google. Zhiyuan should run it once with a test user.
 
 Graduation into a real first task: read the full email behind a finding, and draft the outward action (a cancellation email, a reply to a landlord), which waits for the user's yes.
 
+### Status (2026-09-27)
+
+Done.
+A yes to an inbox finding, or a stated task, starts real work on the sample inbox or real Gmail.
+Each result is one of five kinds, checked in code: an answer, a draft, a reminder, one question, or a plain "can't".
+Every result carries a receipt quoted word for word from the email.
+A draft shows as a card and waits for "Send it?". A yes records it in a simulated outbox and says plainly that nothing left the account.
+Reminders are real timers in the user's time zone.
+An answer ends with one follow-up offer, like "Want me to start on canceling the NYT trial?".
+The user can take a request back, and a canceled reminder never goes out.
+Decisions D57 to D69 are in `docs/DECISIONS.md`.
+
+Browser QA passed the full loop on the sample inbox: finding, yes, draft card, edit, send, a list task with a follow-up offer, and a reminder that fired on time after a fast-forward.
+The last stress run passed every invariant at 96% or higher over 50 conversations, with real tasks. The new `yes_before_send` invariant held on every send.
+`pnpm eval:tasks` checks the work step on the real model.
+
+Known gaps:
+- Text that code writes (receipt labels, "Send it?", the address question) is English only. The model's own words follow the user's language.
+- "Already shown" tracks the email behind each receipt, not every email an answer mentions.
+- Real Gmail tasks are covered by unit tests with a faked API. Only the sample inbox was run end to end.
+
 ### Plan
 
 A task starts from a stated request ("cancel my gym") or from a yes to an inbox finding ("want me to start on the NYT trial?").
