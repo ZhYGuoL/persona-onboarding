@@ -15,6 +15,8 @@ export interface BrainConfig {
   callMaxMs: number;
   /** After asking the agent to wrap up, end the call anyway after this long. */
   callEndFallbackMs: number;
+  /** After the wrap-up, hang up this long after the agent stops talking without a clear goodbye. */
+  callEndQuietMs: number;
   /** One gentle follow-up when the user goes quiet on an open question. */
   idleNudgeMs: number;
   maxNudges: number;
@@ -47,6 +49,7 @@ export const DEFAULT_CONFIG: BrainConfig = {
   callSilenceGiveUpMs: 12_000,
   callMaxMs: 4 * 60_000,
   callEndFallbackMs: 15_000,
+  callEndQuietMs: 3_000,
   idleNudgeMs: 10 * 60_000,
   maxNudges: 2,
   resumeGapMs: 60 * 60_000,

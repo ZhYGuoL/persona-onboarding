@@ -9,7 +9,7 @@
 // interpreter and applied by `decideCall()`. They run in order on their own
 // track and are never dropped, so a hangup cannot lose what the user said.
 
-import { CHECK_IN_INSTRUCTION, openingPushes } from "./call.ts";
+import { CHECK_IN_INSTRUCTION, openingPushes, SAY_GOODBYE_NOW, soundsLikeGoodbye } from "./call.ts";
 import type { BrainConfig } from "./config.ts";
 import {
   cancelTimer,
@@ -123,6 +123,10 @@ export class Brain {
         if (s.call.status === "active" && s.call.callId === ev.callId) {
           s.call.silenceStage = 0;
           cancelTimer(s, step.actions, "call_silence");
+          // Never hang up on someone who is talking. The next agent reply re-arms the hangup.
+          if (s.call.wrapUpAt !== null) {
+            scheduleTimer(s, step.actions, "call_end_fallback", now + this.cfg.callEndFallbackMs);
+          }
         }
         break;
       case "transcript_final":
@@ -438,12 +442,21 @@ export class Brain {
     if (role === "agent") {
       s.lastAgentAt = now;
       if (!live) return;
-      const startedAt = now - startedAgoMs;
-      if (s.call.wrapUpAt !== null && startedAt >= s.call.wrapUpAt) {
-        // The goodbye is done. Hang up instead of leaving dead air.
-        this.endCall(step);
-      } else if (s.call.wrapUpAt === null) {
+      if (s.call.wrapUpAt === null) {
         scheduleTimer(s, step.actions, "call_silence", now + this.cfg.callSilenceNudgeMs);
+        return;
+      }
+      // Wrapping up. A goodbye ends the call at once, so there is no dead air.
+      // Speech that started before the wrap-up is the agent finishing its thought.
+      const startedAt = now - startedAgoMs;
+      if (soundsLikeGoodbye(text)) {
+        this.endCall(step);
+      } else if (startedAt >= s.call.wrapUpAt) {
+        if (!s.call.wrapNudged) {
+          s.call.wrapNudged = true;
+          this.pushToCall(step, "instructions", SAY_GOODBYE_NOW);
+        }
+        scheduleTimer(s, step.actions, "call_end_fallback", now + this.cfg.callEndQuietMs);
       }
       return;
     }
@@ -569,6 +582,7 @@ export class Brain {
     s.call.linkSentOnCall = false;
     s.call.wrapUpAt = null;
     s.call.silenceStage = 0;
+    s.call.wrapNudged = false;
     s.call.userLeaving = false;
     s.awaiting = null;
     cancelTimer(s, step.actions, "ring_timeout");

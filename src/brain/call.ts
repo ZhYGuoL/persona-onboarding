@@ -133,5 +133,15 @@ export function wrapUpInstruction(
   }
 }
 
+/** Words that close a call, in the languages the agent is likely to speak. */
+const GOODBYE =
+  /\b(bye|goodbye|good-bye|talk (to you )?soon|take care|see you|have a (good|great|nice)|adi[oó]s|hasta (luego|pronto|mañana)|chao|ciao|au revoir|tsch[uü]ss|tchau)\b/i;
+
+export function soundsLikeGoodbye(text: string): boolean {
+  return GOODBYE.test(text);
+}
+
+export const SAY_GOODBYE_NOW = "Say goodbye now, in one short sentence. Do not ask anything.";
+
 export const CHECK_IN_INSTRUCTION =
   "The caller has been quiet for a bit. Gently check if they are still there, in a few words.";

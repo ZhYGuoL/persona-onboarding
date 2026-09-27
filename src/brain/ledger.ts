@@ -51,6 +51,7 @@ export function newSession(id: string, now: number, caps: Capabilities): Session
       linkSentOnCall: false,
       wrapUpAt: null,
       silenceStage: 0,
+      wrapNudged: false,
       userLeaving: false,
     },
     caps: { ...caps },

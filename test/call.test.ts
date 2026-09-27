@@ -58,6 +58,43 @@ describe("live call", () => {
     expect(w.of("end_call")).toHaveLength(1);
   });
 
+  it("an agent that keeps talking after the wrap-up gets one nudge, then the call ends after a quiet beat", async () => {
+    const w = new World({ caps: { voice: true } });
+    await onCall(w);
+    await w.hear("I'm Dana, and I need help with taxes", {
+      confirms_name: "Dana",
+      help_need: "doing taxes",
+    });
+    await w.agentSays("Taxes are rough. Want to walk me through them?", 0);
+    expect(w.pushes("instructions").at(-1)).toMatch(/Say goodbye now/);
+    expect(w.of("end_call")).toHaveLength(0);
+    await w.advance(w.cfg.callEndQuietMs + 100);
+    expect(w.of("end_call")).toHaveLength(1);
+  });
+
+  it("never hangs up on a user who starts talking during the wrap-up", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    await w.hear("I'm Dana, and I need help with taxes", {
+      confirms_name: "Dana",
+      help_need: "doing taxes",
+    });
+    await w.agentSays("Got it, I'll text a recap.", 0);
+    await w.event({ type: "voice_activity", callId, role: "user" });
+    await w.advance(w.cfg.callEndQuietMs + 500);
+    expect(w.of("end_call")).toHaveLength(0);
+  });
+
+  it("a spelling that arrives in pieces never shortens the name", async () => {
+    const w = new World({ caps: { voice: true } });
+    await onCall(w);
+    await w.hear("my name is David", { user_name: name("David") });
+    await w.hear("D A V", { confirms_name: "Dav" });
+    expect(w.state.slots.user_name).toMatchObject({ value: "David", status: "tentative" });
+    await w.hear("I D", { confirms_name: "David" });
+    expect(w.state.slots.user_name).toMatchObject({ value: "David", status: "confirmed" });
+  });
+
   it("ends the call anyway if the goodbye never comes", async () => {
     const w = new World({ caps: { voice: true } });
     await onCall(w);

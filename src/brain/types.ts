@@ -50,6 +50,8 @@ export interface CallState {
   wrapUpAt: number | null;
   /** 0 = no silence yet, 1 = the agent already checked in once. */
   silenceStage: number;
+  /** After the wrap-up, the agent got one "say goodbye now" reminder. */
+  wrapNudged: boolean;
   /** The user said they have to go, so the recap does not chase. */
   userLeaving: boolean;
 }
