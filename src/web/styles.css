@@ -884,10 +884,14 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-.ledger .value {
+.ledger .value,
+.ledger .source {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ledger .value {
   font-weight: 500;
 }
 
@@ -941,6 +945,13 @@ button {
   margin: 2px 0 0;
   font-weight: 500;
   overflow-wrap: anywhere;
+}
+
+.facts .sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-mute);
 }
 
 .rv-timeline {

@@ -35,6 +35,15 @@ const CLIPS: Array<[string, string]> = [
   ["Stop", "/voice/stop.m4a"],
 ];
 
+/** Short labels that fit the ledger's Source column. The raw value shows on hover. */
+const SOURCE_LABELS: Record<string, string> = {
+  text: "text",
+  voice: "call",
+  google_profile: "Google",
+  inferred: "picked",
+  sample_inbox: "sample",
+};
+
 const SLOT_LABELS: Array<[string, string]> = [
   ["agent_name", "Agent name"],
   ["user_name", "User name"],
@@ -177,7 +186,9 @@ export function Reviewer({
                     {s?.value ?? "-"}
                   </td>
                   <td className="num">{s?.attempts ?? 0}</td>
-                  <td className="muted">{s?.source ?? "-"}</td>
+                  <td className="muted source" title={s?.source ?? ""}>
+                    {s?.source ? (SOURCE_LABELS[s.source] ?? s.source) : "-"}
+                  </td>
                 </tr>
               );
             })}
@@ -188,20 +199,24 @@ export function Reviewer({
             <dt>Phase</dt>
             <dd>
               {String(state?.phase ?? "…")}
-              {state?.graduated ? " · graduated" : ""}
+              {state?.graduated ? <span className="sub">graduated</span> : null}
             </dd>
           </div>
           <div>
             <dt>Call</dt>
             <dd>
-              {String(callState.status ?? "idle")} · offers {String(callState.autoOffers ?? 0)} ·
-              declines {String(callState.declines ?? 0)}
+              {String(callState.status ?? "idle")}
+              <span className="sub">
+                offers {String(callState.autoOffers ?? 0)} · declines{" "}
+                {String(callState.declines ?? 0)}
+              </span>
             </dd>
           </div>
           <div>
             <dt>Language</dt>
             <dd>
-              {String(state?.language ?? "en")} · {String(state?.casing ?? "normal")} case
+              {String(state?.language ?? "en")}
+              <span className="sub">{String(state?.casing ?? "normal")} case</span>
             </dd>
           </div>
         </dl>
