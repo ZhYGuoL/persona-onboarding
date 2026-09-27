@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { callInstructions } from "../src/brain/call.ts";
-import { PERSONA_FACTS } from "../src/brain/facts.ts";
+import { PERSONA_FACTS, UNKNOWN_FACTS_RULE } from "../src/brain/facts.ts";
 import { RENDERER_INSTRUCTIONS } from "../src/brain/render.ts";
 import { World } from "./world.ts";
 
@@ -392,10 +392,9 @@ describe("facts about Persona", () => {
       expect(call).toContain(fact);
       expect(RENDERER_INSTRUCTIONS).toContain(fact);
     }
-    expect(call).toMatch(
-      /such as price or plans, say you are not sure\. Never guess, and do not offer to find out\./,
-    );
-    expect(RENDERER_INSTRUCTIONS).toMatch(/Never guess, and do not offer to find out\./);
+    expect(UNKNOWN_FACTS_RULE).toMatch(/price.*not sure.*Never guess/);
+    expect(call).toContain(UNKNOWN_FACTS_RULE);
+    expect(RENDERER_INSTRUCTIONS).toContain(UNKNOWN_FACTS_RULE);
   });
 });
 

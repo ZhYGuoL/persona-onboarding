@@ -11,7 +11,8 @@ export const PERSONA_FACTS = [
 
 /**
  * Price and plans are not in the facts. Voice runs showed the agent guessing
- * them, then offering to "check and follow up", which nothing would do.
+ * them, offering to "check and follow up", which nothing would do, and
+ * making up a reason ("we don't talk about pricing on calls").
  */
 export const UNKNOWN_FACTS_RULE =
-  "If they ask about something these facts do not cover, such as price or plans, say you are not sure. Never guess, and do not offer to find out.";
+  "If they ask about something these facts do not cover, such as price or plans, say only that you are not sure. Never guess, never give a reason, and do not offer to find out.";
