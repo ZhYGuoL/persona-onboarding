@@ -164,10 +164,12 @@ export function decideCall(
     }
   }
 
-  let leaving = i.leaving || i.skip_setup;
+  // Leaving ends the conversation for now. Refusing the call only ends the call.
+  const userLeaving = i.leaving || i.skip_setup;
+  let leaving = userLeaving;
   for (const r of i.refusals) {
     if (r.slot === "call") {
-      // "Stop calling me" during a call: end it politely and never offer a call again.
+      // "Stop calling me" during a call: end it politely, keep texting, never offer a call again.
       leaving = true;
       s.call.declines = Math.max(s.call.declines, cfg.maxCallDeclines);
       continue;
@@ -214,7 +216,7 @@ export function decideCall(
   // Wrap up when the user is leaving, or when nothing is left to learn and no link just went out.
   if (live && s.call.wrapUpAt === null) {
     if (leaving) {
-      s.call.userLeaving = true;
+      s.call.userLeaving = userLeaving;
       startWrapUp(s, plan, actions, cfg, now, "leaving");
     } else if (goals.length === 0 && plan.texts.length === 0) {
       startWrapUp(s, plan, actions, cfg, now, "done");

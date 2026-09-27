@@ -248,3 +248,34 @@ describe("live call", () => {
     expect(w.pushes("commentary").at(-1)).toMatch(/acknowledge the text/);
   });
 });
+
+describe("goodbye cues", () => {
+  it("recognizes goodbyes in the languages the agent speaks", async () => {
+    const { soundsLikeGoodbye } = await import("../src/brain/call.ts");
+    for (const t of [
+      "Talk soon, bye!",
+      "Take care.",
+      "Cuídate, hablamos luego.",
+      "Adiós",
+      "À bientôt",
+      "Tchau",
+    ]) {
+      expect(soundsLikeGoodbye(t)).toBe(true);
+    }
+    expect(soundsLikeGoodbye("What's your first name?")).toBe(false);
+  });
+});
+
+describe("call refusal on a call", () => {
+  it("says no more calls, then carries on by text", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    await w.hear("stop calling me", { refusals: [{ slot: "call", hard: false }] });
+    await w.agentSays("Understood, ending the call.", 0);
+    await w.advance(w.cfg.callEndQuietMs + 100);
+    await w.event({ type: "call_ended", callId, reason: "close_requested" });
+    await w.advance(1000);
+    expect(w.last()?.texts.join(" ")).toMatch(/keep it to text/i);
+    expect(w.awaiting()).toBe("ask:user_name");
+  });
+});

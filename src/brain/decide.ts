@@ -180,7 +180,12 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
             noChase = true;
             break;
           case "close_requested":
-            acks.push({ kind: "call_recap", captured });
+            if (captured.length === 0 && s.call.declines >= cfg.maxCallDeclines) {
+              // They asked us to stop calling. Say so, then carry on by text.
+              acks.push({ kind: "call_declined", final: true });
+            } else {
+              acks.push({ kind: "call_recap", captured });
+            }
             if (s.call.userLeaving) noChase = true;
             break;
           case "connection_lost":
