@@ -25,7 +25,7 @@ describe("utterance grouper", () => {
     await clock.advance(200);
     g.delta("user", " is David");
     expect(finals).toHaveLength(0);
-    await clock.advance(1000);
+    await clock.advance(1400);
     expect(finals).toEqual([{ speaker: "user", text: "Hi, my name is David", startedAt: 0 }]);
     expect(starts()).toBe(1);
   });
@@ -33,9 +33,39 @@ describe("utterance grouper", () => {
   it("ends the user's utterance as soon as the agent answers", async () => {
     const { clock, g, finals } = setup();
     g.delta("user", "I'm Dana");
-    await clock.advance(500);
+    await clock.advance(1100);
     g.delta("agent", "Nice to meet you");
     expect(finals.map((f) => f.text)).toEqual(["I'm Dana"]);
+  });
+
+  // Voice runs: fragments of one phrase arrived 932 ms apart, and the agent said
+  // "Hola," in the gap. The brain then saved the need as "ayuda con mi".
+  it("keeps a phrase whole across a long fragment gap with an agent word in it", async () => {
+    const { clock, g, finals } = setup();
+    g.delta("user", "Necesito ayuda con mi");
+    await clock.advance(730);
+    g.delta("agent", " Hola,");
+    await clock.advance(200);
+    g.delta("user", " calendario");
+    await clock.advance(1400);
+    const user = finals.filter((f) => f.speaker === "user").map((f) => f.text);
+    expect(user).toEqual(["Necesito ayuda con mi calendario"]);
+  });
+
+  it("reports when the agent starts an utterance", () => {
+    const clock = new FakeClock(0);
+    let agentStarts = 0;
+    const g = new UtteranceGrouper({
+      clock,
+      onFinal: () => {},
+      onUserStart: () => {},
+      onAgentStart: () => {
+        agentStarts += 1;
+      },
+    });
+    g.delta("agent", "Hey,");
+    g.delta("agent", " it's juno");
+    expect(agentStarts).toBe(1);
   });
 
   it("ignores a backchannel while the user is still talking", async () => {
@@ -45,7 +75,7 @@ describe("utterance grouper", () => {
     g.delta("agent", "mm-hmm");
     await clock.advance(100);
     g.delta("user", " Dana");
-    await clock.advance(1000);
+    await clock.advance(1400);
     const user = finals.filter((f) => f.speaker === "user").map((f) => f.text);
     expect(user).toEqual(["So my name is Dana"]);
   });

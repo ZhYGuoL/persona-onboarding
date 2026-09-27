@@ -592,3 +592,14 @@ A request and its take-back in the same message never becomes a task.
 - **Why.** In a stress run, a user said "never mind" in the same breath as a reminder request.
 The reminder was set anyway, and the agent's "I won't remind you" left the timer running.
 A promise not to do something must be kept as strictly as a promise to do it.
+
+### D70. A caller's phrase ends after 1.3 s of quiet
+
+- **Choice.** The transcript grouper ends a caller's utterance after 1300 ms with no new fragment.
+An agent sound ends the caller's utterance only after 1000 ms of caller quiet.
+- **Why.** GPT-Live sends transcript fragments in bursts.
+In the scripted voice runs, gaps inside one phrase reached 943 ms, and sentence breaks started near 1000 ms.
+With the old 900 ms and 300 ms limits, "Necesito ayuda con mi" and "calendario" became two utterances, and the brain saved the need as "ayuda con mi".
+The cost is about 400 ms more before the brain reads a caller's words.
+The agent's voice does not wait for the brain, so the caller does not hear this delay.
+A split at a sentence break is harmless, because the next turn reads the rest.

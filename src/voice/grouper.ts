@@ -18,6 +18,7 @@ export interface GrouperOptions {
   overlapMs?: number;
   onFinal: (speaker: Speaker, text: string, startedAt: number) => void;
   onUserStart: () => void;
+  onAgentStart?: () => void;
 }
 
 interface Buffer {
@@ -28,12 +29,17 @@ interface Buffer {
 }
 
 export class UtteranceGrouper {
-  private readonly opts: Required<Omit<GrouperOptions, "onFinal" | "onUserStart" | "clock">> &
+  private readonly opts: Required<
+    Omit<GrouperOptions, "onFinal" | "onUserStart" | "onAgentStart" | "clock">
+  > &
     GrouperOptions;
   private readonly buffers: Record<Speaker, Buffer | null> = { user: null, agent: null };
 
   constructor(opts: GrouperOptions) {
-    this.opts = { userQuietMs: 900, agentQuietMs: 1400, overlapMs: 300, ...opts };
+    // Transcript fragments arrive in bursts. In scripted calls, gaps inside one
+    // phrase reached 943 ms ("con mi" ... "calendario"), and sentence breaks started
+    // near 1000 ms. Shorter limits split a phrase, and the brain saved half a need.
+    this.opts = { userQuietMs: 1300, agentQuietMs: 1400, overlapMs: 1000, ...opts };
   }
 
   delta(speaker: Speaker, text: string): void {
@@ -51,6 +57,7 @@ export class UtteranceGrouper {
       buf = { text: "", startedAt: now, lastAt: now, timer: null };
       this.buffers[speaker] = buf;
       if (speaker === "user") this.opts.onUserStart();
+      else this.opts.onAgentStart?.();
     }
     buf.text += text;
     buf.lastAt = now;
