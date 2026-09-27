@@ -532,23 +532,37 @@ describe("an answer's follow-up", () => {
   it("a yes that restates the offer stays on the offered email, with the user's words as a note", async () => {
     const w = new World({ caps: { gmail: true, tasks: true } });
     await toFinding(w);
-    await w.say("yes, draft the cancellation and keep it short", {
+    await w.say("yes, cancel the nyt trial before it renews, keep it short", {
       reply_to_pending: "yes",
-      task: { summary: "drafting a short cancellation", needs_gmail: true },
-      extra_tasks: [{ summary: "finding the Adobe renewal price", needs_gmail: true }],
+      task: { summary: "canceling the NYT trial before it renews", needs_gmail: true },
+      task_detail: "keep it short",
     });
     expect(w.of("run_task").at(-1)).toMatchObject({
       taskId: 1,
       job: {
         summary: "canceling the New York Times trial",
         threadId: "nyt-trial",
-        notes: ["When they said yes, they added: drafting a short cancellation"],
+        notes: [
+          "When they said yes, they added: canceling the NYT trial before it renews",
+          "When they said yes, they added: keep it short",
+        ],
       },
     });
-    // A second request in the same message is still its own task.
-    expect(w.state.tasks.map((t) => t.summary)).toEqual([
-      "canceling the New York Times trial",
-      "finding the Adobe renewal price",
+    expect(w.state.tasks).toHaveLength(1);
+  });
+
+  // Stress run: "yeah start canceling planet fitness, and can you draft the adobe
+  // cancellation too?" folded the Adobe request into the Planet Fitness task.
+  it("a yes with a different request keeps that request as its own task", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toFinding(w);
+    await w.say("yes, and draft the adobe cancellation too", {
+      reply_to_pending: "yes",
+      task: { summary: "drafting the Adobe cancellation", needs_gmail: true },
+    });
+    expect(w.state.tasks.map((t) => [t.summary, t.threadId, t.notes])).toEqual([
+      ["canceling the New York Times trial", "nyt-trial", []],
+      ["drafting the Adobe cancellation", "adobe-renewal", []],
     ]);
   });
 });

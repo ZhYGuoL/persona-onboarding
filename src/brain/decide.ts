@@ -20,6 +20,7 @@ import {
   findingFor,
   isActive,
   offerKey,
+  restatesOffer,
   startNextTask,
 } from "./tasks.ts";
 import { cancelTimer, scheduleTimer } from "./timers.ts";
@@ -311,11 +312,13 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         // A yes often restates the offer ("sí, ponme un recordatorio antes del plazo").
         // That is the same task, still tied to the offered email, with the user's words
         // as a note. Stress runs showed the restated task searching on its own and
-        // quoting the wrong email.
-        const said = [i.task?.summary, i.task_detail].filter((w): w is string => Boolean(w));
+        // quoting the wrong email. A different request ("draft the Adobe one too")
+        // stays its own task.
+        const restated = i.task && restatesOffer(i.task.summary, offered) ? i.task : null;
+        const said = [restated?.summary, i.task_detail].filter((w): w is string => Boolean(w));
         const notes = said.map((w) => `When they said yes, they added: ${w}`);
         addTask(s, offered.next, aboutEmail, now, cfg, acks, offered.threadId, aboutEmail, notes);
-        i = { ...i, task: null, task_detail: null };
+        i = { ...i, task: restated ? null : i.task, task_detail: null };
       } else if (need && !i.task) {
         i = { ...i, task: { summary: need, needs_gmail: s.slots.gmail.status === "confirmed" } };
       }

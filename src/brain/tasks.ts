@@ -13,6 +13,7 @@ import type {
   Draft,
   Interpretation,
   Notice,
+  OfferedFinding,
   Question,
   SessionState,
   Task,
@@ -272,7 +273,7 @@ const FILLER = new Set(
 
 /** Words that say what to do, not what it is about. Tasks share them freely. */
 const ACTIONS = new Set(
-  "cancel canceling cancelling cancellation setting reminder remind reminding drafting draft reply replying finding find sending send confirming confirm checking check asking email note message before after free ends".split(
+  "cancel canceling cancelling cancellation setting reminder remind reminding drafting draft reply replying finding find sending send confirming confirm checking check asking email note message before after free ends deadline date time today tomorrow week soon hour hours days plazo".split(
     " ",
   ),
 );
@@ -325,4 +326,15 @@ export function findingFor(
   const [best, second] = scored;
   if (!best || (second && second.score === best.score)) return null;
   return best.f;
+}
+
+/**
+ * A task stated with a yes to an offer restates the offer, or asks for something
+ * else. "Remind me before the deadline" restates a Marriott offer. "Draft the
+ * Adobe cancellation too" is its own task. A task that names no thing at all
+ * can only be about the offer.
+ */
+export function restatesOffer(summary: string, offer: OfferedFinding): boolean {
+  if (keyWords(summary, ACTIONS).size === 0) return true;
+  return overlap(summary, `${offer.next} ${offer.fact ?? ""}`, ACTIONS) >= 0.5;
 }
