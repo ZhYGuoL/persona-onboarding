@@ -3,7 +3,14 @@
 // the demo video. Dates are relative to the session clock, so "next week"
 // stays next week. One email is a prompt-injection attempt on purpose.
 
-import type { InboxProvider, ThreadSummary } from "./types.ts";
+import {
+  addressesIn,
+  addressOf,
+  type InboxProvider,
+  MAX_BODY_CHARS,
+  type ThreadDetail,
+  type ThreadSummary,
+} from "./types.ts";
 
 const DAY = 24 * 60 * 60_000;
 
@@ -15,16 +22,21 @@ interface Seed {
   sent: number;
   /** The snippet, with {date:N} for a date N days from now. */
   body: string;
+  /** The full email when it says more than the snippet, with the same {date:N} markers. */
+  full?: string;
+  /** Where replies go, when not to the sender. */
+  replyTo?: string;
   unread?: boolean;
 }
 
 const SEEDS: Seed[] = [
   {
     id: "pf-renewal",
-    from: "Planet Fitness <no-reply@planetfitness.com>",
+    from: "Planet Fitness <members@planetfitness.com>",
     subject: "Your Black Card membership renews soon",
     sent: -2,
     body: "Hi! Your Black Card membership renews automatically on {date:6}. You'll be charged $24.99. To cancel or change your plan, visit your home club or reply to this email.",
+    full: "Hi there,\n\nYour Black Card membership at Planet Fitness Williamsburg renews automatically on {date:6}. You'll be charged $24.99 plus the $49 annual fee.\n\nWant to cancel or change your plan? Reply to this email with your full name and home club, or visit the front desk. Cancellation requests must reach us at least 3 days before your billing date.\n\nSee you at the gym,\nPlanet Fitness Member Services",
   },
   {
     id: "netflix-bill",
@@ -46,6 +58,8 @@ const SEEDS: Seed[] = [
     subject: "Your Creative Cloud plan renews in 7 days",
     sent: -1,
     body: "Your annual Creative Cloud All Apps plan renews on {date:7} for $659.88. If you cancel after renewal, a fee may apply.",
+    replyTo: "Adobe Customer Support <support@adobe.com>",
+    full: "Your annual Creative Cloud All Apps plan renews on {date:7} for $659.88.\n\nNo action is needed to keep your plan. To cancel, sign in to your Adobe account and choose Manage plan, or reply to this email to reach Adobe Customer Support. If you cancel within 14 days after renewal, you get a full refund. After that, an early termination fee of 50% of the remaining balance applies.\n\nAdobe Customer Support",
   },
   {
     id: "nyt-trial",
@@ -53,6 +67,8 @@ const SEEDS: Seed[] = [
     subject: "Your free trial ends in 2 days",
     sent: -1,
     body: "Your free trial ends on {date:2}. After that, you'll be billed $17.00 every 4 weeks unless you cancel.",
+    replyTo: "NYT Customer Care <help@nytimes.com>",
+    full: "Your free trial of All Access ends on {date:2}. After that, you'll be billed $17.00 every 4 weeks unless you cancel.\n\nTo cancel, go to your account page, or reply to this email and our Customer Care team will cancel for you. Cancel before {date:2} and you won't be charged.\n\nThe New York Times Customer Care",
   },
   {
     id: "amazon-headphones",
@@ -60,6 +76,7 @@ const SEEDS: Seed[] = [
     subject: "Your order of Sony WH-1000XM5 Wireless Headphones",
     sent: -12,
     body: "Order #112-4478213-9920155 delivered. Sony WH-1000XM5 Wireless Headphones, $348.00. Return window closes {date:18}.",
+    full: "Your package was delivered.\n\nOrder #112-4478213-9920155\nSony WH-1000XM5 Wireless Headphones, Black. $348.00.\n\nReturn window closes {date:18}. Start a return from Your Orders. Returns are free at any UPS Store.",
   },
   {
     id: "amazon-refund",
@@ -102,6 +119,7 @@ const SEEDS: Seed[] = [
     subject: "Your Con Edison bill is ready",
     sent: -4,
     body: "Your bill of $86.42 is ready. Payment is due {date:9}. Enroll in autopay so you never miss a due date.",
+    full: "Your Con Edison bill for account ending 3391 is ready.\n\nAmount due: $86.42\nDue date: {date:9}\n\nPay online, by phone, or enroll in autopay so you never miss a due date. A late payment charge of 1.5% applies after the due date.",
   },
   {
     id: "chase",
@@ -123,6 +141,7 @@ const SEEDS: Seed[] = [
     subject: "Lease renewal: need your answer by Friday",
     sent: -2,
     body: "Hey, just checking in on the renewal for unit 4B. The new rent would be $2,450. Can you let me know by Friday if you're staying?",
+    full: "Hey,\n\nJust checking in on the lease renewal for unit 4B. The current lease ends {date:35}. The new rent would be $2,450 a month, up from $2,300, on a 12-month term.\n\nCan you let me know by Friday if you're staying? If you have questions about the increase, happy to talk.\n\nThanks,\nMark",
     unread: true,
   },
   {
@@ -139,6 +158,7 @@ const SEEDS: Seed[] = [
     subject: "Appointment reminder",
     sent: -1,
     body: "This is a reminder of your cleaning on {date:5} at 10:30 AM. Reply C to confirm or call us to reschedule.",
+    full: "Hi,\n\nThis is a reminder of your cleaning with Dr. Patel on {date:5} at 10:30 AM at 88 Grand St, Suite 2.\n\nReply C to confirm, or reply with a few times that work to reschedule. Please give us 24 hours notice for changes.\n\nPatel Family Dental",
   },
   {
     id: "registrar",
@@ -227,21 +247,48 @@ function formatDate(ms: number): string {
   });
 }
 
+/** The address the sample inbox belongs to. */
+export const DEMO_ADDRESS = "you@sample-inbox.test";
+
 export class DemoInbox implements InboxProvider {
   readonly source = "demo" as const;
+  private readonly now: number;
   private readonly threads: ThreadSummary[];
 
   constructor(now: number) {
+    this.now = now;
     this.threads = SEEDS.map((seed) => ({
       id: seed.id,
       from: seed.from,
       subject: seed.subject,
       date: now + seed.sent * DAY,
-      snippet: seed.body.replace(/\{date:(-?\d+)\}/g, (_, n: string) =>
-        formatDate(now + Number(n) * DAY),
-      ),
+      snippet: this.fill(seed.body),
       unread: seed.unread ?? false,
     })).sort((a, b) => b.date - a.date);
+  }
+
+  private fill(text: string): string {
+    return text.replace(/\{date:(-?\d+)\}/g, (_, n: string) =>
+      formatDate(this.now + Number(n) * DAY),
+    );
+  }
+
+  async read(threadId: string): Promise<ThreadDetail | null> {
+    const seed = SEEDS.find((s) => s.id === threadId);
+    if (!seed) return null;
+    const replyTo = seed.replyTo ?? seed.from;
+    const addresses = [
+      ...new Set([...addressesIn(seed.from), ...addressesIn(replyTo), DEMO_ADDRESS]),
+    ];
+    return {
+      id: seed.id,
+      subject: seed.subject,
+      from: seed.from,
+      date: this.now + seed.sent * DAY,
+      body: this.fill(seed.full ?? seed.body).slice(0, MAX_BODY_CHARS),
+      replyTo: addressOf(replyTo) ?? "",
+      addresses,
+    };
   }
 
   async search(query: string, max: number): Promise<ThreadSummary[]> {

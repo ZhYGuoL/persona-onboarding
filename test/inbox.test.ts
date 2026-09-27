@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DemoInbox, queryTerms } from "../src/inbox/demo.ts";
-import { GmailProvider } from "../src/inbox/gmail.ts";
+import { cleanBody, GmailProvider, htmlToText } from "../src/inbox/gmail.ts";
 import { CATEGORY_QUERIES, needQuery, scanInbox } from "../src/inbox/scan.ts";
-import { InboxAuthError } from "../src/inbox/types.ts";
+import { addressesIn, addressOf, InboxAuthError } from "../src/inbox/types.ts";
 import type { JsonRequest, LlmClient } from "../src/llm/openai.ts";
 
 const NOW = Date.UTC(2026, 8, 27, 15, 0, 0);
@@ -99,7 +99,7 @@ describe("scan", () => {
 
   it("an empty inbox skips the model", async () => {
     const llm = fakeLlm({ findings: [] });
-    const empty = { source: "gmail" as const, search: async () => [] };
+    const empty = { source: "gmail" as const, search: async () => [], read: async () => null };
     const result = await scanInbox({ provider: empty, need: "bills", llm, model: "m", now: NOW });
     expect(result).toMatchObject({ findings: [], candidates: 0 });
     expect(llm.requests).toHaveLength(0);
@@ -225,5 +225,83 @@ describe("inbox service", () => {
     await inbox.idle();
     await w.settle();
     expect(w.store.events(w.sid).map((e) => e.type)).toContain("scan_failed");
+  });
+});
+
+describe("reading a thread", () => {
+  it("the sample inbox returns the full email with dates filled in and reply addresses", async () => {
+    const inbox = new DemoInbox(NOW);
+    const nyt = await inbox.read("nyt-trial");
+    expect(nyt?.body).toContain("reply to this email");
+    expect(nyt?.body).not.toContain("{date");
+    expect(nyt?.replyTo).toBe("help@nytimes.com");
+    expect(nyt?.addresses).toEqual(
+      expect.arrayContaining(["nytimes@e.newyorktimes.com", "help@nytimes.com"]),
+    );
+    expect(await inbox.read("nope")).toBeNull();
+  });
+
+  it("Gmail reads the latest message's plain text, drops quoted history, and collects addresses", async () => {
+    const b64 = (t: string) => Buffer.from(t).toString("base64url");
+    const thread = {
+      messages: [
+        {
+          internalDate: "1000",
+          payload: { headers: [{ name: "From", value: "Me <me@gmail.com>" }] },
+        },
+        {
+          internalDate: "2000",
+          payload: {
+            mimeType: "multipart/alternative",
+            headers: [
+              { name: "From", value: "Mark Delgado <mark@gmail.com>" },
+              { name: "To", value: "me@gmail.com" },
+              { name: "Subject", value: "Re: lease" },
+            ],
+            parts: [
+              { mimeType: "text/html", body: { data: b64("<p>html version</p>") } },
+              {
+                mimeType: "text/plain",
+                body: {
+                  data: b64("Rent goes to $2,450.\r\n\r\nOn Mon, Sep 21, Me wrote:\r\n> old stuff"),
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const seen: string[] = [];
+    const fakeFetch = (async (url: string) => {
+      seen.push(url);
+      return Response.json(thread);
+    }) as unknown as typeof fetch;
+    const detail = await new GmailProvider("t", { fetch: fakeFetch }).read("abc");
+    expect(seen[0]).toContain("/threads/abc?format=full");
+    expect(detail).toMatchObject({
+      subject: "Re: lease",
+      date: 2000,
+      body: "Rent goes to $2,450.",
+      replyTo: "mark@gmail.com",
+    });
+    expect(detail?.addresses.sort()).toEqual(["mark@gmail.com", "me@gmail.com"]);
+  });
+
+  it("a missing Gmail thread is null, and a revoked token is an auth error", async () => {
+    const status = (code: number) =>
+      (async () => new Response("", { status: code })) as unknown as typeof fetch;
+    expect(await new GmailProvider("t", { fetch: status(404) }).read("x")).toBeNull();
+    await expect(new GmailProvider("t", { fetch: status(401) }).read("x")).rejects.toBeInstanceOf(
+      InboxAuthError,
+    );
+  });
+
+  it("strips HTML and parses addresses", () => {
+    expect(htmlToText("<style>x{}</style><p>Hi&nbsp;there</p><br>Bye &amp; thanks")).toMatch(
+      /Hi there\s+Bye & thanks/,
+    );
+    expect(cleanBody("a\n\n\n\nb\n> quoted")).toBe("a\n\nb");
+    expect(addressOf("Adobe Support <Support@Adobe.com>")).toBe("support@adobe.com");
+    expect(addressesIn("A <a@x.com>, b@y.com")).toEqual(["a@x.com", "b@y.com"]);
   });
 });
