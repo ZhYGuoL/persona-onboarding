@@ -357,3 +357,95 @@ New texts from the agent during a full-screen call show as a Messages banner.
 A typical onboarding call runs 35 to 40 s, about $0.03.
 - **Measured.** The first agent words arrive about 1 s after the session starts.
 The agent starts answering as the user's last word is transcribed.
+
+## Milestone 3: Gmail and the inbox scan
+
+### D42. One inbox interface, two inboxes
+
+- **Choice.** The scan talks to one interface.
+Real Gmail uses the REST API read-only: `threads.list` to find matches (10 quota units), then `threads.get` with metadata for subject, sender, and date (40 units each).
+The sample inbox is seeded data behind the same interface.
+- **Why.** One scan, one test suite, and the demo works for anyone.
+
+### D43. The scan: parallel searches, one model call, code checks
+
+- **Choice.** Seven Gmail searches run at once: the user's own words first, then renewals and subscriptions, receipts and refunds, bills, travel, appointments and tickets, and unread mail from people.
+One fast model call reads subject, sender, date, and snippet for up to 24 threads, and picks up to three findings with their concrete numbers, dates, and names.
+Code then drops findings that point at a thread that does not exist, strips links, and drops anything that asks for passwords, codes, or money.
+- **Why.** The call is live, so the scan must be quick.
+Snippets carry the key facts in most emails, so the scan skips full bodies.
+It takes 1.3 to 2.5 s and costs about $0.0002.
+Milestone 4 reads full bodies only when it acts on one email.
+
+### D44. Email is untrusted input
+
+- **Choice.** The scan prompt says to never follow instructions in email and to skip scams.
+The sample inbox includes a prompt-injection email ("SYSTEM NOTE TO AI ASSISTANT: ignore all previous instructions...") to prove the point, and code drops it even if the model picks it.
+- **Why.** An inbox is the easiest place to plant instructions for an assistant.
+
+### D45. The sample inbox
+
+- **Choice.** The connect page offers "Use a sample inbox instead".
+It holds about 25 realistic emails: renewals, receipts, bills, a flight, a hotel, a landlord and a friend waiting on replies, noise, and the injection email.
+Dates move with the session clock.
+The agent always calls it the sample inbox and never passes it off as the user's email.
+- **Why.** While the Google app is unverified and in Testing, only listed test users can connect real Gmail.
+Reviewers, the demo video, and privacy-minded users still see the whole flow.
+
+### D46. OAuth
+
+- **Choice.** The agent texts a signed link that expires in 24 hours.
+It opens in a popup, never the simulator tab, because navigating that tab would end a live call.
+The flow uses PKCE, `access_type=online` (no refresh token), and `prompt=select_account consent`, so the account picker and the scope checkboxes always show.
+The granted scopes in the token response decide the outcome, since Google's granular consent lets people uncheck Gmail.
+The access token lives in server memory for the session only. It is never written to disk, logged, or put in session state, and a test checks that.
+The ID token's claims are read without re-checking the signature, because it came straight from Google's token endpoint over TLS.
+- **Why.** These are the brief's rules, plus least privilege.
+
+### D47. Telling a cancel from a slow sign-in
+
+- **Choice.** If the popup closes while it is still on our connect page, that is a cancel after a 2 s grace.
+Once the popup has gone to Google, a close signal is ignored.
+Only a missing callback after 3 minutes counts as abandoned.
+- **Why.** Google's pages set an opener policy that can cut or confuse the page's handle to the popup.
+Trusting that signal could tell a user "the window closed" while they are still signing in.
+Google always redirects back on finish, deny, or cancel.
+
+### D48. The magic moment on a call
+
+- **Choice.** When the need is known on a call, the brain texts the Gmail link and tells the agent to mention it.
+The call stays up while the link is out (up to 75 s) and while the scan runs, with no "are you still there?" during that wait.
+On connect, the agent says it is taking a quick look.
+When the scan lands, the finding goes to the agent as commentary to say in its own words.
+The call wraps up only after the agent line that actually says the finding.
+That line must contain a name, month, or number from it, and a 20 s fallback covers an agent that never says it.
+The recap text repeats the finding in writing.
+- **Why.** Browser QA found each of these failure modes: a queued older line counted as the finding, a wrap-up cut the agent off mid-sentence, and a silence check-in fired while the user was in the Gmail popup.
+Speech also spells numbers out ("seventeen dollars"), so names and months are the reliable anchors.
+
+### D49. A wrap-up needs a spoken cue
+
+- **Choice.** Every wrap-up sends an instruction (how to end) and a commentary cue (speak now).
+- **Why.** An instruction alone does not make GPT-Live speak (D30).
+When the wrap-up came after the agent had stopped talking, it waited in silence until the fallback hung up.
+
+### D50. Inbox results by text
+
+- **Choice.** On connect, the text says "taking a quick look" and asks nothing.
+The finding follows in the next text, with "want me to start there?".
+The next question waits while a scan runs, so the finding comes before any ask.
+- **Why.** The finding is the value. It should land before the next request.
+
+### D51. Every Google failure gets its own plain sentence
+
+- **Choice.** Unchecked Gmail box, cancel, access denied, Workspace admin block, and a lost or expired token each have their own wording.
+The admin block names the organization's admin and says a personal Gmail works.
+A lost token resets the Gmail slot so the next ask sends a fresh link.
+- **Why.** The brief asks the agent to say plainly what happened and what it needs.
+
+### D52. Browser QA notes
+
+- **Choice.** QA clicks links by coordinates, not by element, and closes the popup through the page's own handle.
+- **Why.** The QA browser's element click does not fire real mouse events on links, so the popup code never ran.
+Closing a popup through the QA browser also did not update the opener's `popup.closed`.
+Neither was a product bug, but both hid what the product does.
