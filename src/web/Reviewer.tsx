@@ -3,6 +3,13 @@ import type { LogView } from "../shared/protocol.ts";
 import type { CallControls } from "./useCall.ts";
 import { VOICE_SCRIPTS, type VoiceRunState } from "./voiceRuns.ts";
 
+/**
+ * Scripted voice runs spend real money on each click, so a public deploy hides
+ * them. Add ?qa to the URL to show them.
+ */
+const SHOW_VOICE_RUNS =
+  import.meta.env.DEV || new URLSearchParams(window.location.search).has("qa");
+
 interface Slot {
   status: string;
   value: string | null;
@@ -152,55 +159,57 @@ export function Reviewer({
         )}
       </section>
 
-      <section className="rv-card">
-        <h2>Voice runs</h2>
-        <div className="rv-buttons">
-          <button
-            type="button"
-            disabled={voiceRuns.state.running !== null || callLive}
-            onClick={() => void voiceRuns.run(VOICE_SCRIPTS.map((s) => s.id))}
-          >
-            Run all {VOICE_SCRIPTS.length}
-          </button>
-          {VOICE_SCRIPTS.map((s) => (
+      {SHOW_VOICE_RUNS && (
+        <section className="rv-card">
+          <h2>Voice runs</h2>
+          <div className="rv-buttons">
             <button
-              key={s.id}
               type="button"
               disabled={voiceRuns.state.running !== null || callLive}
-              onClick={() => void voiceRuns.run([s.id])}
+              onClick={() => void voiceRuns.run(VOICE_SCRIPTS.map((s) => s.id))}
             >
-              {s.label}
+              Run all {VOICE_SCRIPTS.length}
             </button>
-          ))}
-          {voiceRuns.state.running && (
-            <button type="button" className="danger" onClick={voiceRuns.stop}>
-              Stop
-            </button>
-          )}
-        </div>
-        {voiceRuns.state.running && (
-          <p className="rv-note">
-            Running {voiceRuns.state.running}: {voiceRuns.state.step || "starting"}
-          </p>
-        )}
-        {voiceRuns.state.results.length > 0 && (
-          <ul className="rv-runs">
-            {voiceRuns.state.results.map((r) => (
-              <li key={r.id}>
-                <span className={`pill ${r.ok ? "confirmed" : "declined"}`}>
-                  {r.ok ? "done" : r.detail === "stopped" ? "stopped" : "failed"}
-                </span>{" "}
-                {r.id}
-                {r.detail && <span className="muted"> · {r.detail}</span>}
-              </li>
+            {VOICE_SCRIPTS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                disabled={voiceRuns.state.running !== null || callLive}
+                onClick={() => void voiceRuns.run([s.id])}
+              >
+                {s.label}
+              </button>
             ))}
-          </ul>
-        )}
-        <p className="rv-note">
-          Real calls with prerecorded clips. Each run starts a fresh session. Grade them with
-          <code> pnpm voice:report</code>.
-        </p>
-      </section>
+            {voiceRuns.state.running && (
+              <button type="button" className="danger" onClick={voiceRuns.stop}>
+                Stop
+              </button>
+            )}
+          </div>
+          {voiceRuns.state.running && (
+            <p className="rv-note">
+              Running {voiceRuns.state.running}: {voiceRuns.state.step || "starting"}
+            </p>
+          )}
+          {voiceRuns.state.results.length > 0 && (
+            <ul className="rv-runs">
+              {voiceRuns.state.results.map((r) => (
+                <li key={r.id}>
+                  <span className={`pill ${r.ok ? "confirmed" : "declined"}`}>
+                    {r.ok ? "done" : r.detail === "stopped" ? "stopped" : "failed"}
+                  </span>{" "}
+                  {r.id}
+                  {r.detail && <span className="muted"> · {r.detail}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="rv-note">
+            Real calls with prerecorded clips. Each run starts a fresh session. Grade them with
+            <code> pnpm voice:report</code>.
+          </p>
+        </section>
+      )}
 
       <section className="rv-card">
         <h2>Google consent</h2>
