@@ -122,25 +122,28 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
         note(`You answered a call from ${who}.`);
         await w.event({ type: "call_answered", callId: ring.callId });
         const callId = ring.callId;
-        const tool = (name: string, args: unknown) =>
-          w.event({ type: "voice_tool", callId, toolCallId: `${name}-${calls}`, name, args });
-        const said = (role: "user" | "agent", text: string) =>
-          w.event({ type: "transcript_final", callId, role, text });
-        await said("agent", `Hey, it's ${who}, your AI assistant from Persona.`);
+        const said = (role: "user" | "agent", text: string, startedAgoMs = 1500) =>
+          w.event({ type: "transcript_final", callId, role, text, startedAgoMs });
+        const ended = () => w.of("end_call").some((e) => e.callId === callId);
+        await said(
+          "agent",
+          `Hey, it's ${who}, your AI assistant from Persona. What's your first name?`,
+        );
         await said("user", `I'm ${persona.heardName ?? persona.facts.name}.`);
-        await tool("save_user_name", {
-          name: persona.heardName ?? persona.facts.name,
-          confirmed: !persona.heardName,
-        });
         let reason: "close_requested" | "remote_hangup" | "connection_lost" | "content" =
           "close_requested";
         if (behavior === "hangup") reason = "remote_hangup";
         else if (behavior === "drop") reason = "connection_lost";
         else if (behavior === "moderation") reason = "content";
         else {
-          await said("user", `I could use help with ${persona.facts.need}.`);
-          await tool("save_help_need", { summary: persona.facts.need });
-          if (persona.gmail !== "never") await tool("send_gmail_link", {});
+          await said(
+            "agent",
+            "Nice to meet you. What's the most annoying thing on your plate this week?",
+          );
+          await said("user", `Honestly, ${persona.facts.need}.`);
+          // The brain wraps up once it has what it needs. The agent says goodbye, and the brain hangs up.
+          await said("agent", "Got it. I'll text you a quick recap. Talk soon, bye!", 0);
+          if (!ended()) await w.advance(cfg.callEndFallbackMs + 1000);
         }
         const summary =
           reason === "close_requested"

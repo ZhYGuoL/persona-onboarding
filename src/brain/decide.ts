@@ -171,32 +171,36 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         acks.push({ kind: "call_missed" });
         wantCallback = true;
         break;
-      case "call_ended":
+      case "call_ended": {
+        // Read what the call captured now, not when it ended, so the last utterance counts.
+        const captured = [...s.call.captured];
         switch (n.reason) {
           case "remote_hangup":
-            acks.push({ kind: "call_recap", captured: n.captured });
+            acks.push({ kind: "call_recap", captured });
             noChase = true;
             break;
           case "close_requested":
-            acks.push({ kind: "call_recap", captured: n.captured });
+            acks.push({ kind: "call_recap", captured });
+            if (s.call.userLeaving) noChase = true;
             break;
           case "connection_lost":
           case "expired":
           case "error":
-            acks.push({ kind: "call_dropped", captured: n.captured });
+            acks.push({ kind: "call_dropped", captured });
             wantCallback = true;
             break;
           case "content":
-            acks.push({ kind: "call_cut", captured: n.captured });
+            acks.push({ kind: "call_cut", captured });
             break;
           case "mic_denied":
             acks.push({ kind: "mic_denied" });
             break;
         }
-        if (n.captured.some((slot) => s.slots[slot].status === "tentative")) {
+        if (captured.some((slot) => s.slots[slot].status === "tentative")) {
           s.call.recapPending = true;
         }
         break;
+      }
       case "gmail_connected":
         acks.push({ kind: "gmail_connected", email: n.email });
         break;

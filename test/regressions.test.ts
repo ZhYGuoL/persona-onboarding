@@ -101,27 +101,15 @@ describe("call recap", () => {
     await w.say("sure", { reply_to_pending: "yes" });
     const callId = w.of("ring_phone")[0]?.callId ?? "";
     await w.event({ type: "call_answered", callId });
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "a",
-      name: "save_user_name",
-      args: { name: "Rosa", confirmed: true },
-    });
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "b",
-      name: "save_help_need",
-      args: { summary: "bills" },
-    });
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "c",
-      name: "send_gmail_link",
-      args: {},
-    });
+    await w.hear("It's Rosa, R-O-S-A", { confirms_name: "Rosa" });
+    await w.hear("honestly my bills", { help_need: "keeping up with bills" });
+    // The brain texts the Gmail link during the call, tied to the need.
+    expect(
+      w
+        .turns()
+        .flatMap((t) => t.links)
+        .filter((l) => l.includes("gmail")),
+    ).toHaveLength(1);
     await w.event({ type: "call_ended", callId, reason: "close_requested" });
     await w.advance(1000);
     const gmailLinks = w
@@ -142,24 +130,11 @@ describe("voice capture vs typed values", () => {
       user_name: { value: "David", correction: false },
     });
     await w.say("call me", { wants_call: true });
-    const callId = w.of("ring_phone")[0]?.callId ?? "";
-    await w.event({ type: "call_answered", callId });
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "a",
-      name: "save_user_name",
-      args: { name: "Peter" },
-    });
+    await w.event({ type: "call_answered", callId: w.of("ring_phone")[0]?.callId ?? "" });
+    await w.hear("I'm Peter", { user_name: { value: "Peter", correction: false } });
     expect(w.state.slots.user_name).toMatchObject({ value: "David", status: "confirmed" });
-    expect((w.of("tool_result").at(-1)?.output as { ok: boolean } | undefined)?.ok).toBe(false);
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "b",
-      name: "save_user_name",
-      args: { name: "Dave", correction: true },
-    });
+    expect(w.pushes("thinking").join(" ")).toMatch(/keep calling them David/);
+    await w.hear("actually call me Dave", { user_name: { value: "Dave", correction: true } });
     expect(w.state.slots.user_name.value).toBe("Dave");
   });
 });

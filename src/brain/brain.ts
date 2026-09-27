@@ -1,10 +1,15 @@
 // The brain. `handle()` is synchronous: it applies one event to the session
-// state and returns actions, log notes, and at most one async turn job. The
-// job runs the model calls outside the session queue and comes back as a
-// `turn_ready` event. At commit time the brain re-runs `decide()` on the live
-// state, so a turn that went stale while the model was thinking never ships.
+// state and returns actions, log notes, and async turn jobs. A job runs the
+// model calls outside the session queue and comes back as a `turn_ready` event.
+//
+// Text turns: at commit time the brain re-runs `decide()` on the live state, so
+// a turn that went stale while the model was thinking never ships.
+//
+// Call turns: each finished user utterance on a call is read by the same
+// interpreter and applied by `decideCall()`. They run in order on their own
+// track and are never dropped, so a hangup cannot lose what the user said.
 
-import { callBrief } from "./call.ts";
+import { CHECK_IN_INSTRUCTION, openingPushes } from "./call.ts";
 import type { BrainConfig } from "./config.ts";
 import {
   cancelTimer,
@@ -14,20 +19,23 @@ import {
   isStopKeyword,
   scheduleTimer,
 } from "./decide.ts";
+import { decideCall, startWrapUp } from "./decide-call.ts";
 import { type Interpreter, KeywordInterpreter } from "./interpret.ts";
-import { canAsk, recordAsk, setSlot } from "./ledger.ts";
+import { setSlot } from "./ledger.ts";
 import { type Renderer, renderTurn, type TemplateRenderer, templateBubbles } from "./render.ts";
 import type {
   Action,
   BrainEvent,
+  Bubble,
   CallEndReason,
+  CallPlan,
   Interpretation,
   Notice,
+  PendingText,
   SessionState,
-  SlotName,
   TurnResult,
 } from "./types.ts";
-import { checkName, cleanHelpNeed, sanitize } from "./validate.ts";
+import { checkName, sanitize } from "./validate.ts";
 
 export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const MAX_TEXT_LENGTH = 2000;
@@ -82,7 +90,8 @@ export class Brain {
         this.onTimer(step, ev.timerId, now);
         break;
       case "turn_ready":
-        this.onTurnReady(step, ev.turnId, ev.result, now);
+        if (ev.result.kind === "call") this.onCallTurnReady(step, ev.turnId, ev.result, now);
+        else this.onTurnReady(step, ev.turnId, ev.result, now);
         break;
       case "client_connected":
         break;
@@ -108,15 +117,14 @@ export class Brain {
       case "call_ended":
         this.onCallEnded(step, ev.callId, ev.reason, now);
         break;
-      case "voice_tool":
-        this.onVoiceTool(step, ev.callId, ev.toolCallId, ev.name, ev.args, now);
+      case "voice_activity":
+        if (s.call.status === "active" && s.call.callId === ev.callId) {
+          s.call.silenceStage = 0;
+          cancelTimer(s, step.actions, "call_silence");
+        }
         break;
       case "transcript_final":
-        if (s.call.status === "active" && s.call.callId === ev.callId && ev.text.trim()) {
-          s.history.push({ from: ev.role, channel: "call", text: sanitize(ev.text), ts: now });
-          if (ev.role === "user") s.lastUserAt = now;
-          if (s.history.length > this.cfg.historyLimit) s.history.shift();
-        }
+        this.onTranscript(step, ev.callId, ev.role, ev.text, ev.startedAgoMs ?? 0, now);
         break;
       case "oauth_done":
         this.onOAuthDone(step, ev.scopes, ev.email, ev.name, now);
@@ -156,7 +164,8 @@ export class Brain {
       return;
     }
     if (s.call.status === "active" && s.call.callId && !isStopKeyword(text)) {
-      // A text during a live call becomes context for the call.
+      // A text during a live call is part of the call: the brain reads it like
+      // speech, and the agent hears about it.
       s.history.push({ from: "user", channel: "text", text, ts: now });
       s.lastUserAt = now;
       this.pushToCall(
@@ -169,6 +178,8 @@ export class Brain {
         "commentary",
         "Briefly acknowledge the text they just sent, then continue.",
       );
+      s.pending.utterances.push({ text, ts: now });
+      this.startCallTurn(step, now);
       return;
     }
     s.pending.texts.push({ text, ts: now });
@@ -179,6 +190,7 @@ export class Brain {
   private addNotice(step: Step, notice: Notice, now: number): void {
     const s = step.state;
     s.pending.notices.push(notice);
+    if (s.turn.holdRecap) return;
     const at = now + this.cfg.noticeDelayMs;
     const existing = s.timers.reply;
     if (!existing || existing.fireAt > at) scheduleTimer(s, step.actions, "reply", at);
@@ -194,6 +206,7 @@ export class Brain {
       return;
     }
     delete s.timers[timerId];
+    const live = s.call.status === "active" && s.call.callId !== null;
     switch (timer.kind) {
       case "reply":
         this.startTurn(step, now);
@@ -220,14 +233,48 @@ export class Brain {
         }
         break;
       }
+      case "call_silence":
+        if (!live || s.call.wrapUpAt !== null) break;
+        if (s.call.silenceStage === 0) {
+          s.call.silenceStage = 1;
+          this.pushToCall(step, "instructions", CHECK_IN_INSTRUCTION);
+          scheduleTimer(s, step.actions, "call_silence", now + this.cfg.callSilenceGiveUpMs);
+        } else {
+          this.wrapUp(step, now, "silence");
+        }
+        break;
+      case "call_max":
+        if (live && s.call.wrapUpAt === null) this.wrapUp(step, now, "time");
+        break;
+      case "call_end_fallback":
+        if (live) this.endCall(step);
+        break;
     }
   }
 
-  // ------------------------------------------------------------ turns
+  private wrapUp(step: Step, now: number, reason: "silence" | "time"): void {
+    const plan: CallPlan = { pushes: [], texts: [], wrapUp: false, end: false };
+    startWrapUp(step.state, plan, step.actions, this.cfg, now, reason);
+    for (const p of plan.pushes) this.pushToCall(step, p.kind, p.text);
+  }
+
+  private endCall(step: Step): void {
+    const callId = step.state.call.callId;
+    if (!callId) return;
+    step.actions.push({ type: "end_call", callId });
+    cancelTimer(step.state, step.actions, "call_end_fallback");
+  }
+
+  // ------------------------------------------------------------ text turns
 
   private startTurn(step: Step, now: number): void {
     const s = step.state;
     if (s.pending.texts.length === 0 && s.pending.notices.length === 0) return;
+    if (s.turn.callInFlight !== null && s.pending.notices.some((n) => n.kind === "call_ended")) {
+      // The recap waits for the last call utterance to land in the ledger.
+      s.turn.holdRecap = true;
+      return;
+    }
     s.turn.seq += 1;
     const turnId = s.turn.seq;
     s.turn.inFlight = turnId;
@@ -236,36 +283,43 @@ export class Brain {
     step.jobs.push({ turnId, run: () => this.runTurn(snapshot, turnId, now) });
   }
 
+  private async interpret(
+    snapshot: SessionState,
+    texts: PendingText[],
+    guardFailures: string[],
+  ): Promise<{ interp: Interpretation; interpreter: "llm" | "keyword"; ms: number }> {
+    const started = performance.now();
+    if (this.deps.interpreter) {
+      try {
+        const interp = await this.deps.interpreter.interpret({ state: snapshot, texts });
+        return { interp, interpreter: "llm", ms: performance.now() - started };
+      } catch (err) {
+        guardFailures.push(
+          `interpreter error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    const interp = await this.keyword.interpret({ state: snapshot, texts });
+    return { interp, interpreter: "keyword", ms: performance.now() - started };
+  }
+
   /** Runs outside the session queue. Never throws. */
   async runTurn(snapshot: SessionState, turnId: number, now: number): Promise<BrainEvent> {
     const texts = snapshot.pending.texts.slice();
     const notices = snapshot.pending.notices.slice();
+    const guardFailures: string[] = [];
     let interp: Interpretation | null = null;
     let interpreter: "llm" | "keyword" | null = null;
     let interpretMs: number | null = null;
-    const guardFailures: string[] = [];
-
     if (texts.length > 0) {
-      const started = performance.now();
-      if (this.deps.interpreter) {
-        try {
-          interp = await this.deps.interpreter.interpret({ state: snapshot, texts });
-          interpreter = "llm";
-        } catch (err) {
-          guardFailures.push(
-            `interpreter error: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
-      if (!interp) {
-        interp = await this.keyword.interpret({ state: snapshot, texts });
-        interpreter = "keyword";
-      }
-      interpretMs = performance.now() - started;
+      const r = await this.interpret(snapshot, texts, guardFailures);
+      interp = r.interp;
+      interpreter = r.interpreter;
+      interpretMs = r.ms;
     }
 
     const { plan, state: after } = decide(snapshot, { texts, notices, interp, now }, this.cfg);
-    let bubbles: TurnResult["bubbles"] = [];
+    let bubbles: Bubble[] = [];
     let renderer: "llm" | "template" = "template";
     let renderMs = 0;
     if (!isEmptyPlan(plan)) {
@@ -283,6 +337,7 @@ export class Brain {
       type: "turn_ready",
       turnId,
       result: {
+        kind: "text",
         interp,
         plan,
         bubbles,
@@ -294,12 +349,18 @@ export class Brain {
           guardFailures,
           textsSeen: texts.length,
           noticesSeen: notices.length,
+          utterancesSeen: 0,
         },
       },
     };
   }
 
-  private onTurnReady(step: Step, turnId: number, result: TurnResult, now: number): void {
+  private onTurnReady(
+    step: Step,
+    turnId: number,
+    result: Extract<TurnResult, { kind: "text" }>,
+    now: number,
+  ): void {
     const s = step.state;
     if (turnId !== s.turn.inFlight) {
       step.notes.push({ type: "turn_dropped_stale", data: { turnId } });
@@ -331,29 +392,146 @@ export class Brain {
     }
 
     step.state = d.state;
-    const next = step.state;
     step.actions.push({ type: "typing", on: false });
     step.actions.push(...d.actions);
-    step.notes.push({
-      type: "turn",
-      data: { turnId, interp: result.interp, plan: d.plan, meta },
-    });
-    if (bubbles.length > 0) {
-      step.actions.push({ type: "send_text", turnId, bubbles });
-      for (const b of bubbles) {
-        if (b.kind === "text")
-          next.history.push({ from: "agent", channel: "text", text: b.text, ts: now });
-      }
-      if (next.history.length > this.cfg.historyLimit) {
-        next.history.splice(0, next.history.length - this.cfg.historyLimit);
-      }
-      next.lastAgentAt = now;
-    }
-    next.turn.committed = turnId;
-    if (next.phase === "main") next.turnsInMain += 1;
+    step.notes.push({ type: "turn", data: { turnId, interp: result.interp, plan: d.plan, meta } });
+    this.sendTexts(step, turnId, bubbles, now);
+    step.state.turn.committed = turnId;
+    if (step.state.phase === "main") step.state.turnsInMain += 1;
   }
 
-  // ------------------------------------------------------------ calls
+  private sendTexts(step: Step, turnId: number, bubbles: Bubble[], now: number): void {
+    if (bubbles.length === 0) return;
+    const s = step.state;
+    step.actions.push({ type: "send_text", turnId, bubbles });
+    for (const b of bubbles) {
+      if (b.kind === "text")
+        s.history.push({ from: "agent", channel: "text", text: b.text, ts: now });
+    }
+    if (s.history.length > this.cfg.historyLimit)
+      s.history.splice(0, s.history.length - this.cfg.historyLimit);
+    s.lastAgentAt = now;
+  }
+
+  // ------------------------------------------------------------ call turns
+
+  private onTranscript(
+    step: Step,
+    callId: string,
+    role: "user" | "agent",
+    raw: string,
+    startedAgoMs: number,
+    now: number,
+  ): void {
+    const s = step.state;
+    const text = sanitize(raw).slice(0, MAX_TEXT_LENGTH);
+    // Late transcripts from the call that just ended still count: nothing the user said is lost.
+    if (s.call.callId !== callId || !text) {
+      step.notes.push({ type: "ignored_stale_call_event" });
+      return;
+    }
+    s.history.push({ from: role, channel: "call", text, ts: now });
+    if (s.history.length > this.cfg.historyLimit) s.history.shift();
+    const live = s.call.status === "active";
+    if (role === "agent") {
+      s.lastAgentAt = now;
+      if (!live) return;
+      const startedAt = now - startedAgoMs;
+      if (s.call.wrapUpAt !== null && startedAt >= s.call.wrapUpAt) {
+        // The goodbye is done. Hang up instead of leaving dead air.
+        this.endCall(step);
+      } else if (s.call.wrapUpAt === null) {
+        scheduleTimer(s, step.actions, "call_silence", now + this.cfg.callSilenceNudgeMs);
+      }
+      return;
+    }
+    s.lastUserAt = now;
+    s.call.silenceStage = 0;
+    cancelTimer(s, step.actions, "call_silence");
+    s.pending.utterances.push({ text, ts: now });
+    this.startCallTurn(step, now);
+  }
+
+  private startCallTurn(step: Step, now: number): void {
+    const s = step.state;
+    if (s.turn.callInFlight !== null || s.pending.utterances.length === 0) return;
+    s.turn.seq += 1;
+    const turnId = s.turn.seq;
+    s.turn.callInFlight = turnId;
+    const snapshot = structuredClone(s);
+    step.jobs.push({ turnId, run: () => this.runCallTurn(snapshot, turnId, now) });
+  }
+
+  /** Runs outside the session queue. Never throws. */
+  async runCallTurn(snapshot: SessionState, turnId: number, now: number): Promise<BrainEvent> {
+    const utterances = snapshot.pending.utterances.slice();
+    const guardFailures: string[] = [];
+    const r = await this.interpret(snapshot, utterances, guardFailures);
+    const { plan } = decideCall(
+      snapshot,
+      { utterances, interp: r.interp, now },
+      this.cfg,
+      this.deps.links(snapshot.id),
+    );
+    return {
+      type: "turn_ready",
+      turnId,
+      result: {
+        kind: "call",
+        interp: r.interp,
+        callPlan: plan,
+        meta: {
+          interpretMs: r.ms,
+          renderMs: 0,
+          renderer: "template",
+          interpreter: r.interpreter,
+          guardFailures,
+          textsSeen: 0,
+          noticesSeen: 0,
+          utterancesSeen: utterances.length,
+        },
+      },
+    };
+  }
+
+  private onCallTurnReady(
+    step: Step,
+    turnId: number,
+    result: Extract<TurnResult, { kind: "call" }>,
+    now: number,
+  ): void {
+    const s = step.state;
+    if (turnId !== s.turn.callInFlight) {
+      step.notes.push({ type: "turn_dropped_stale", data: { turnId } });
+      return;
+    }
+    s.turn.callInFlight = null;
+    const utterances = s.pending.utterances.slice(0, result.meta.utterancesSeen);
+    // Decide again on the live state. It is pure code, so this is cheap and always current.
+    const d = decideCall(
+      s,
+      { utterances, interp: result.interp, now },
+      this.cfg,
+      this.deps.links(s.id),
+    );
+    step.state = d.state;
+    step.actions.push(...d.actions);
+    step.notes.push({
+      type: "call_turn",
+      data: { turnId, interp: result.interp, plan: d.plan, meta: result.meta },
+    });
+    if (d.plan.texts.length > 0) this.sendTexts(step, turnId, d.plan.texts, now);
+    const next = step.state;
+    if (next.pending.utterances.length > 0) {
+      this.startCallTurn(step, now);
+    } else if (next.turn.holdRecap) {
+      next.turn.holdRecap = false;
+      if (next.pending.notices.length > 0)
+        scheduleTimer(next, step.actions, "reply", now + this.cfg.noticeDelayMs);
+    }
+  }
+
+  // ------------------------------------------------------------ call lifecycle
 
   private newCallId(s: SessionState, now: number): string {
     return `${s.id}-call-${s.call.answered + s.call.missed + s.call.declines + 1}-${now}`;
@@ -386,10 +564,14 @@ export class Brain {
     s.call.startedAt = now;
     s.call.captured = [];
     s.call.linkSentOnCall = false;
+    s.call.wrapUpAt = null;
+    s.call.silenceStage = 0;
+    s.call.userLeaving = false;
     s.awaiting = null;
     cancelTimer(s, step.actions, "ring_timeout");
     cancelTimer(s, step.actions, "idle_nudge");
-    this.pushToCall(step, "instructions", callBrief(s, this.cfg));
+    scheduleTimer(s, step.actions, "call_max", now + this.cfg.callMaxMs);
+    for (const p of openingPushes(s, this.cfg)) this.pushToCall(step, p.kind, p.text);
   }
 
   private onCallEnded(step: Step, callId: string, reason: CallEndReason, now: number): void {
@@ -401,13 +583,15 @@ export class Brain {
     const wasRinging = s.call.status === "ringing";
     s.call.status = "idle";
     s.call.lastEnd = { reason, at: now };
-    cancelTimer(s, step.actions, "ring_timeout");
+    for (const t of ["ring_timeout", "call_silence", "call_max", "call_end_fallback"])
+      cancelTimer(s, step.actions, t);
     if (reason === "mic_denied") s.caps.voice = false;
     if (wasRinging && reason !== "mic_denied") {
       s.call.missed += 1;
       this.addNotice(step, { kind: "call_missed" }, now);
       return;
     }
+    if (s.turn.callInFlight !== null || s.pending.utterances.length > 0) s.turn.holdRecap = true;
     this.addNotice(step, { kind: "call_ended", reason, captured: [...s.call.captured] }, now);
   }
 
@@ -417,112 +601,8 @@ export class Brain {
     text: string,
   ): void {
     const callId = step.state.call.callId;
-    if (callId) step.actions.push({ type: "push_to_call", callId, kind, text });
-  }
-
-  private onVoiceTool(
-    step: Step,
-    callId: string,
-    toolCallId: string,
-    name: string,
-    args: unknown,
-    now: number,
-  ): void {
-    const s = step.state;
-    const reply = (output: unknown) =>
-      step.actions.push({ type: "tool_result", callId, toolCallId, output });
-    if (s.call.status !== "active" || s.call.callId !== callId) {
-      reply({ ok: false, error: "no_active_call" });
-      return;
-    }
-    const a = (args && typeof args === "object" ? args : {}) as Record<string, unknown>;
-    const capture = (slot: SlotName) => {
-      if (!s.call.captured.includes(slot)) s.call.captured.push(slot);
-    };
-    switch (name) {
-      case "save_user_name":
-      case "save_agent_name": {
-        const slotName = name === "save_user_name" ? "user_name" : "agent_name";
-        if (typeof a.name !== "string")
-          return void reply({ ok: false, error: "name must be a string" });
-        const max =
-          slotName === "agent_name" ? this.cfg.agentNameMaxLength : this.cfg.userNameMaxLength;
-        const check = checkName(a.name, max);
-        if (!check.ok) return void reply({ ok: false, error: check.reason });
-        const existing = s.slots[slotName];
-        const same =
-          existing.value?.localeCompare(check.value, undefined, { sensitivity: "base" }) === 0;
-        // A voice capture never overwrites a confirmed value unless the user corrected it on the call.
-        if (existing.status === "confirmed" && !same && a.correction !== true) {
-          return void reply({
-            ok: false,
-            error: `already confirmed as "${existing.value}". Pass correction: true only if the user just corrected it.`,
-          });
-        }
-        if (existing.status === "confirmed" && same) {
-          capture(slotName);
-          return void reply({ ok: true, saved: existing.value, status: "confirmed" });
-        }
-        const confirmed = a.confirmed === true;
-        setSlot(
-          s.slots[slotName],
-          check.value,
-          confirmed ? "confirmed" : "tentative",
-          "voice",
-          now,
-        );
-        capture(slotName);
-        return void reply({ ok: true, saved: check.value, status: s.slots[slotName].status });
-      }
-      case "confirm_user_name": {
-        const slot = s.slots.user_name;
-        if (!slot.value) return void reply({ ok: false, error: "no name saved yet" });
-        slot.status = "confirmed";
-        slot.updatedAt = now;
-        capture("user_name");
-        return void reply({ ok: true, confirmed: slot.value });
-      }
-      case "save_help_need": {
-        if (typeof a.summary !== "string")
-          return void reply({ ok: false, error: "summary must be a string" });
-        const value = cleanHelpNeed(a.summary, this.cfg.helpNeedMaxLength);
-        if (!value) return void reply({ ok: false, error: "empty" });
-        setSlot(s.slots.help_need, value, "confirmed", "voice", now);
-        capture("help_need");
-        return void reply({ ok: true, saved: value });
-      }
-      case "send_gmail_link": {
-        const gmail = s.slots.gmail;
-        if (gmail.status === "confirmed")
-          return void reply({ ok: false, error: "already_connected" });
-        if (!s.caps.gmail) return void reply({ ok: false, error: "unavailable" });
-        if (!canAsk(gmail, this.cfg, true) && gmail.status !== "declined") {
-          return void reply({ ok: false, error: "ask_budget_spent" });
-        }
-        recordAsk(gmail);
-        s.call.linkSentOnCall = true;
-        s.turn.seq += 1;
-        const lead =
-          s.casing === "lower"
-            ? gmail.attempts > 1
-              ? "here's that gmail link again."
-              : "here's the link to connect gmail."
-            : gmail.attempts > 1
-              ? "Here's that Gmail link again."
-              : "Here's the link to connect Gmail.";
-        step.actions.push({
-          type: "send_text",
-          turnId: s.turn.seq,
-          bubbles: [
-            { kind: "text", text: lead },
-            { kind: "link", url: this.deps.links(s.id).gmail, title: "Connect Gmail" },
-          ],
-        });
-        s.history.push({ from: "agent", channel: "text", text: lead, ts: now });
-        return void reply({ ok: true, sent: true });
-      }
-      default:
-        reply({ ok: false, error: `unknown tool ${name}` });
+    if (callId && step.state.call.status === "active") {
+      step.actions.push({ type: "push_to_call", callId, kind, text });
     }
   }
 

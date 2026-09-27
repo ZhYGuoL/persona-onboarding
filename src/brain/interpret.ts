@@ -37,6 +37,7 @@ export function blankInterpretation(language = "en"): Interpretation {
     typing_fatigue: false,
     confused: false,
     leaving: false,
+    confirms_name: null,
   };
 }
 
@@ -72,6 +73,7 @@ export const SIGNAL_KINDS = [
   "typing_fatigue",
   "confused",
   "leaving",
+  "confirms_name",
 ] as const;
 
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
@@ -149,6 +151,9 @@ export function readingToInterpretation(raw: RawReading): Interpretation {
       case "other_question":
         if (value) out.other_question = value;
         break;
+      case "confirms_name":
+        if (value) out.confirms_name = value;
+        break;
       case "offensive_agent_name":
         out.offensive_names.push("agent_name");
         break;
@@ -210,6 +215,9 @@ Signal kinds:
 - typing_fatigue: the user complains about typing or says they would rather talk.
 - confused: the user does not understand what is happening.
 - leaving: the user says they have to go now ("gotta go", "brb", "ttyl").
+- confirms_name (value): the user confirms or spells out their own name after the assistant checked it. "yes, that's right" after "Is that David with a V?" gives "David". "D-A-V-E" gives "Dave". Value = the confirmed spelling.
+
+On a phone call, the new texts are speech recognition of what the user said. Names can be misheard, so trust a spelled-out name over a spoken one.
 
 Use the context to resolve short replies. A bare "david" after "what should I call you?" is user_name. A bare "juno" after "what do you want to call me?" is agent_name. Only report what the new texts say. Do not repeat facts from earlier texts.`;
 
@@ -250,6 +258,9 @@ export function interpreterContext(state: SessionState): string {
   return [
     `Known so far: assistant name ${slot("agent_name")}; user name ${slot("user_name")}; help need ${slot("help_need")}; gmail ${slot("gmail")}.`,
     `Previous language: ${state.language}. Opted out: ${state.phase === "opted_out" ? "yes" : "no"}.`,
+    state.call.status === "active"
+      ? "Channel: a live phone call. The new texts are a transcript of the user's speech."
+      : "Channel: iMessage texts.",
     `The assistant's last text asked for: ${describeAwaiting(state.awaiting?.question)}.`,
     "Recent conversation:",
     recent || "(none)",

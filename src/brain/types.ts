@@ -46,6 +46,12 @@ export interface CallState {
   recapPending: boolean;
   /** The Gmail link went out by text during the current or last call. */
   linkSentOnCall: boolean;
+  /** When the brain told the agent to wrap up. The next agent utterance ends the call. */
+  wrapUpAt: number | null;
+  /** 0 = no silence yet, 1 = the agent already checked in once. */
+  silenceStage: number;
+  /** The user said they have to go, so the recap does not chase. */
+  userLeaving: boolean;
 }
 
 export type AskableSlot = "agent_name" | "user_name" | "help_need";
@@ -78,7 +84,13 @@ export interface Capabilities {
   gmail: boolean;
 }
 
-export type TimerKind = "reply" | "ring_timeout" | "idle_nudge";
+export type TimerKind =
+  | "reply"
+  | "ring_timeout"
+  | "idle_nudge"
+  | "call_silence"
+  | "call_max"
+  | "call_end_fallback";
 
 export interface TimerEntry {
   kind: TimerKind;
@@ -120,9 +132,20 @@ export interface SessionState {
   caps: Capabilities;
   /** The question the last agent turn asked, if any. */
   awaiting: { question: Question; at: number } | null;
-  pending: { texts: PendingText[]; notices: Notice[] };
-  /** Turn bookkeeping. `inFlight` is the latest started turn. */
-  turn: { seq: number; inFlight: number | null; committed: number };
+  /** Texts and notices wait for a text turn. Utterances (finished user speech on a call) wait for a call turn. */
+  pending: { texts: PendingText[]; notices: Notice[]; utterances: PendingText[] };
+  /**
+   * Turn bookkeeping. `inFlight` is the latest started text turn. Call turns run
+   * on their own track, in order, and are never dropped. `holdRecap` keeps the
+   * post-call text waiting until the last call utterance is written.
+   */
+  turn: {
+    seq: number;
+    inFlight: number | null;
+    committed: number;
+    callInFlight: number | null;
+    holdRecap: boolean;
+  };
   timers: Record<string, TimerEntry>;
   language: string;
   casing: "lower" | "normal";
@@ -144,8 +167,15 @@ export type BrainEvent =
   | { type: "call_answered"; callId: string }
   | { type: "call_declined"; callId: string }
   | { type: "call_ended"; callId: string; reason: CallEndReason }
-  | { type: "voice_tool"; callId: string; toolCallId: string; name: string; args: unknown }
-  | { type: "transcript_final"; callId: string; role: "user" | "agent"; text: string }
+  | { type: "voice_activity"; callId: string; role: "user" }
+  | {
+      type: "transcript_final";
+      callId: string;
+      role: "user" | "agent";
+      text: string;
+      /** How long ago the utterance started, so the brain can tell a goodbye from speech already in progress. */
+      startedAgoMs?: number;
+    }
   | { type: "oauth_done"; scopes: string[]; email: string; name: string | null }
   | { type: "oauth_failed"; reason: OAuthFailure }
   | { type: "timer_fired"; timerId: string; kind: TimerKind }
@@ -160,7 +190,6 @@ export type Action =
   | { type: "typing"; on: boolean }
   | { type: "ring_phone"; callId: string; callerName: string }
   | { type: "push_to_call"; callId: string; kind: PushKind; text: string }
-  | { type: "tool_result"; callId: string; toolCallId: string; output: unknown }
   | { type: "end_call"; callId: string }
   | { type: "schedule_timer"; timerId: string; kind: TimerKind; fireAt: number }
   | { type: "cancel_timer"; timerId: string };
@@ -190,6 +219,8 @@ export interface Interpretation {
   typing_fatigue: boolean;
   confused: boolean;
   leaving: boolean;
+  /** The user confirmed or spelled out their name (mostly on calls). */
+  confirms_name: string | null;
 }
 
 export interface NameClaim {
@@ -261,12 +292,20 @@ export interface PlanFacts {
   casing: "lower" | "normal";
 }
 
-export interface TurnResult {
-  interp: Interpretation | null;
-  bubbles: Bubble[];
-  plan: Plan;
-  meta: TurnMeta;
+/** What one call turn does: context for the live call, and any texts sent meanwhile. */
+export interface CallPlan {
+  pushes: Array<{ kind: PushKind; text: string }>;
+  /** Texts sent to the thread during the call, such as the Gmail link. */
+  texts: Bubble[];
+  /** Tell the agent to say goodbye. The next agent utterance ends the call. */
+  wrapUp: boolean;
+  /** End the call now, without a goodbye (opt-out, under 18). */
+  end: boolean;
 }
+
+export type TurnResult =
+  | { kind: "text"; interp: Interpretation | null; bubbles: Bubble[]; plan: Plan; meta: TurnMeta }
+  | { kind: "call"; interp: Interpretation; callPlan: CallPlan; meta: TurnMeta };
 
 export interface TurnMeta {
   interpretMs: number | null;
@@ -277,4 +316,5 @@ export interface TurnMeta {
   /** Pending counts captured when the turn started, used for staleness checks. */
   textsSeen: number;
   noticesSeen: number;
+  utterancesSeen: number;
 }

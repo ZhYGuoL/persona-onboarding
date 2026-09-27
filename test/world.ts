@@ -75,6 +75,33 @@ export class World extends SimWorld {
     this.interp.readings.set(text, reading);
     await this.send(text);
   }
+
+  /** The user says something on the live call. */
+  async hear(text: string, reading: Reading = {}): Promise<void> {
+    this.interp.readings.set(text, reading);
+    await this.event({ type: "transcript_final", callId: this.callId(), role: "user", text });
+  }
+
+  /** The agent says something on the live call. */
+  async agentSays(text: string, startedAgoMs = 1000): Promise<void> {
+    await this.event({
+      type: "transcript_final",
+      callId: this.callId(),
+      role: "agent",
+      text,
+      startedAgoMs,
+    });
+  }
+
+  callId(): string {
+    return this.state.call.callId ?? "";
+  }
+
+  pushes(kind?: "thinking" | "commentary" | "instructions"): string[] {
+    return this.of("push_to_call")
+      .filter((p) => !kind || p.kind === kind)
+      .map((p) => p.text);
+  }
 }
 
 export function questionCount(turn: SentTurn | null): number {

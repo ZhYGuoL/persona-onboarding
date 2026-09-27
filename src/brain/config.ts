@@ -7,6 +7,14 @@ export interface BrainConfig {
   /** Delay before a reply to a non-text event (call ended, OAuth done). */
   noticeDelayMs: number;
   ringTimeoutMs: number;
+  /** On a call: check in after this much silence following the agent's last words. */
+  callSilenceNudgeMs: number;
+  /** On a call: after the check-in, wrap up and move to text after this much more silence. */
+  callSilenceGiveUpMs: number;
+  /** Hard cap on call length, to keep voice cost bounded. */
+  callMaxMs: number;
+  /** After asking the agent to wrap up, end the call anyway after this long. */
+  callEndFallbackMs: number;
   /** One gentle follow-up when the user goes quiet on an open question. */
   idleNudgeMs: number;
   maxNudges: number;
@@ -35,6 +43,10 @@ export const DEFAULT_CONFIG: BrainConfig = {
   replyDebounceMs: 700,
   noticeDelayMs: 300,
   ringTimeoutMs: 25_000,
+  callSilenceNudgeMs: 9_000,
+  callSilenceGiveUpMs: 12_000,
+  callMaxMs: 4 * 60_000,
+  callEndFallbackMs: 15_000,
   idleNudgeMs: 10 * 60_000,
   maxNudges: 2,
   resumeGapMs: 60 * 60_000,

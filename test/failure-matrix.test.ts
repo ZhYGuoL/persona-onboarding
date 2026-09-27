@@ -69,13 +69,7 @@ describe("failure matrix", () => {
     const w = new World({ caps: { voice: true, gmail: true } });
     await toCallOffer(w);
     const callId = await answerCall(w);
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "t1",
-      name: "save_user_name",
-      args: { name: "David" },
-    });
+    await w.hear("I'm David", { user_name: name("David") });
     await w.event({ type: "call_ended", callId, reason: "remote_hangup" });
     await w.advance(1000);
     const t = w.last();
@@ -92,13 +86,7 @@ describe("failure matrix", () => {
     const w = new World({ caps: { voice: true } });
     await toCallOffer(w);
     const callId = await answerCall(w);
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "t1",
-      name: "save_user_name",
-      args: { name: "David" },
-    });
+    await w.hear("I'm David", { user_name: name("David") });
     const droppedAt = w.hub.now(w.sid);
     await w.event({ type: "call_ended", callId, reason: "connection_lost" });
     await w.advance(1000);
@@ -114,26 +102,18 @@ describe("failure matrix", () => {
     const w = new World({ caps: { voice: true } });
     await toCallOffer(w);
     const callId = await answerCall(w);
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "t1",
-      name: "save_user_name",
-      args: { name: "David", confirmed: true },
-    });
+    await w.hear("D, A, V, I, D", { confirms_name: "David" });
     await w.event({ type: "call_ended", callId, reason: "connection_lost" });
     await w.advance(1000);
     await w.say("yes call back", { reply_to_pending: "yes" });
     const ring = w.of("ring_phone").at(-1);
     await w.event({ type: "call_answered", callId: ring?.callId ?? "" });
-    const brief =
-      w
-        .of("push_to_call")
-        .filter((p) => p.kind === "instructions")
-        .at(-1)?.text ?? "";
-    expect(brief).toMatch(/callback/i);
-    expect(brief).toMatch(/David/);
-    expect(brief).not.toMatch(/Get their first name/);
+    const opening = w.pushes("instructions").at(-1) ?? "";
+    expect(opening).toMatch(/juno again/i);
+    expect(opening).toMatch(/callback/i);
+    expect(opening).not.toMatch(/first name/);
+    const { callInstructions } = await import("../src/brain/call.ts");
+    expect(callInstructions(w.state, w.cfg)).toMatch(/Their name is David\./);
   });
 
   it("texts during the call become call context, not a text reply", async () => {
@@ -362,46 +342,19 @@ describe("failure matrix", () => {
     expect(w.awaiting()).toBe("ask:user_name");
   });
 
-  it("voice tool arguments are validated server-side", async () => {
+  it("values heard on a call are validated server-side, and stale calls are ignored", async () => {
     const w = new World({ caps: { voice: true } });
     await toCallOffer(w);
     const callId = await answerCall(w);
+    await w.hear("my name is xxxx", { user_name: name("x".repeat(200)) });
     await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "a",
-      name: "save_user_name",
-      args: { name: 42 },
+      type: "transcript_final",
+      callId: "some-other-call",
+      role: "user",
+      text: "I'm Eve",
     });
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "b",
-      name: "save_user_name",
-      args: { name: "x".repeat(200) },
-    });
-    await w.event({
-      type: "voice_tool",
-      callId,
-      toolCallId: "c",
-      name: "delete_everything",
-      args: {},
-    });
-    await w.event({
-      type: "voice_tool",
-      callId: "other",
-      toolCallId: "d",
-      name: "save_user_name",
-      args: { name: "Eve" },
-    });
-    const results = w.of("tool_result");
-    expect(results.map((r) => (r.output as { ok: boolean }).ok)).toEqual([
-      false,
-      false,
-      false,
-      false,
-    ]);
     expect(w.state.slots.user_name.value).toBeNull();
+    expect(w.state.call.callId).toBe(callId);
   });
 
   it("never sends the same text twice in a row", async () => {
