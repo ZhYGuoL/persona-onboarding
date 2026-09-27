@@ -539,7 +539,12 @@ function ackGuide(a: Ack, f: PlanFacts): string {
     case "call_declined":
       return "They do not want a call. Accept it lightly, no guilt.";
     case "gmail_scope_denied":
+      return "They signed in with Google but unchecked the Gmail box. Say exactly that, and that nothing can be read.";
     case "gmail_failed":
+      if (a.reason === "admin_blocked") {
+        return "Their organization's Google Workspace admin blocks this app. Say that plainly, and that a personal Gmail account works.";
+      }
+      if (a.reason === "cancelled") return "The Google sign-in did not finish. Say so plainly and that nothing is connected.";
       return "Say plainly what happened with Google and that nothing is connected.";
     case "gmail_connected":
       return a.demo
