@@ -134,7 +134,13 @@ export interface Draft {
 }
 
 export type TaskResult =
-  | { kind: "answer"; text: string; receipt: Receipt | null }
+  /** `offer` is one follow-up the agent can do about an email in the answer. */
+  | {
+      kind: "answer";
+      text: string;
+      receipt: Receipt | null;
+      offer?: { threadId: string; next: string } | null;
+    }
   | { kind: "draft"; text: string; draft: Draft; receipt: Receipt | null }
   | { kind: "remind"; text: string; at: number; receipt: Receipt | null }
   | { kind: "question"; text: string; receipt: Receipt | null }

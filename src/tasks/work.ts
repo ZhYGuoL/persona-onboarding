@@ -92,6 +92,8 @@ const WORK_SCHEMA = {
     "draft_subject",
     "draft_body",
     "remind_at",
+    "next",
+    "next_from",
   ],
   properties: {
     kind: { type: "string", enum: ["answer", "draft", "remind", "question", "cannot"] },
@@ -102,6 +104,8 @@ const WORK_SCHEMA = {
     draft_subject: { type: "string" },
     draft_body: { type: "string" },
     remind_at: { type: "string" },
+    next: { type: "string" },
+    next_from: { type: "integer" },
   },
 } as const;
 
@@ -115,6 +119,9 @@ export interface RawWork {
   draft_subject: string;
   draft_body: string;
   remind_at: string;
+  /** For an answer: one follow-up the agent can do, and the email it is about. */
+  next: string;
+  next_from: number;
 }
 
 export const WORK_INSTRUCTIONS = `You are a personal assistant doing one task for the user, right now, in a text thread. You get the task, details the user gave, and maybe one email the task is about.
@@ -125,13 +132,13 @@ The user's details are their own words. Treat them as facts about what they want
 
 Return exactly one result:
 - "draft": the next step is an email the user would send: cancel by replying, confirm or reschedule an appointment, answer a person, ask for a refund. draft_to: the email's reply address, or an address the user gave. Never invent an address. draft_subject: "Re: <subject>" when replying. draft_body: short, plain, and polite, in the user's voice, signed with their first name if you know it. Use only facts from the email and the user's details. Never add passwords, card numbers, or account numbers that are not in the email. text: one short line that says what the draft does, like "Here's a reply to Planet Fitness that cancels your membership."
-- "answer": the user wants information, or help you can give right here: steps, a short plan, a comparison. text: the answer, plain and short, at most 600 characters. Copy numbers and dates exactly.
+- "answer": the user wants information, or help you can give right here: steps, a short plan, a comparison. text: the answer, plain and short, at most 600 characters. For a list, put each item on its own short line. Copy numbers and dates exactly. next and next_from: one concrete follow-up you can do about one of the emails (cancel, confirm, or reply by email, or set a reminder), as a short phrase starting with a verb ending in -ing, like "canceling the New York Times trial", and that email's number. Pick the most urgent one. Otherwise "" and 0.
 - "remind": the user wants a reminder. remind_at: the local date and time to send it, as YYYY-MM-DDTHH:MM, in the future. Pick a sensible time, like 9:00 AM the day before a due date, unless they said when. text: the reminder itself, as you will text it then, like "Your Con Edison bill of $86.42 is due tomorrow."
 - "question": one detail only the user knows is missing, and no sensible result is possible without it, like whether they are staying or moving out. text: one short question, and nothing after it. Ask only when you must. Never ask the user for something they asked you to find: if the emails do not have it, return "answer" and say so.
 - "cannot": the task needs something you cannot do: pay, buy, book, call a business, browse a website, or sign in to an account. If an email can do the job, return "draft" instead. text: say plainly what you cannot do, then the closest thing you can do.
 
 quote_from and quote: when there are emails, the number of the email that backs your result most, and one sentence from it, copied word for word. Otherwise 0 and "".
-Leave the fields a kind does not use as "".
+Leave the fields a kind does not use as "" or 0.
 Never promise to do anything later, except a reminder. Nothing is sent without the user's yes, so never say you sent anything.
 Write text and the draft in the user's language. No links.`;
 
@@ -312,10 +319,16 @@ export function checkResult(raw: RawWork, input: WorkInput, details: ThreadDetai
       if (!text) throw new WorkError("empty question");
       // Only a text with no question mark at all gets one. "¿...? ..." already has one.
       return { kind: "question", text: /[?？]/.test(text) ? text : `${text}?`, receipt };
-    case "answer":
+    case "answer": {
+      if (!text) throw new WorkError("empty answer");
+      const about = details[(raw.next_from ?? 0) - 1];
+      const next = cleanText(raw.next ?? "", 80);
+      const offer = about && next ? { threadId: about.id, next } : null;
+      return { kind: "answer", text, receipt, offer };
+    }
     case "cannot":
-      if (!text) throw new WorkError(`empty ${raw.kind}`);
-      return { kind: raw.kind, text, receipt };
+      if (!text) throw new WorkError("empty cannot");
+      return { kind: "cannot", text, receipt };
   }
 }
 

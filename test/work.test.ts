@@ -36,6 +36,8 @@ function work(partial: Partial<RawWork>): RawWork {
     draft_subject: "",
     draft_body: "",
     remind_at: "",
+    next: "",
+    next_from: 0,
     ...partial,
   };
 }
@@ -204,6 +206,8 @@ describe("task work", () => {
         text: "Netflix is $15.49 a month and Spotify is $11.99.",
         quote_from: 2,
         quote: "Thanks for your payment of $11.99 for Spotify Premium Individual.",
+        next: "canceling Netflix",
+        next_from: 1,
       }),
     });
     const out = await runWork(
@@ -219,6 +223,11 @@ describe("task work", () => {
     expect(out.result.kind).toBe("answer");
     expect(out.result.receipt).toMatchObject({ threadId: "spotify-receipt", from: "Spotify" });
     expect(out.threadId).toBe("spotify-receipt");
+    // The follow-up points at the email it is about, not the quoted one.
+    expect(out.result.kind === "answer" && out.result.offer).toEqual({
+      threadId: "netflix-bill",
+      next: "canceling Netflix",
+    });
   });
 
   it("says it searched and found nothing, instead of not searching", async () => {
@@ -269,6 +278,7 @@ describe("task work", () => {
       kind: "answer",
       text: "Mon: lentil soup\nTue: veggie tacos",
       receipt: null,
+      offer: null,
     });
     expect(llm.requests[0]?.input[0]?.content).toContain(
       "No email for this task. The user has not connected an inbox.",

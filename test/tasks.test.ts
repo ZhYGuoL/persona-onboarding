@@ -398,6 +398,38 @@ describe("other task results", () => {
   });
 });
 
+describe("an answer's follow-up", () => {
+  it("offers one action on an email in the answer, and a yes starts it on that email", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("juno", { agent_name: name("juno") });
+    await w.say("find my subscriptions", {
+      task: { summary: "finding forgotten subscriptions", needs_gmail: false },
+    });
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: {
+        kind: "answer",
+        text: "NYT trial ends Sep 29.\nAdobe renews Oct 4.",
+        receipt: null,
+        offer: { threadId: "nyt-trial", next: "canceling the New York Times trial" },
+      },
+      threadId: "nyt-trial",
+      ms: 700,
+    });
+    await w.advance(1000);
+    expect(w.last()?.texts.at(-1)).toMatch(
+      /want me to start on canceling the new york times trial\?/i,
+    );
+    await w.say("yes", { reply_to_pending: "yes" });
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      taskId: 2,
+      job: { summary: "canceling the New York Times trial", threadId: "nyt-trial" },
+    });
+  });
+});
+
 describe("closings and names after tasks", () => {
   // Stress run: "text me whenever you want to dig into adding the concert to your calendar".
   it("once there are tasks, the closing never names the need", async () => {

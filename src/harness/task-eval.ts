@@ -60,7 +60,9 @@ const CASES: Case[] = [
       r.kind === "answer" &&
       ["netflix", "spotify", "adobe", "new york times", "nyt", "planet fitness"].filter((n) =>
         r.text.toLowerCase().includes(n),
-      ).length >= 2,
+      ).length >= 2 &&
+      // It offers one concrete follow-up on one of those emails.
+      Boolean(r.offer?.next),
   },
   {
     label: "other ones skip what was already shown",

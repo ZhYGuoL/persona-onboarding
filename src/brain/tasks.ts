@@ -110,6 +110,15 @@ export function applyTaskNotice(
           scheduleTimer(s, actions, "reminder", r.at, reminderTimerId(task.id));
           return null;
         case "answer":
+          task.status = "done";
+          // One follow-up on an email in the answer, offered like an inbox finding.
+          if (r.offer && !s.inbox.offersStopped && !s.inbox.offered.includes(r.offer.threadId)) {
+            return {
+              kind: "whats_first",
+              finding: { threadId: r.offer.threadId, next: r.offer.next, fact: null },
+            };
+          }
+          return null;
         case "cannot":
           task.status = "done";
           return null;
