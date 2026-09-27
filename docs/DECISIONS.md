@@ -449,3 +449,12 @@ A lost token resets the Gmail slot so the next ask sends a fresh link.
 - **Why.** The QA browser's element click does not fire real mouse events on links, so the popup code never ran.
 Closing a popup through the QA browser also did not update the opener's `popup.closed`.
 Neither was a product bug, but both hid what the product does.
+
+### D53. At most three answered calls per session
+
+- **Choice.** A call request only counts when the user asks the assistant to call them.
+"Call the NYT and cancel" is a task, and "I can take a call if you need me" is not a request.
+After three answered calls, a new request gets a text that keeps the talk in the thread.
+- **Why.** In the M3 stress run, a rambler asked the agent to call a business and offered to take a call.
+Both read as call requests, and the agent rang four times in one session.
+A dropped line still gets a callback, because three calls leave room for one drop and one retry.
