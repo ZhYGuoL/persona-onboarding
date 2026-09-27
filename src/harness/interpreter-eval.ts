@@ -22,6 +22,12 @@ const askAgent: Question = { kind: "ask_slot", slot: "agent_name", variant: "fir
 const askUser: Question = { kind: "ask_slot", slot: "user_name", variant: "first" };
 const offerCall: Question = { kind: "offer_call", variant: "first" };
 const gmailAsk: Question = { kind: "gmail_link", variant: "first" };
+const sendIt: Question = { kind: "confirm_send", taskId: 1 };
+const staying: Question = { kind: "task_info", taskId: 1, text: "Are you staying or moving out?" };
+const draftShown = [
+  { from: "agent" as const, text: "Here's a reply to Mark saying you're staying." },
+  { from: "agent" as const, text: "Send it?" },
+];
 
 const CASES: Case[] = [
   {
@@ -194,6 +200,40 @@ const CASES: Case[] = [
     label: "saying they will use the link is not a request",
     text: "yeah i'll connect it in a sec",
     expect: (i) => !i.wants_gmail_link,
+  },
+  {
+    label: "send it is a yes to the draft",
+    text: "yep send it",
+    awaiting: sendIt,
+    prior: draftShown,
+    expect: (i) => i.reply_to_pending === "yes" && !i.draft_edit && !i.task,
+  },
+  {
+    label: "don't send is a no",
+    text: "actually no don't send that",
+    awaiting: sendIt,
+    prior: draftShown,
+    expect: (i) => i.reply_to_pending === "no",
+  },
+  {
+    label: "yes with a change is an edit",
+    text: "yes but make it a bit warmer and sign it Dan",
+    awaiting: sendIt,
+    prior: draftShown,
+    expect: (i) => i.reply_to_pending !== "yes" && i.draft_edit !== null,
+  },
+  {
+    label: "a change alone is an edit",
+    text: "can you ask if the rent is negotiable too",
+    awaiting: sendIt,
+    prior: draftShown,
+    expect: (i) => i.draft_edit !== null && !i.task,
+  },
+  {
+    label: "an answer to a task question is a detail",
+    text: "staying, but only if it's under 2400",
+    awaiting: staying,
+    expect: (i) => (i.task_detail ?? "").toLowerCase().includes("staying") && !i.task,
   },
   {
     label: "unprompted spelling confirms the name",
