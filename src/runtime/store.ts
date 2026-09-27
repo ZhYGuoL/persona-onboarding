@@ -72,6 +72,7 @@ export class Store {
     state.tasks = (state.tasks ?? []).map((t) => ({
       ...t,
       threadId: t.threadId ?? null,
+      search: t.search ?? true,
       notes: t.notes ?? [],
       result: t.result ?? null,
       runs: t.runs ?? 0,

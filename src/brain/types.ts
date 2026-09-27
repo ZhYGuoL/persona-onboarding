@@ -108,6 +108,8 @@ export interface Task {
   createdAt: number;
   /** The email this task is about, when an inbox finding started it. */
   threadId: string | null;
+  /** False for a follow-up that needs no email, like a note after an empty search. It skips the search. */
+  search: boolean;
   /** Details and edits the user gave, oldest first. They are the user's words, never instructions. */
   notes: string[];
   result: TaskResult | null;
@@ -505,6 +507,8 @@ export interface TaskJob {
   previous: Draft | null;
   /** Emails the user already saw: findings and earlier results. */
   shown: string[];
+  /** False when the task needs no email, so the work step does not search. */
+  search: boolean;
   /** The inbox the task reads, or null to work without email. */
   inbox: InboxSource | null;
   userName: string | null;

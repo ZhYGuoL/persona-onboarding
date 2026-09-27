@@ -27,6 +27,8 @@ export interface WorkInput {
   previous: Draft | null;
   /** Emails the user already saw, so "any other ones?" finds new ones. */
   shown: string[];
+  /** False when the task needs no email: skip the search. */
+  search: boolean;
   userName: string | null;
   /** The user's own address, so a draft never goes to them. */
   userEmail: string | null;
@@ -150,7 +152,7 @@ export async function runWork(input: WorkInput, opts: WorkOptions): Promise<Work
   const provider = opts.provider;
   const ids = input.threadId
     ? [input.threadId]
-    : provider
+    : provider && input.search
       ? await pickThreads(input, opts, provider)
       : [];
   const read = provider ? await Promise.all(ids.map((id) => provider.read(id))) : [];
@@ -177,7 +179,9 @@ export async function runWork(input: WorkInput, opts: WorkOptions): Promise<Work
     model: opts.model,
     name: "task_result",
     instructions: WORK_INSTRUCTIONS,
-    input: [{ role: "user", content: workPrompt(input, details, provider !== null) }],
+    input: [
+      { role: "user", content: workPrompt(input, details, provider !== null && input.search) },
+    ],
     schema: WORK_SCHEMA,
     timeoutMs: opts.timeoutMs ?? 15_000,
     maxOutputTokens: 900,
@@ -277,9 +281,11 @@ function workPrompt(input: WorkInput, details: ThreadDetail[], searched: boolean
   }
   if (details.length === 0) {
     lines.push(
-      searched
-        ? "You searched the user's inbox for this and found no matching email."
-        : "No email for this task. The user has not connected an inbox.",
+      !input.search
+        ? "This task needs no email. Do it with what the user said."
+        : searched
+          ? "You searched the user's inbox for this and found no matching email."
+          : "No email for this task. The user has not connected an inbox.",
     );
   }
   return lines.join("\n");

@@ -287,7 +287,9 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
       const offered = awaiting.finding;
       const need = s.slots.help_need.value;
       if (offered && s.caps.tasks) {
-        addTask(s, offered.next, offered.threadId !== null, now, cfg, acks, offered.threadId);
+        // An offer with no email follows a search that found nothing, so it does not search again.
+        const aboutEmail = offered.threadId !== null;
+        addTask(s, offered.next, aboutEmail, now, cfg, acks, offered.threadId, aboutEmail);
       } else if (need) {
         i = { ...i, task: { summary: need, needs_gmail: s.slots.gmail.status === "confirmed" } };
       }
@@ -564,12 +566,13 @@ function addTask(
   cfg: BrainConfig,
   acks: Ack[],
   threadId: string | null = null,
+  search = true,
 ): void {
   const summary = cleanHelpNeed(rawSummary, cfg.helpNeedMaxLength);
   if (!summary) return;
   const same = (t: { summary: string }) => t.summary.toLowerCase() === summary.toLowerCase();
   if (s.tasks.some((t) => same(t) && isActive(t))) return;
-  s.tasks.push(newTask(s, summary, needsGmail, now, threadId));
+  s.tasks.push(newTask(s, summary, needsGmail, now, threadId, search));
   if (s.slots.help_need.status !== "confirmed") {
     setSlot(s.slots.help_need, summary, "confirmed", "text", now);
   }

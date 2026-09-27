@@ -170,6 +170,7 @@ export function newTask(
   needsGmail: boolean,
   now: number,
   threadId: string | null = null,
+  search = true,
 ): Task {
   const gmail = s.slots.gmail.status;
   const wait = needsGmail && s.caps.gmail && gmail !== "confirmed" && gmail !== "declined";
@@ -180,6 +181,7 @@ export function newTask(
     status: wait ? "waiting_gmail" : "open",
     createdAt: now,
     threadId,
+    search,
     notes: [],
     result: null,
     runs: 0,

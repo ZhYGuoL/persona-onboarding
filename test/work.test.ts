@@ -49,6 +49,7 @@ function input(partial: Partial<WorkInput> = {}): WorkInput {
     notes: [],
     previous: null,
     shown: [],
+    search: true,
     userName: "Dan",
     userEmail: "dan@gmail.com",
     language: "en",
@@ -262,6 +263,25 @@ describe("task work", () => {
       text: "¿Te quedas? El contrato vence pronto.",
     });
     expect(await run("Which plan")).toMatchObject({ text: "Which plan?" });
+  });
+
+  // Stress run: a follow-up "drafting a note to your insurer" searched again, found nothing,
+  // and offered the same note again.
+  it("a task that needs no email does not search, and asks for a missing address", async () => {
+    const llm = scripted({
+      task_result: work({
+        kind: "draft",
+        draft_to: "",
+        draft_body: "Hi, when does my policy renew?",
+      }),
+    });
+    const out = await runWork(
+      input({ summary: "drafting a note to the insurer", threadId: null, search: false }),
+      { provider, llm, model: "m", fastModel: "f" },
+    );
+    expect(llm.requests.map((r) => r.name)).toEqual(["task_result"]);
+    expect(llm.requests[0]?.input[0]?.content).toContain("This task needs no email.");
+    expect(out.result).toMatchObject({ kind: "question", text: expect.stringMatching(/address/) });
   });
 
   it("works without an inbox", async () => {

@@ -457,7 +457,7 @@ describe("an offer that is not about one email", () => {
     await w.say("yes", { reply_to_pending: "yes" });
     expect(w.of("run_task").at(-1)).toMatchObject({
       taskId: 2,
-      job: { summary: "drafting a note to your insurer", threadId: null, inbox: null },
+      job: { summary: "drafting a note to your insurer", threadId: null, search: false },
     });
   });
 

@@ -60,6 +60,7 @@ function run(s: SessionState, task: Task, actions: Action[], previous: Draft | n
     threadId: task.threadId,
     notes: [...task.notes],
     previous,
+    search: task.search,
     shown: [
       ...new Set([
         ...s.inbox.findings.map((f) => f.threadId),
