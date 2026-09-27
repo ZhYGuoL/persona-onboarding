@@ -40,8 +40,7 @@ export function App() {
           voiceAvailable={Boolean(state?.caps?.voice)}
           onOpenLink={(url) => {
             if (!isConnectLink(url)) return false;
-            openConnectPopup(url, () => sendRaw({ t: "oauth_closed" }));
-            return true;
+            return openConnectPopup(url, () => sendRaw({ t: "oauth_closed" }));
           }}
         />
       </main>

@@ -12,7 +12,8 @@ export function isConnectLink(url: string): boolean {
   }
 }
 
-export function openConnectPopup(url: string, onClosed: () => void): void {
+/** Opens the popup. Returns false if the browser blocked it, so the link can open a normal tab. */
+export function openConnectPopup(url: string, onClosed: () => void): boolean {
   const width = 480;
   const height = 720;
   const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
@@ -22,16 +23,18 @@ export function openConnectPopup(url: string, onClosed: () => void): void {
     "persona-gmail",
     `popup,width=${width},height=${height},left=${left},top=${top}`,
   );
-  if (!popup) {
-    // Popups blocked: a new tab still keeps the simulator tab (and any call) alive.
-    window.open(url, "_blank", "noopener");
-    return;
-  }
+  // Blocked: the link's own target="_blank" opens a tab instead, which still keeps
+  // the simulator tab (and any call) alive.
+  if (!popup) return false;
   popup.focus();
   clearInterval(watcher);
+  const qa = window as unknown as { __popupEvents?: string[] };
+  qa.__popupEvents = ["opened"];
   watcher = setInterval(() => {
     if (!popup.closed) return;
     clearInterval(watcher);
+    qa.__popupEvents?.push("closed");
     onClosed();
   }, 500);
+  return true;
 }
