@@ -93,7 +93,8 @@ export type TaskStatus =
   | "failed";
 
 export interface OfferedFinding {
-  threadId: string;
+  /** Null for a follow-up that is not about one email, like drafting a note to an insurer. */
+  threadId: string | null;
   next: string;
   /** Said with the offer when the thread has not shown it yet. */
   fact: string | null;
@@ -139,7 +140,7 @@ export type TaskResult =
       kind: "answer";
       text: string;
       receipt: Receipt | null;
-      offer?: { threadId: string; next: string } | null;
+      offer?: { threadId: string | null; next: string } | null;
     }
   | { kind: "draft"; text: string; draft: Draft; receipt: Receipt | null }
   | { kind: "remind"; text: string; at: number; receipt: Receipt | null }

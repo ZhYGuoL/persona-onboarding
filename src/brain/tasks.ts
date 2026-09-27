@@ -32,6 +32,11 @@ export function isActive(task: Task): boolean {
   return ACTIVE.has(task.status);
 }
 
+/** How an offer is remembered: by its email, or by its words when it has none. */
+export function offerKey(o: { threadId: string | null; next: string }): string {
+  return o.threadId ?? `next:${o.next.toLowerCase()}`;
+}
+
 export function reminderTimerId(taskId: number): string {
   return `reminder-${taskId}`;
 }
@@ -112,7 +117,7 @@ export function applyTaskNotice(
         case "answer":
           task.status = "done";
           // One follow-up on an email in the answer, offered like an inbox finding.
-          if (r.offer && !s.inbox.offersStopped && !s.inbox.offered.includes(r.offer.threadId)) {
+          if (r.offer && !s.inbox.offersStopped && !s.inbox.offered.includes(offerKey(r.offer))) {
             return {
               kind: "whats_first",
               finding: { threadId: r.offer.threadId, next: r.offer.next, fact: null },

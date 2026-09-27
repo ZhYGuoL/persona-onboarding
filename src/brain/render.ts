@@ -244,7 +244,8 @@ export function ackLines(a: Ack, f: PlanFacts, history: HistoryItem[] = []): str
     case "answer":
       return [...paragraphs(r.text), ...receipt];
     case "remind":
-      return [`Done. I'll text you ${formatWhen(r.at, f.timeZone)}.`, ...receipt];
+      // What happens next goes last.
+      return [...receipt, `Done. I'll text you ${formatWhen(r.at, f.timeZone)}.`];
     case "question":
       // The question itself is the turn's question.
       return receipt;

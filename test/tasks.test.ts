@@ -430,6 +430,66 @@ describe("an answer's follow-up", () => {
   });
 });
 
+describe("an offer that is not about one email", () => {
+  it("offers the note it could draft after an empty search, once", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("juno", { agent_name: name("juno") });
+    await w.say("when does my car insurance renew", {
+      task: { summary: "finding the car insurance renewal", needs_gmail: false },
+    });
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: {
+        kind: "answer",
+        text: "I didn't find any car insurance emails.",
+        receipt: null,
+        offer: { threadId: null, next: "drafting a note to your insurer" },
+      },
+      threadId: null,
+      ms: 700,
+    });
+    await w.advance(1000);
+    expect(w.last()?.texts.at(-1)).toMatch(
+      /want me to start on drafting a note to your insurer\?/i,
+    );
+    await w.say("yes", { reply_to_pending: "yes" });
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      taskId: 2,
+      job: { summary: "drafting a note to your insurer", threadId: null, inbox: null },
+    });
+  });
+
+  it("a reminder ends on what happens next, after its receipt", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("remind me about registration", {
+      task: { summary: "a reminder about registration", needs_gmail: false },
+    });
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: {
+        kind: "remind",
+        text: "Registration opens in an hour.",
+        at: w.hub.now(w.sid) + 86_400_000,
+        receipt: {
+          threadId: "registrar",
+          from: "Office of the Registrar",
+          subject: "Spring registration opens soon",
+          date: Date.UTC(2026, 8, 21, 15),
+          quote: null,
+        },
+      },
+      threadId: "registrar",
+      ms: 700,
+    });
+    await w.advance(1000);
+    expect(w.last()?.texts.at(-1)).toMatch(/^done\. i'll text you/i);
+  });
+});
+
 describe("closings and names after tasks", () => {
   // Stress run: "text me whenever you want to dig into adding the concert to your calendar".
   it("once there are tasks, the closing never names the need", async () => {

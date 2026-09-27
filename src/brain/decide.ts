@@ -13,7 +13,7 @@ import {
   setSlot,
   settleExhausted,
 } from "./ledger.ts";
-import { applyTaskNotice, applyTaskReply, isActive, startNextTask } from "./tasks.ts";
+import { applyTaskNotice, applyTaskReply, isActive, offerKey, startNextTask } from "./tasks.ts";
 import { cancelTimer, scheduleTimer } from "./timers.ts";
 import type {
   Ack,
@@ -287,7 +287,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
       const offered = awaiting.finding;
       const need = s.slots.help_need.value;
       if (offered && s.caps.tasks) {
-        addTask(s, offered.next, true, now, cfg, acks, offered.threadId);
+        addTask(s, offered.next, offered.threadId !== null, now, cfg, acks, offered.threadId);
       } else if (need) {
         i = { ...i, task: { summary: need, needs_gmail: s.slots.gmail.status === "confirmed" } };
       }
@@ -734,7 +734,7 @@ function recordQuestion(s: SessionState, q: Question, now: number): void {
       break;
     case "whats_first":
       s.askedWhatsFirst = true;
-      if (q.finding) s.inbox.offered.push(q.finding.threadId);
+      if (q.finding) s.inbox.offered.push(offerKey(q.finding));
       break;
     case "offer_callback":
     case "confirm_send":
