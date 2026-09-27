@@ -387,17 +387,8 @@ export type Ack =
   | { kind: "name_too_long"; slot: "agent_name" | "user_name" }
   | { kind: "refusal"; slot: SlotName | "call"; hard: boolean }
   | { kind: "skip_setup" }
-  /**
-   * `again` is a re-run after the user answered the task's question. `next`
-   * is a queued task that starts right after another one's result.
-   */
-  | {
-      kind: "task_started";
-      summary: string;
-      needsGmail: boolean;
-      again?: boolean;
-      next?: boolean;
-    }
+  /** `next` is a queued task that starts right after another one's result. */
+  | { kind: "task_started"; summary: string; needsGmail: boolean; next?: boolean }
   | { kind: "task_result"; taskId: number; result: TaskResult }
   | { kind: "task_redraft" }
   | { kind: "task_limit" }
@@ -453,8 +444,10 @@ export interface PlanFacts {
   helpNeed: string | null;
   gmail: string | null;
   openTask: string | null;
-  /** False until the task engine lands. The agent must not promise work it cannot do. */
+  /** False without the task service. The agent must not promise work it cannot do. */
   canRunTasks: boolean;
+  /** The user has asked for at least one task. */
+  anyTask: boolean;
   /** Channels that work in this session right now. */
   voice: boolean;
   gmailAvailable: boolean;

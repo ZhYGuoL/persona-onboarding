@@ -113,7 +113,7 @@ export function ackText(a: Ack, f: PlanFacts): string {
       // A summary is the agent's paraphrase, so it follows the thread's casing.
       if (!f.canRunTasks) return `I can't take care of ${a.summary} from here yet.`;
       // Only the look is promised. Whether the task itself can be done comes with the result.
-      return a.next ? "Now the next one. Looking into it." : "Looking into it.";
+      return "Looking into it.";
     case "task_result":
       // Rendered line by line in ackLines.
       return "";
@@ -217,6 +217,14 @@ function receiptLine(r: Receipt, f: PlanFacts): string {
 
 /** The lines an ack adds. Most acks are one line. A task result can be several. */
 export function ackLines(a: Ack, f: PlanFacts, history: HistoryItem[] = []): string[] {
+  if (a.kind === "task_started" && a.next && f.canRunTasks) {
+    return [
+      fresh(
+        ["Now the next one. Looking into it.", "On to the next one.", "Next up. Looking into it."],
+        history,
+      ),
+    ];
+  }
   if (a.kind !== "task_result") {
     const t = ackText(a, f);
     return t ? [t] : [];
@@ -266,7 +274,8 @@ export function answerText(a: Answer, f: PlanFacts): string {
     case "injection":
       return "Nice try. I'm staying me.";
     case "confused":
-      return f.agentName
+      // A name like "assistant" would read "I'm assistant, your assistant".
+      return f.agentName && !/^(an? )?(assistant|persona|ai|bot)$/i.test(f.agentName.trim())
         ? `I'm ${v(f.agentName)}, your assistant from Persona. I live in your texts, and I'm getting set up so I can be useful to you.`
         : "I'm Persona, an assistant that lives in your texts. I'm getting set up so I can be useful to you.";
     case "question":
@@ -628,8 +637,9 @@ function taskFinished(plan: Plan): boolean {
 }
 
 export function closingText(f: PlanFacts, history: HistoryItem[] = [], finished = false): string {
+  // Once there are tasks, the need may be something the agent cannot do, so the closing stays general.
   return fresh(
-    f.helpNeed && !finished
+    f.helpNeed && !finished && !f.anyTask
       ? [
           `Text me whenever you want to dig into ${v(f.helpNeed)}.`,
           "Just text me when you want to pick this back up.",
@@ -662,11 +672,11 @@ function ackGuide(a: Ack, f: PlanFacts): string {
         ? "They renamed you. Take the new name."
         : "They named you. React in a few words.";
     case "task_started":
-      if (f.canRunTasks && a.again)
-        return "They answered your question. Say you're looking into it, in a few words.";
       return f.canRunTasks
-        ? "They asked for a concrete task. Say in a few words that you're looking into it. Do not say you will do the task itself, like calling or canceling: the result comes in the next text."
+        ? 'Say only that you are looking into it, in two or three words ("Looking into it."). Do not name or describe the task, and do not say you will do it: the result comes in the next text.'
         : 'They asked for a concrete task your abilities do not cover yet. Say plainly, in their words, that you cannot do it from here yet. Never write "got it", "on it", or anything that sounds like you took it on.';
+    case "task_redraft":
+      return "Say only that you are updating the draft, in a few words. Do not describe what the draft says or does.";
     case "call_dropped":
       return "The call dropped. Say so and name what you already captured, so they know nothing was lost.";
     case "call_recap":

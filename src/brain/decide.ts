@@ -784,6 +784,7 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     gmail: slot("gmail"),
     openTask: s.tasks.find((t) => t.status !== "done")?.summary ?? null,
     canRunTasks: s.caps.tasks === true,
+    anyTask: s.tasks.length > 0,
     inboxFindings: s.inbox.findings.map((f) => f.fact),
     sampleInbox: s.inbox.source === "demo",
     inboxStatus: s.inbox.scanning

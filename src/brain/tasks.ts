@@ -193,13 +193,8 @@ export function applyTaskReply(
       return true;
     }
     task.notes.push(`You asked "${awaiting.text}" They said: ${answer}`);
+    // No "looking into it" this time: they just answered, and the result is seconds away.
     run(s, task, actions, null);
-    acks.push({
-      kind: "task_started",
-      summary: task.summary,
-      needsGmail: task.needsGmail,
-      again: true,
-    });
     return true;
   }
   return false;

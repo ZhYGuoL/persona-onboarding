@@ -354,10 +354,12 @@ describe("other task results", () => {
     await w.advance(1000);
     expect(w.last()?.texts.at(-1)).toMatch(/what time should i remind you\?/i);
     expect(w.awaiting()).toBe("task_info");
-    await w.say("9am the day before", { task_detail: "9am the day before" });
+    const answered = await w.say("9am the day before", { task_detail: "9am the day before" });
     expect(w.of("run_task").at(-1)?.job.notes).toEqual([
       'You asked "What time should I remind you?" They said: 9am the day before',
     ]);
+    // They just answered. The result is seconds away, so no "looking into it" first.
+    expect(answered?.texts.join(" ") ?? "").not.toMatch(/looking into it/i);
   });
 
   it("a failure says so plainly, and a lost token asks for Gmail again", async () => {
@@ -393,6 +395,42 @@ describe("other task results", () => {
     });
     await w.advance(1000);
     expect(w.turns()).toHaveLength(before);
+  });
+});
+
+describe("closings and names after tasks", () => {
+  // Stress run: "text me whenever you want to dig into adding the concert to your calendar".
+  it("once there are tasks, the closing never names the need", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("juno", { agent_name: name("juno") });
+    await w.say("add the concert to my calendar", {
+      task: { summary: "adding the concert to the calendar", needs_gmail: false },
+    });
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: { kind: "cannot", text: "I can't add it to your calendar.", receipt: null },
+      threadId: null,
+      ms: 700,
+    });
+    await w.advance(1000);
+    const text = w.last()?.texts.join(" ") ?? "";
+    expect(text).toMatch(/can't add it to your calendar/i);
+    expect(text).not.toMatch(/dig into/i);
+    // A later plain turn keeps the closing general too.
+    const later = await w.say("ok");
+    expect(later?.texts.join(" ") ?? "").not.toMatch(/dig into/i);
+  });
+
+  it("a generic agent name does not read 'I'm assistant, your assistant'", async () => {
+    const w = new World();
+    await w.say("hi");
+    await w.say("just call yourself assistant", {
+      agent_name: { value: "assistant", correction: false },
+    });
+    const t = await w.say("i dont get it", { confused: true });
+    expect(t?.texts.join(" ")).not.toMatch(/i'm assistant/i);
   });
 });
 
