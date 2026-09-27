@@ -25,6 +25,14 @@ const offerCall: Question = { kind: "offer_call", variant: "first" };
 const gmailAsk: Question = { kind: "gmail_link", variant: "first" };
 const sendIt: Question = { kind: "confirm_send", taskId: 1 };
 const staying: Question = { kind: "task_info", taskId: 1, text: "Are you staying or moving out?" };
+const marriottOffer: Question = {
+  kind: "whats_first",
+  finding: {
+    threadId: "marriott",
+    next: "setting a reminder before free cancellation ends",
+    fact: "Your Denver Marriott stay is Oct 4 to 7, with free cancellation until 48 hours before arrival.",
+  },
+};
 const draftShown = [
   { from: "agent" as const, text: "Here's a reply to Mark saying you're staying." },
   { from: "agent" as const, text: "Send it?" },
@@ -235,6 +243,18 @@ const CASES: Case[] = [
     text: "staying, but only if it's under 2400",
     awaiting: staying,
     expect: (i) => (i.task_detail ?? "").toLowerCase().includes("staying") && !i.task,
+  },
+  {
+    label: "a yes that restates an offer is a yes, not a new task",
+    text: "sí, ponme un recordatorio antes de que termine el plazo, porfa",
+    awaiting: marriottOffer,
+    expect: (i) => i.reply_to_pending === "yes" && !i.task,
+  },
+  {
+    label: "a yes with a new request keeps the request",
+    text: "yes! and also find my Con Ed bill",
+    awaiting: marriottOffer,
+    expect: (i) => i.reply_to_pending === "yes" && i.task !== null,
   },
   {
     label: "a question that needs the inbox is a task",

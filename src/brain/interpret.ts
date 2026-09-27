@@ -243,7 +243,7 @@ Signal kinds:
 - confused: the user does not understand what is happening.
 - leaving: the user says they have to go now ("gotta go", "brb", "ttyl").
 - draft_edit (value): the assistant just showed a draft email, and the user wants something changed in it ("make it shorter", "say I'm moving out", "sign it Dan"). Value = the change, in the user's words.
-- task_detail (value): the assistant just asked the user a question for a task, and the user answers it ("I'm staying", "the one on Bedford Ave", "9am works"). Value = the answer, in the user's words. A plain yes or no goes in reply_to_pending instead.
+- task_detail (value): the assistant just asked the user a question for a task, and the user answers it ("I'm staying", "the one on Bedford Ave", "9am works"). Also the details a user adds when saying yes to an offer ("yes, remind me the day before"). Value = the answer, in the user's words. A plain yes or no goes in reply_to_pending instead.
 - cancels_task: the user takes back something they asked the assistant to do ("never mind", "forget it", "cancel that reminder", "don't remind me after all"). Asking the assistant to cancel a service ("cancel my gym membership") is a task, not this.
 - confirms_name (value): the user confirms their own name after the assistant checked it, or spells it out letter by letter, even unprompted. "yes, that's right" after "Is that David with a V?" gives "David". "D-A-V-E" gives "Dave". "my name is David, D, A, V, I, D" gives both user_name "David" and confirms_name "David". Value = the confirmed spelling.
 
@@ -269,7 +269,9 @@ export function describeAwaiting(q: Question | null | undefined): string {
     case "offer_callback":
       return "yes/no: should the assistant call back, or keep texting";
     case "whats_first":
-      return "yes/no: should the assistant start on what the user needs (or what to do first)";
+      return q.finding
+        ? `yes/no: should the assistant start on "${q.finding.next}". A yes that restates or adds details to this is a yes with task_detail, not a new task`
+        : "yes/no: should the assistant start on what the user needs (or what to do first)";
     case "confirm_send":
       return "yes/no: should the assistant send the draft email it just showed (changes to it are a draft_edit)";
     case "task_info":

@@ -301,14 +301,21 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
     }
     if (refusesCall && s.call.status === "ringing") callDeclinedNow = true;
     // "Yes" to "want me to start on X?" turns the finding (or the need) into a task.
-    if (awaiting?.kind === "whats_first" && i.reply_to_pending === "yes" && !i.task) {
+    if (awaiting?.kind === "whats_first" && i.reply_to_pending === "yes") {
       const offered = awaiting.finding;
       const need = s.slots.help_need.value;
       if (offered && s.caps.tasks) {
         // An offer with no email follows a search that found nothing, so it does not search again.
         const aboutEmail = offered.threadId !== null;
-        addTask(s, offered.next, aboutEmail, now, cfg, acks, offered.threadId, aboutEmail);
-      } else if (need) {
+        // A yes often restates the offer ("sí, ponme un recordatorio antes del plazo").
+        // That is the same task, still tied to the offered email, with the user's words
+        // as a note. Stress runs showed the restated task searching on its own and
+        // quoting the wrong email.
+        const said = [i.task?.summary, i.task_detail].filter((w): w is string => Boolean(w));
+        const notes = said.map((w) => `When they said yes, they added: ${w}`);
+        addTask(s, offered.next, aboutEmail, now, cfg, acks, offered.threadId, aboutEmail, notes);
+        i = { ...i, task: null, task_detail: null };
+      } else if (need && !i.task) {
         i = { ...i, task: { summary: need, needs_gmail: s.slots.gmail.status === "confirmed" } };
       }
     }
@@ -597,12 +604,15 @@ function addTask(
   acks: Ack[],
   threadId: string | null = null,
   search = true,
+  notes: string[] = [],
 ): void {
   const summary = cleanHelpNeed(rawSummary, cfg.helpNeedMaxLength);
   if (!summary) return;
   const same = (t: { summary: string }) => t.summary.toLowerCase() === summary.toLowerCase();
   if (s.tasks.some((t) => same(t) && isActive(t))) return;
-  s.tasks.push(newTask(s, summary, needsGmail, now, threadId, search));
+  const task = newTask(s, summary, needsGmail, now, threadId, search);
+  task.notes.push(...notes);
+  s.tasks.push(task);
   if (s.slots.help_need.status !== "confirmed") {
     setSlot(s.slots.help_need, summary, "confirmed", "text", now);
   }

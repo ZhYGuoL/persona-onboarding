@@ -428,6 +428,31 @@ describe("an answer's follow-up", () => {
       job: { summary: "canceling the New York Times trial", threadId: "nyt-trial" },
     });
   });
+
+  // Stress run: "sí, ponme un recordatorio antes de que termine el plazo" to a Marriott
+  // offer became a new task that searched on its own and quoted the NYT email.
+  it("a yes that restates the offer stays on the offered email, with the user's words as a note", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toFinding(w);
+    await w.say("yes, draft the cancellation and keep it short", {
+      reply_to_pending: "yes",
+      task: { summary: "drafting a short cancellation", needs_gmail: true },
+      extra_tasks: [{ summary: "finding the Adobe renewal price", needs_gmail: true }],
+    });
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      taskId: 1,
+      job: {
+        summary: "canceling the New York Times trial",
+        threadId: "nyt-trial",
+        notes: ["When they said yes, they added: drafting a short cancellation"],
+      },
+    });
+    // A second request in the same message is still its own task.
+    expect(w.state.tasks.map((t) => t.summary)).toEqual([
+      "canceling the New York Times trial",
+      "finding the Adobe renewal price",
+    ]);
+  });
 });
 
 describe("an offer that is not about one email", () => {
