@@ -13,6 +13,7 @@ import { LlmInterpreter } from "../brain/interpret.ts";
 import { LlmRenderer, TemplateRenderer } from "../brain/render.ts";
 import { InboxService } from "../inbox/service.ts";
 import { CostMeter, modelsFromEnv, OpenAiClient } from "../llm/openai.ts";
+import { TaskService } from "../tasks/service.ts";
 import {
   type Conversation,
   type Grade,
@@ -65,7 +66,7 @@ function makeBrain(): Brain {
 async function runConversation(persona: Persona, run: number): Promise<Conversation> {
   const w = new SimWorld({
     brain: makeBrain(),
-    caps: { voice: true, gmail: true },
+    caps: { voice: true, gmail: true, tasks: true },
     sid: `${persona.id}-${run}`,
   });
   // Every simulated user who connects Gmail gets the sample inbox and a real scan.
@@ -76,9 +77,29 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
     log: { info: () => {}, warn: () => {} },
   });
   inbox.connectDemo(w.sid);
-  w.hub.subscribeAll((msg) => {
-    if (msg.type === "action") inbox.onAction(msg.sessionId, msg.action);
+  // Tasks run for real on the sample inbox. Sending stays simulated.
+  const tasks = new TaskService({
+    hub: w.hub,
+    inbox,
+    llm,
+    model: models.reply,
+    fastModel: models.fast,
+    log: { info: () => {}, warn: () => {} },
   });
+  w.hub.subscribeAll((msg) => {
+    if (msg.type !== "action") return;
+    inbox.onAction(msg.sessionId, msg.action);
+    tasks.onAction(msg.sessionId, msg.action);
+  });
+  /** Let scans and tasks finish, and their texts go out. */
+  const drainWork = async () => {
+    for (let i = 0; i < 3; i++) {
+      await inbox.idle();
+      await tasks.idle();
+      await w.settle();
+      await w.advance(1000);
+    }
+  };
   const sim = new SimUser(llm, models.fast, persona);
   const timeline: TimelineLine[] = [];
   const simLines: SimLine[] = [];
@@ -94,14 +115,17 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
   const collect = (): number => {
     const turns = w.turns();
     for (const t of turns.slice(seenSends)) {
-      for (const text of t.texts) {
+      for (const b of t.bubbles) {
+        const text =
+          b.kind === "text"
+            ? b.text
+            : b.kind === "link"
+              ? b.url.includes("gmail")
+                ? "[link: Connect Gmail]"
+                : "[link: Terms and Privacy]"
+              : `[draft email to ${b.to}, subject "${b.subject}": ${b.body.replace(/\s+/g, " ")}]`;
         timeline.push({ kind: "agent", text, at: t.at, ref: t.turnId });
         simLines.push({ from: "assistant", text });
-      }
-      for (const url of t.links) {
-        const label = url.includes("gmail") ? "[link: Connect Gmail]" : "[link: Terms and Privacy]";
-        timeline.push({ kind: "agent", text: label, at: t.at, ref: t.turnId });
-        simLines.push({ from: "assistant", text: label });
       }
     }
     const added = turns.length - seenSends;
@@ -176,6 +200,7 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
         await w.event({ type: "call_ended", callId, reason });
       }
       await w.advance(2000);
+      await drainWork();
       collect();
     }
   };
@@ -210,7 +235,7 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
     await inbox.idle();
     await w.settle();
     if (inCall) return;
-    await w.advance(2000);
+    await drainWork();
     collect();
   };
 
@@ -240,6 +265,7 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
           simLines.push({ from: "you", text });
         }
         await w.advance(cfg.replyDebounceMs + 2000);
+        await drainWork();
         const replied = collect() > 0;
         for (const l of lines) l.replied = replied;
       } else {
@@ -351,6 +377,7 @@ function renderReport(allRows: Row[], seconds: number): string {
         : ""),
     "",
     "These are text-channel simulations. Calls and Google consent are faked with scripted events, so voice mishearing, interruptions, and audio latency are not covered here.",
+    "Inbox scans and tasks run for real, with the model, on the sample inbox. Sending stays simulated.",
     "",
     `| ${header.join(" | ")} |`,
     `| ${header.map(() => "---").join(" | ")} |`,

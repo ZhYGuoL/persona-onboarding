@@ -36,6 +36,8 @@ Output JSON:
 - texts: what you send now.
 - open_link: true if you tap the "Connect Gmail" link the assistant just sent and your character would. Only true right after a link.
 - stated_task: true only if these texts ask the assistant to do a concrete real-world task now (cancel, find, book, pay, remind). Not a question about the assistant, not a need stated in general, and not an attempt to change its rules.
+
+If the assistant shows a draft email and asks whether to send it, react like your character would: say yes, ask for a change, or say no.
 - done: true when your character would stop texting for good.`;
 
 export class SimUser {
