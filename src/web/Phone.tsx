@@ -1,5 +1,15 @@
-import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ThreadItem } from "../shared/protocol.ts";
+import { ActiveCall, Banner, IncomingCall, PhoneGlyph } from "./CallScreens.tsx";
+import type { CallControls } from "./useCall.ts";
 
 const REVEAL_GAP_MS = 650;
 const SEPARATOR_GAP_MS = 15 * 60_000;
@@ -12,12 +22,28 @@ interface PhoneProps {
   contactName: string;
   connected: boolean;
   onSend: (text: string) => boolean;
+  call: CallControls;
+  voiceAvailable: boolean;
 }
 
-export function Phone({ thread, fresh, typing, now, contactName, connected, onSend }: PhoneProps) {
+export function Phone({
+  thread,
+  fresh,
+  typing,
+  now,
+  contactName,
+  connected,
+  onSend,
+  call,
+  voiceAvailable,
+}: PhoneProps) {
   const { visible, revealing } = useStaggered(thread, fresh);
   const scrollRef = useRef<HTMLDivElement>(null);
   const showTyping = typing || revealing;
+  const phase = call.call.phase;
+  const onCall =
+    phase === "connecting" || phase === "active" || phase === "outgoing" || phase === "ended";
+  const banner = useCallBanner(thread, fresh, onCall);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll to the bottom whenever the thread grows or typing starts
   useLayoutEffect(() => {
@@ -31,8 +57,26 @@ export function Phone({ thread, fresh, typing, now, contactName, connected, onSe
   return (
     <section className="phone" aria-label="Phone simulator">
       <div className="phone-screen">
-        <StatusBar now={now} />
+        <StatusBar now={now} dark={phase !== "idle"} />
+        {phase === "ringing" && call.call.phase === "ringing" && (
+          <IncomingCall
+            name={call.call.callerName}
+            onAccept={call.accept}
+            onDecline={call.decline}
+          />
+        )}
+        {onCall && <ActiveCall controls={call} />}
+        {banner.item && <Banner item={banner.item} sender={contactName} onDone={banner.dismiss} />}
         <header className="thread-header">
+          <button
+            type="button"
+            className="header-call"
+            aria-label={`Call ${contactName}`}
+            disabled={!voiceAvailable || phase !== "idle"}
+            onClick={() => call.startCall(contactName)}
+          >
+            <PhoneGlyph size={20} />
+          </button>
           <div className="avatar" aria-hidden="true">
             {initial(contactName)}
           </div>
@@ -173,12 +217,28 @@ function Composer({
   );
 }
 
-function StatusBar({ now }: { now: number | null }) {
+/** While a call screen is up, a new agent text shows as a notification banner. */
+function useCallBanner(thread: ThreadItem[], fresh: Set<string>, onCall: boolean) {
+  const [item, setItem] = useState<ThreadItem | null>(null);
+  const shown = useRef(new Set<string>());
+  useEffect(() => {
+    if (!onCall) return;
+    const latest = [...thread].reverse().find((t) => t.from === "agent" && fresh.has(t.id));
+    if (latest && !shown.current.has(latest.id)) {
+      shown.current.add(latest.id);
+      setItem(latest);
+    }
+  }, [thread, fresh, onCall]);
+  const dismiss = useCallback(() => setItem(null), []);
+  return { item: onCall ? item : null, dismiss };
+}
+
+function StatusBar({ now, dark = false }: { now: number | null; dark?: boolean }) {
   const time = new Date(now ?? Date.now())
     .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     .replace(/\s?[AP]M$/i, "");
   return (
-    <div className="status-bar">
+    <div className={`status-bar${dark ? " on-dark" : ""}`}>
       <span className="status-time">{time}</span>
       <div className="island" aria-hidden="true" />
       <span className="status-icons" aria-hidden="true">

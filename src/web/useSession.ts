@@ -2,7 +2,7 @@
 // and the thread, typing, state, and log it streams.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LogView, ServerMessage, ThreadItem } from "../shared/protocol.ts";
+import type { ClientMessage, LogView, ServerMessage, ThreadItem } from "../shared/protocol.ts";
 
 export interface SessionView {
   connected: boolean;
@@ -27,10 +27,19 @@ const EMPTY: SessionView = {
   fresh: new Set(),
 };
 
-export function useSession() {
+export interface SessionOptions {
+  /** Whether this browser can place a voice call. */
+  voice: boolean;
+  /** Every server message also goes here (the call hook listens for rings). */
+  onMessage?: (msg: ServerMessage) => void;
+}
+
+export function useSession({ voice, onMessage }: SessionOptions) {
   const [view, setView] = useState<SessionView>(EMPTY);
   const [epoch, setEpoch] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new epoch (after reset) reconnects with the new session cookie
   useEffect(() => {
@@ -46,10 +55,12 @@ export function useSession() {
       socketRef.current = ws;
       ws.onopen = () => {
         retry = 0;
+        ws.send(JSON.stringify({ t: "hello", voice } satisfies ClientMessage));
       };
       ws.onmessage = (e) => {
         const msg = JSON.parse(String(e.data)) as ServerMessage;
         setView((v) => reduce(v, msg));
+        onMessageRef.current?.(msg);
       };
       ws.onclose = () => {
         setView((v) => ({ ...v, connected: false, typing: false }));
@@ -66,6 +77,11 @@ export function useSession() {
       socketRef.current?.close();
     };
   }, [epoch]);
+
+  const sendRaw = useCallback((msg: ClientMessage) => {
+    const ws = socketRef.current;
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  }, []);
 
   const sendText = useCallback((text: string) => {
     const ws = socketRef.current;
@@ -97,7 +113,16 @@ export function useSession() {
     });
   }, []);
 
-  return { view, sendText, reset, fastForward };
+  const reviewer = useCallback(async (path: string, body: object = {}) => {
+    await fetch(`/api/reviewer/${path}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }, []);
+
+  return { view, sendText, sendRaw, reset, fastForward, reviewer };
 }
 
 function reduce(v: SessionView, msg: ServerMessage): SessionView {
@@ -139,5 +164,7 @@ function reduce(v: SessionView, msg: ServerMessage): SessionView {
     case "log":
       if (v.log.some((e) => e.seq === msg.entry.seq)) return v;
       return { ...v, log: [...v.log, msg.entry].slice(-500) };
+    default:
+      return v;
   }
 }
