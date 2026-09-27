@@ -8,6 +8,7 @@ import { LlmInterpreter } from "../brain/interpret.ts";
 import { newSession } from "../brain/ledger.ts";
 import type { Interpretation, Question, SessionState } from "../brain/types.ts";
 import { modelsFromEnv, OpenAiClient } from "../llm/openai.ts";
+import { mapPool } from "./pool.ts";
 
 interface Case {
   text: string;
@@ -236,6 +237,21 @@ const CASES: Case[] = [
     expect: (i) => (i.task_detail ?? "").toLowerCase().includes("staying") && !i.task,
   },
   {
+    label: "a question that needs the inbox is a task",
+    text: "any other subscriptions i should know about?",
+    expect: (i) => i.task?.needs_gmail === true,
+  },
+  {
+    label: "a flight question is a task",
+    text: "wait when is my flight to denver again",
+    expect: (i) => i.task?.needs_gmail === true,
+  },
+  {
+    label: "a question about the assistant is not a task",
+    text: "what can you actually do?",
+    expect: (i) => i.task === null && i.asks_capabilities,
+  },
+  {
     label: "two requests are two tasks",
     text: "could you draft a reply to adobe asking about cheaper plans? and check my bank stuff too",
     expect: (i) => i.task !== null && i.extra_tasks.length >= 1,
@@ -274,19 +290,17 @@ const interpreter = new LlmInterpreter(llm, modelsFromEnv().fast, 15_000);
 let pass = 0;
 const selected = CASES.filter((c) => !only || c.label.includes(only));
 const runs = selected.flatMap((c) => Array.from({ length: repeat }, () => c));
-const results = await Promise.all(
-  runs.map(async (c) => {
-    try {
-      const i = await interpreter.interpret({
-        state: stateFor(c),
-        texts: [{ text: c.text, ts: 0 }],
-      });
-      return { c, ok: c.expect(i), i };
-    } catch (err) {
-      return { c, ok: false, i: null, err: String(err) };
-    }
-  }),
-);
+const results = await mapPool(runs, 6, async (c) => {
+  try {
+    const i = await interpreter.interpret({
+      state: stateFor(c),
+      texts: [{ text: c.text, ts: 0 }],
+    });
+    return { c, ok: c.expect(i), i };
+  } catch (err) {
+    return { c, ok: false, i: null, err: String(err) };
+  }
+});
 for (const r of results) {
   if (r.ok) pass++;
   else console.log(`FAIL ${r.c.label}: "${r.c.text}" -> ${JSON.stringify(r.i ?? r.err)}`);
