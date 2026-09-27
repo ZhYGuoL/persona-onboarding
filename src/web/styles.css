@@ -509,6 +509,10 @@ button {
   cursor: pointer;
 }
 
+.call-minimize[hidden] {
+  display: none;
+}
+
 .call-minimize:hover {
   background: rgba(255, 255, 255, 0.1);
 }
