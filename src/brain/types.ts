@@ -189,6 +189,8 @@ export type Action =
   | { type: "send_text"; turnId: number; bubbles: Bubble[] }
   | { type: "typing"; on: boolean }
   | { type: "ring_phone"; callId: string; callerName: string }
+  /** The user called the agent, and the agent picked up. The phone connects voice for this call. */
+  | { type: "call_accepted"; callId: string }
   | { type: "push_to_call"; callId: string; kind: PushKind; text: string }
   | { type: "end_call"; callId: string }
   | { type: "schedule_timer"; timerId: string; kind: TimerKind; fireAt: number }

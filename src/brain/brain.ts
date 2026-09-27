@@ -97,6 +97,8 @@ export class Brain {
         break;
       case "capabilities":
         s.caps = { ...s.caps, ...ev.caps };
+        // A denied microphone stays denied until the session resets.
+        if (s.call.lastEnd?.reason === "mic_denied") s.caps.voice = false;
         break;
       case "user_called":
         this.onUserCalled(step, now);
@@ -550,6 +552,7 @@ export class Brain {
     }
     s.call.callId = this.newCallId(s, now);
     s.call.status = "ringing";
+    step.actions.push({ type: "call_accepted", callId: s.call.callId });
     this.onCallAnswered(step, s.call.callId, now);
   }
 
