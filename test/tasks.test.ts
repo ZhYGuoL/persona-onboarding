@@ -292,7 +292,7 @@ describe("other task results", () => {
       ms: 700,
     });
     await w.advance(1000);
-    expect(w.last()?.texts.join(" ")).toMatch(/done\. i'll text you .+ at .+(AM|PM)\./i);
+    expect(w.last()?.texts.join(" ")).toMatch(/done\. i'll text you .+ at .+(AM|PM): “.+”/i);
     expect(w.state.timers["reminder-1"]).toMatchObject({ kind: "reminder", fireAt: at });
 
     await w.advance(2 * DAY);
@@ -668,11 +668,15 @@ describe("taking a request back", () => {
       ms: 500,
     });
     await w.advance(1000);
+    // The confirmation quotes the reminder, so check only what comes after the take-back.
+    expect(w.last()?.texts.join(" ")).toMatch(/: “Call mom\.”/);
     const t = await w.say("actually don't remind me", { cancels_task: true });
+    const before = w.turns().length;
     expect(t?.texts.join(" ")).toMatch(/i won't send that reminder/i);
     expect(w.state.timers["reminder-1"]).toBeUndefined();
     await w.advance(2 * DAY);
-    expect(w.turns().some((x) => /call mom/i.test(x.texts.join(" ")))).toBe(false);
+    const later = w.turns().slice(before);
+    expect(later.some((x) => /call mom/i.test(x.texts.join(" ")))).toBe(false);
   });
 
   it("drops a task that is still working, and ignores its late result", async () => {

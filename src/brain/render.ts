@@ -235,7 +235,13 @@ export function ackLines(a: Ack, f: PlanFacts, history: HistoryItem[] = []): str
   if (a.kind === "task_started" && a.next && f.canRunTasks) {
     return [
       fresh(
-        ["Now the next one. Looking into it.", "On to the next one.", "Next up. Looking into it."],
+        [
+          "Now the next one. Looking into it.",
+          "On to the next one.",
+          "Next up. Looking into it.",
+          "Next one. Looking into it.",
+          "Moving on to the next one.",
+        ],
         history,
       ),
     ];
@@ -255,12 +261,23 @@ export function ackLines(a: Ack, f: PlanFacts, history: HistoryItem[] = []): str
   const receipt = line && !shown ? [line] : [];
   switch (r.kind) {
     case "draft":
-      return [...receipt, r.text];
+      // A redraft can come back with the same intro. Stress run: "Here's a shorter
+      // reply canceling your Oct 1 cleaning." three times in a row.
+      return [
+        ...receipt,
+        saidBefore(r.text, history)
+          ? fresh(
+              ["Here's the new version.", "Here it is, updated.", "Updated draft below."],
+              history,
+            )
+          : r.text,
+      ];
     case "answer":
       return [...paragraphs(r.text), ...receipt];
     case "remind":
-      // What happens next goes last.
-      return [...receipt, `Done. I'll text you ${formatWhen(r.at, f.timeZone)}.`];
+      // What happens next goes last. The quote is the reminder itself, so the user can
+      // check it, and two reminders at the same time do not read the same.
+      return [...receipt, `Done. I'll text you ${formatWhen(r.at, f.timeZone)}: “${v(r.text)}”`];
     case "question":
       // The question itself is the turn's question.
       return receipt;
@@ -662,6 +679,11 @@ export function needsClosing(plan: Plan): boolean {
     !hasOwnNextStep(plan) &&
     !plan.acks.some((a) => a.kind === "calling_now")
   );
+}
+
+function saidBefore(text: string, history: HistoryItem[]): boolean {
+  const t = stripMarks(text).toLowerCase().trim();
+  return history.some((h) => h.from === "agent" && h.text.toLowerCase().trim() === t);
 }
 
 /** The first option the agent has not already said, so fixed lines do not repeat. */
