@@ -268,7 +268,7 @@ export class Brain {
         break;
       }
       case "call_silence":
-        if (!live || s.call.wrapUpAt !== null) break;
+        if (!live || s.call.wrapUpAt !== null || quietIsExpected(s)) break;
         if (s.call.silenceStage === 0) {
           s.call.silenceStage = 1;
           this.pushToCall(step, "instructions", CHECK_IN_INSTRUCTION);
@@ -517,7 +517,9 @@ export class Brain {
           this.wrapUp(step, now, "done");
           return;
         }
-        scheduleTimer(s, step.actions, "call_silence", now + this.cfg.callSilenceNudgeMs);
+        if (!quietIsExpected(s)) {
+          scheduleTimer(s, step.actions, "call_silence", now + this.cfg.callSilenceNudgeMs);
+        }
         return;
       }
       // Wrapping up. A goodbye ends the call at once, so there is no dead air.
@@ -799,6 +801,16 @@ export class Brain {
     }
     this.addNotice(step, { kind: "inbox_findings" }, now);
   }
+}
+
+/**
+ * The user is busy with the Gmail popup, or the agent is about to share what
+ * the scan found. Silence then is expected, so no "are you still there?".
+ * The Gmail wait and finding timers bound how long this lasts.
+ */
+function quietIsExpected(s: SessionState): boolean {
+  const gmailPending = s.call.linkSentOnCall && s.slots.gmail.status === "unknown";
+  return gmailPending || s.inbox.scanning || s.call.pendingDelivery !== null;
 }
 
 /** Use the Google profile name as a cross-check for the user's name. */

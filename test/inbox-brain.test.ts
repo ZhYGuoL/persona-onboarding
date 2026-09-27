@@ -97,6 +97,14 @@ describe("the magic moment on a call", () => {
     expect(w.pushes("instructions").at(-1)).toMatch(/say goodbye/i);
   });
 
+  it("no 'are you still there?' while they are connecting Gmail", async () => {
+    const w = new World({ caps: { voice: true, gmail: true } });
+    await onCallWithNeed(w);
+    await w.agentSays("I just texted you a link to connect Gmail, whenever you're ready.", 0);
+    await w.advance(w.cfg.callSilenceNudgeMs + w.cfg.callSilenceGiveUpMs + 1000);
+    expect(w.pushes("instructions").join(" ")).not.toMatch(/still there|seems to be gone/);
+  });
+
   it("if they never connect, the call wraps up with the link left in their texts", async () => {
     const w = new World({ caps: { voice: true, gmail: true } });
     await onCallWithNeed(w);
