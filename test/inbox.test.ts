@@ -178,8 +178,8 @@ describe("inbox service", () => {
     expect(w.state.inbox.findings).toEqual([
       {
         fact: "Something concrete from the inbox.",
-        // The model left out a next step, so the subject stands in.
-        next: expect.stringMatching(/^looking into "/),
+        // The model gave no next step, so there is nothing to offer.
+        next: "",
         threadId: expect.any(String),
         related: true,
       },
