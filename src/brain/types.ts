@@ -129,6 +129,8 @@ export interface Task {
   runs: number;
   /** Questions this task asked the user, so it never asks the same thing twice. */
   asked: string[];
+  /** Emails the user said are the wrong ones. The work step never picks them. */
+  avoid: string[];
 }
 
 /** The email behind a result, so the user can check the work. */
@@ -406,6 +408,8 @@ export interface Interpretation {
   task_detail: string | null;
   /** The user takes back something they asked the agent to do ("never mind", "don't remind me"). */
   cancels_task: boolean;
+  /** The draft is about the wrong email or person. What they meant, or "unknown". */
+  wrong_target: string | null;
 }
 
 export interface NameClaim {
@@ -428,6 +432,8 @@ export type Ack =
   | { kind: "task_started"; summary: string; needsGmail: boolean; next?: boolean }
   | { kind: "task_result"; taskId: number; result: TaskResult }
   | { kind: "task_redraft" }
+  /** The draft was about the wrong email. The task starts over without it. */
+  | { kind: "task_retarget" }
   | { kind: "task_limit" }
   /** `reminder` is true when a pending reminder was called off. */
   | { kind: "task_canceled"; reminder: boolean }
@@ -553,6 +559,8 @@ export interface TaskJob {
   previous: Draft | null;
   /** Emails the user already saw: findings and earlier results. */
   shown: string[];
+  /** Emails the user said are the wrong ones. */
+  avoid: string[];
   /** False when the task needs no email, so the work step does not search. */
   search: boolean;
   /** The inbox the task reads, or null to work without email. */

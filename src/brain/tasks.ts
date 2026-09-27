@@ -5,6 +5,7 @@
 // simulated.
 
 import type { BrainConfig } from "./config.ts";
+import { newTask } from "./ledger.ts";
 import { cancelTimer, scheduleTimer } from "./timers.ts";
 import type {
   Ack,
@@ -61,6 +62,7 @@ function run(s: SessionState, task: Task, actions: Action[], previous: Draft | n
     notes: [...task.notes],
     previous,
     search: task.search,
+    avoid: [...task.avoid],
     shown: [
       ...new Set([
         ...s.inbox.findings.map((f) => f.threadId),
@@ -177,6 +179,22 @@ export function applyTaskReply(
     const task = find(s, awaiting.taskId);
     if (task?.status !== "needs_yes" || task.result?.kind !== "draft") return false;
     const draft = task.result.draft;
+    // "That's for my dentist, I meant Planet Fitness." A redraft of the same email
+    // cannot fix that. Stress run: four redrafts in a row went back to the dentist.
+    if (i.wrong_target) {
+      task.status = "dropped";
+      const from = task.result.receipt?.from ?? draft.to;
+      const again = newTask(s, task.summary, task.needsGmail, now, null, true);
+      again.notes.push(
+        ...task.notes,
+        `The last draft used the wrong email (from ${from}). They mean: ${i.wrong_target}`,
+        ...(i.draft_edit ? [`Change the draft: ${i.draft_edit}`] : []),
+      );
+      again.avoid.push(...task.avoid, ...(draft.threadId ? [draft.threadId] : []));
+      s.tasks.push(again);
+      acks.push({ kind: "task_retarget" });
+      return true;
+    }
     // "Yes, but make it shorter" is an edit, not a yes.
     if (i.draft_edit) {
       if (task.runs >= cfg.maxTaskRuns) {

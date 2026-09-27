@@ -189,5 +189,6 @@ export function newTask(
     result: null,
     runs: 0,
     asked: [],
+    avoid: [],
   };
 }

@@ -27,6 +27,8 @@ export interface WorkInput {
   previous: Draft | null;
   /** Emails the user already saw, so "any other ones?" finds new ones. */
   shown: string[];
+  /** Emails the user said are the wrong ones. Never picked. */
+  avoid: string[];
   /** False when the task needs no email: skip the search. */
   search: boolean;
   userName: string | null;
@@ -205,7 +207,7 @@ async function pickThreads(
   for (const r of results) {
     if (r.status === "rejected" && r.reason instanceof InboxAuthError) throw r.reason;
   }
-  const seen = new Set<string>();
+  const seen = new Set<string>(input.avoid);
   const pool: ThreadSummary[] = [];
   for (const r of results) {
     if (r.status !== "fulfilled") continue;

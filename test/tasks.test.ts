@@ -164,6 +164,31 @@ describe("a task from an inbox finding", () => {
     expect(w.state.tasks[0]?.status).toBe("working");
   });
 
+  // Stress run: "that's for my dentist, I meant Planet Fitness" was read as an edit,
+  // and four redrafts in a row went back to the dentist.
+  it("'wrong email' starts over without that email, keeping the edit", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toDraft(w);
+    const reply = await w.say("that's the wrong one, i meant adobe. keep it short", {
+      wrong_target: "Adobe",
+      draft_edit: "keep it short",
+    });
+    expect(reply?.texts.join(" ")).toMatch(/sorry, wrong email\. looking into it\./i);
+    expect(w.state.tasks.map((t) => t.status)).toEqual(["dropped", "working"]);
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      taskId: 2,
+      job: {
+        threadId: null,
+        avoid: ["nyt-trial"],
+        notes: [
+          "The last draft used the wrong email (from The New York Times). They mean: Adobe",
+          "Change the draft: keep it short",
+        ],
+      },
+    });
+    expect(w.of("simulated_send")).toHaveLength(0);
+  });
+
   it("a yes to some other question never sends a waiting draft", async () => {
     const w = new World({ caps: { gmail: true, tasks: true } });
     await toDraft(w);

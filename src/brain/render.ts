@@ -128,6 +128,8 @@ export function ackText(a: Ack, f: PlanFacts): string {
       return "";
     case "task_redraft":
       return "On it. Updating the draft.";
+    case "task_retarget":
+      return "Sorry, wrong email.";
     case "task_failed":
       return a.reason === "auth"
         ? "I lost access to your inbox, so I couldn't finish that. You'd need to connect Gmail again."
@@ -725,6 +727,8 @@ function ackGuide(a: Ack, f: PlanFacts): string {
         : 'They asked for a concrete task your abilities do not cover yet. Say plainly, in their words, that you cannot do it from here yet. Never write "got it", "on it", or anything that sounds like you took it on.';
     case "task_redraft":
       return "Say only that you are updating the draft, in a few words. Do not describe what the draft says or does.";
+    case "task_retarget":
+      return "The draft was for the wrong email. Say sorry in a few words. The search starts over.";
     case "task_canceled":
       return a.reminder
         ? "They took back a reminder. Say plainly, in a few words, that you won't send it."

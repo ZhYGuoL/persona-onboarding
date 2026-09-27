@@ -43,6 +43,7 @@ export function blankInterpretation(language = "en"): Interpretation {
     draft_edit: null,
     task_detail: null,
     cancels_task: false,
+    wrong_target: null,
   };
 }
 
@@ -83,6 +84,7 @@ export const SIGNAL_KINDS = [
   "draft_edit",
   "task_detail",
   "cancels_task",
+  "wrong_target",
 ] as const;
 
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
@@ -174,6 +176,9 @@ export function readingToInterpretation(raw: RawReading): Interpretation {
       case "task_detail":
         if (value) out.task_detail = value;
         break;
+      case "wrong_target":
+        out.wrong_target = value || "unknown";
+        break;
       case "offensive_agent_name":
         out.offensive_names.push("agent_name");
         break;
@@ -224,7 +229,7 @@ Signal kinds:
 - user_name (value): the USER'S own name or what they want to be called. "i'm david", "call me Z", "it's Priya", or a bare name when the assistant just asked for the user's name. Keep unusual names exactly as written. Never fix spelling.
 - user_name_correction (value): the user fixes their own name given before ("actually call me Z", "no it's Dave").
 - help_need (value): something the user could use help with. Write it as a short noun phrase of at most 8 words, with no pronouns, like "scheduling classes and events" or "keeping up with bills".
-- task (value, flag): a concrete request to do now, like "cancel my gym membership", "find my flight confirmation", "get a refund for the headphones". A question the assistant can only answer by looking in their email is a task too: "when's my flight?", "any other subscriptions?", "what do I owe Con Ed?". Not a vague area like "help with email". Value = a short noun phrase with no pronouns, like "canceling the gym membership". flag = true if doing it needs reading their email: receipts, confirmations, memberships, subscriptions, bills, orders, bookings. Canceling or changing a membership or subscription needs their email too, to find the account and where to write. Add one task signal per task when the texts ask for more than one.
+- task (value, flag): a concrete request to do now, like "cancel my gym membership", "find my flight confirmation", "get a refund for the headphones". A question the assistant can only answer by looking in their email is a task too: "when's my flight?", "any other subscriptions?", "what do I owe Con Ed?". Not a vague area like "help with email". Value = a short noun phrase with no pronouns, like "canceling the gym membership". When the user leaves out who or what it is about ("draft a reply asking to cancel"), name it from the recent conversation ("drafting a cancellation to Planet Fitness"). flag = true if doing it needs reading their email: receipts, confirmations, memberships, subscriptions, bills, orders, bookings. Canceling or changing a membership or subscription needs their email too, to find the account and where to write. Add one task signal per task when the texts ask for more than one.
 - refuses_agent_name, refuses_user_name, refuses_gmail, refuses_help_need, refuses_call (flag): the user will not give that or does not want a phone call. flag = true for strong or repeated refusals ("never", "stop asking", "I said no").
 - wants_call: the user asks the ASSISTANT to call THEM ("call me", "can you just call me", "can we just talk"). "call me" with no name after it is a call request, not a name. Asking the assistant to call a business or another person ("call the NYT and cancel", "call my dentist") is a task, not wants_call. An offer like "I can take a call if you need me" is not a request either.
 - wants_gmail_link: the user asks for the Gmail link, or asks how to connect their email ("send the link again", "how do I connect gmail?", "can I connect my email now?"). Saying they will use a link they already have ("ok i'll connect it") is not a request.
@@ -244,6 +249,7 @@ Signal kinds:
 - leaving: the user says they have to go now ("gotta go", "brb", "ttyl").
 - draft_edit (value): the assistant just showed a draft email, and the user wants something changed in it ("make it shorter", "say I'm moving out", "sign it Dan"). Value = the change, in the user's words.
 - task_detail (value): the assistant just asked the user a question for a task, and the user answers it ("I'm staying", "the one on Bedford Ave", "9am works"). Also the details a user adds when saying yes to an offer ("yes, remind me the day before"). Value = the answer, in the user's words. A plain yes or no goes in reply_to_pending instead.
+- wrong_target (value): the assistant just showed a draft about the wrong email, company, or person, and the user says so ("that's for my dentist, I meant Planet Fitness", "wrong email"). Value = what they meant, like "Planet Fitness", or "unknown" if they do not say. A change they also want goes in draft_edit.
 - cancels_task: the user takes back something they asked the assistant to do ("never mind", "forget it", "cancel that reminder", "don't remind me after all"). Asking the assistant to cancel a service ("cancel my gym membership") is a task, not this.
 - confirms_name (value): the user confirms their own name after the assistant checked it, or spells it out letter by letter, even unprompted. "yes, that's right" after "Is that David with a V?" gives "David". "D-A-V-E" gives "Dave". "my name is David, D, A, V, I, D" gives both user_name "David" and confirms_name "David". Value = the confirmed spelling.
 

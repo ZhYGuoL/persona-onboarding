@@ -257,6 +257,25 @@ const CASES: Case[] = [
     expect: (i) => i.reply_to_pending === "yes" && i.task !== null,
   },
   {
+    label: "a draft to the wrong place is wrong_target, not just an edit",
+    text: "wait, that's for my dentist. i meant Planet Fitness, can you make it shorter?",
+    awaiting: sendIt,
+    prior: [
+      { from: "agent", text: "Here's a reply to Patel Family Dental canceling your cleaning." },
+      { from: "agent", text: "Send it?" },
+    ],
+    expect: (i) => /planet fitness/i.test(i.wrong_target ?? "") && i.reply_to_pending !== "yes",
+  },
+  {
+    label: "a task names its target from the conversation",
+    text: "can you draft a reply asking to cancel?",
+    prior: [
+      { from: "user", text: "can you help me get out of my gym membership? it's Planet Fitness" },
+      { from: "agent", text: "Planet Fitness's email address is members@planetfitness.com." },
+    ],
+    expect: (i) => /planet fitness/i.test(i.task?.summary ?? ""),
+  },
+  {
     label: "a question that needs the inbox is a task",
     text: "any other subscriptions i should know about?",
     expect: (i) => i.task?.needs_gmail === true,

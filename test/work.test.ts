@@ -49,6 +49,7 @@ function input(partial: Partial<WorkInput> = {}): WorkInput {
     notes: [],
     previous: null,
     shown: [],
+    avoid: [],
     search: true,
     userName: "Dan",
     userEmail: "dan@gmail.com",
@@ -187,6 +188,24 @@ describe("task work", () => {
     });
     expect(out.threadId).toBe("conedison");
     expect(out.result.receipt?.from).toBe("Con Edison");
+  });
+
+  it("never offers an email the user said is the wrong one", async () => {
+    let listing = "";
+    const llm = scripted({
+      task_email: (req: JsonRequest) => {
+        listing = req.input[0]?.content ?? "";
+        return { indexes: [0] };
+      },
+      task_result: work({ kind: "answer", text: "Your bill is $86.42." }),
+    });
+    await runWork(input({ summary: "my con edison bill", threadId: null, avoid: ["conedison"] }), {
+      provider,
+      llm,
+      model: "m",
+      fastModel: "f",
+    });
+    expect(listing).not.toMatch(/Con Edison/);
   });
 
   it("a list task reads several emails, skips shown ones on request, and quotes the right one", async () => {
