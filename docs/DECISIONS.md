@@ -616,6 +616,8 @@ If the agent is quiet, the push goes out at once, as before.
 - **Why.** The session rules already tell the agent to say goodbye in these cases, and it usually does before the brain decides.
 In the scripted voice runs, the push arrived after that goodbye and made a second one: "Bye for now. Okay, take care, and talk soon."
 The voice layer now reports when the agent starts to speak, so the brain knows if a line is in progress.
+- **Later fix.** The caller's words can split the agent's goodbye in two ("Bye," then "David.").
+So every agent line that ended after the caller started their last line counts, not only the last line.
 
 ### D72. Calls and texts share one list of facts about Persona
 
@@ -624,6 +626,8 @@ The text prompt and the call prompt both include them, with one rule: if a quest
 - **Why.** In a scripted voice run, a caller asked "Is this free?", and the agent said "We do have both free and paid options."
 The call prompt had no facts about Persona, so the voice model filled the gap.
 One list keeps the two surfaces from telling the user different things.
+- **Later fix.** The rule now says to give only "not sure", with no reason and no offer to find out.
+Later runs had "I can check and follow up" (nothing would) and "We don't talk about pricing on calls" (made up).
 
 ### D73. A call with no agent voice for 10 s is ended and the user gets a text
 
@@ -636,3 +640,35 @@ The cause is not confirmed, and it did not happen again in later runs.
 A real caller would sit in silence with no way to know what went wrong.
 The first agent sound comes about 2 s after the tap (p95 2.4 s), so 10 s leaves wide room.
 - **Check.** Browser QA cut the page's outgoing audio to reproduce it. The call ended at 10.0 s, and the text came 1.3 s later.
+
+### D74. Template lines follow the user's language through one translation call
+
+- **Choice.** Turns that code writes from templates (receipts, "Send it?", "Looking into it.") go through one translation call when the user does not write in English.
+Names, quotes, and email addresses become `{{vN}}` tokens.
+If a token does not come back unchanged, the turn stays in English.
+Texts sent during a call, such as the Gmail link line, follow the caller's language the same way.
+- **Why.** A Spanish thread got English receipts, and a Spanish caller got "Here's the link to connect Gmail."
+The LLM path already wrote in the user's language, so only template turns broke it.
+The tokens keep quotes exact, because a receipt that changes the quote is not a receipt.
+- **Check.** A stress invariant, `same_language`, flags agent turns in another language than the user's.
+Quotes, names, drafts, and the fixed first message are exempt.
+
+### D75. Voice latency is measured on the audio the phone plays
+
+- **Choice.** A meter in the browser watches the agent's audio track (RMS above 0.012 for 60 ms is speech, 450 ms of quiet ends it).
+The phone reports four times to the event log: tap to live session, tap to first agent sound, end of caller speech to agent reply, and caller cut-in to agent quiet.
+- **Why.** The caller hears silence, not server events.
+Server-side timestamps miss the network, the jitter buffer, and the model's own pause before it speaks.
+With the test voice, the end of each caller clip is exact, so the reply gap has no voice-detection guesswork.
+
+### D76. Scripted voice runs are real calls, started from the reviewer panel
+
+- **Choice.** Nine scripts drive real GPT-Live calls with prerecorded clips: happy path, spelled name, interruption of a reply, interruption of the greeting, silence, Spanish, "are you a bot?", "gotta go", and a dropped line.
+Each run starts a fresh session and marks its start and end in the event log. `pnpm voice:report` grades the runs from that log and writes `docs/voice-results.md`.
+- **Why.** The brief says text simulations cannot cover mishearing, interruptions, and latency.
+Real calls can, and the panel lets a reviewer rerun them without a script or a microphone.
+- **Runner rules.** The scripted caller waits for 1 s of agent quiet before it speaks, because the agent pauses about 800 ms between two sentences of one reply.
+It cuts in only while the agent's audio has sound, so every interruption is measured.
+- **Grading rules.** Caller words are timed from the start of their utterance, because a final can arrive after the reply to it.
+The barge-in bar is 2 s, because GPT-Live finishes its current sentence before it yields.
+A check-in passes only if the agent actually spoke, not when the push went out.
