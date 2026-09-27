@@ -237,6 +237,24 @@ describe("task work", () => {
     );
   });
 
+  // Stress run: "...7:05 AM.?" got a second question mark.
+  it("adds a question mark only when the question has none", async () => {
+    const ask = (text: string) => scripted({ task_result: work({ kind: "question", text }) });
+    const run = async (text: string) =>
+      (
+        await runWork(input({ threadId: null }), {
+          provider: null,
+          llm: ask(text),
+          model: "m",
+          fastModel: "f",
+        })
+      ).result;
+    expect(await run("¿Te quedas? El contrato vence pronto.")).toMatchObject({
+      text: "¿Te quedas? El contrato vence pronto.",
+    });
+    expect(await run("Which plan")).toMatchObject({ text: "Which plan?" });
+  });
+
   it("works without an inbox", async () => {
     const llm = scripted({
       task_result: work({ kind: "answer", text: "Mon: lentil soup\nTue: veggie tacos" }),
