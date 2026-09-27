@@ -47,6 +47,9 @@ export function decideCall(
   s.pending.utterances.splice(0, utterances.length);
   const live = s.call.status === "active";
   const heard = utterances.map((u) => u.text).join(" ");
+  // Typed during the call: exact spelling, so names are confirmed and the source is text.
+  const typed = utterances.length > 0 && utterances.every((u) => u.typed);
+  const source = typed ? "text" : "voice";
 
   if (i.language && heard.trim().length >= 6) s.language = i.language;
 
@@ -86,7 +89,7 @@ export function decideCall(
       } else {
         const check = checkName(i.agent_name.value, cfg.agentNameMaxLength);
         if (check.ok) {
-          setSlot(s.slots.agent_name, check.value, "tentative", "voice", now);
+          setSlot(s.slots.agent_name, check.value, typed ? "confirmed" : "tentative", source, now);
           capture("agent_name");
           saved.push(`they want to call you ${check.value} from now on`);
         }
@@ -101,7 +104,7 @@ export function decideCall(
     if (i.confirms_name && !partial) {
       const check = checkName(i.confirms_name, cfg.userNameMaxLength);
       if (check.ok) {
-        setSlot(user, check.value, "confirmed", "voice", now);
+        setSlot(user, check.value, "confirmed", source, now);
         capture("user_name");
         saved.push(`they confirmed their name is ${check.value}`);
       }
@@ -117,15 +120,14 @@ export function decideCall(
         // A typed name is exact. A different name heard on the call is likely a mishearing.
         saved.push(`keep calling them ${user.value}, which is how they typed it`);
       } else if (!(user.status === "confirmed" && same)) {
-        setSlot(
-          user,
-          check.value,
-          i.user_name.correction ? "confirmed" : "tentative",
-          "voice",
-          now,
-        );
+        const exact = typed || i.user_name.correction;
+        setSlot(user, check.value, exact ? "confirmed" : "tentative", source, now);
         capture("user_name");
-        saved.push(`their name sounds like ${check.value} (check the spelling if it is unusual)`);
+        saved.push(
+          exact
+            ? `their name is ${check.value}`
+            : `their name sounds like ${check.value} (check the spelling if it is unusual)`,
+        );
       } else {
         capture("user_name");
       }
@@ -133,7 +135,7 @@ export function decideCall(
     if (i.help_need) {
       const value = cleanHelpNeed(i.help_need, cfg.helpNeedMaxLength);
       if (value && value.toLowerCase() !== s.slots.help_need.value?.toLowerCase()) {
-        setSlot(s.slots.help_need, value, "confirmed", "voice", now);
+        setSlot(s.slots.help_need, value, "confirmed", source, now);
         capture("help_need");
         saved.push(`they want help with: ${value}`);
       }
@@ -150,7 +152,7 @@ export function decideCall(
           createdAt: now,
         });
         if (s.slots.help_need.status !== "confirmed") {
-          setSlot(s.slots.help_need, summary, "confirmed", "voice", now);
+          setSlot(s.slots.help_need, summary, "confirmed", source, now);
           capture("help_need");
         }
         s.graduated = true;
@@ -165,7 +167,9 @@ export function decideCall(
   let leaving = i.leaving || i.skip_setup;
   for (const r of i.refusals) {
     if (r.slot === "call") {
+      // "Stop calling me" during a call: end it politely and never offer a call again.
       leaving = true;
+      s.call.declines = Math.max(s.call.declines, cfg.maxCallDeclines);
       continue;
     }
     if (s.slots[r.slot].status === "confirmed") continue;

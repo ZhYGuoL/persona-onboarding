@@ -119,6 +119,8 @@ export type OAuthFailure =
 export interface PendingText {
   text: string;
   ts: number;
+  /** On a call, true when the user typed this instead of saying it. Typed values are exact. */
+  typed?: boolean;
 }
 
 export interface SessionState {

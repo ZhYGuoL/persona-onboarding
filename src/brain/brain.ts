@@ -184,7 +184,7 @@ export class Brain {
         "commentary",
         "Briefly acknowledge the text they just sent, then continue.",
       );
-      s.pending.utterances.push({ text, ts: now });
+      s.pending.utterances.push({ text, ts: now, typed: true });
       this.startCallTurn(step, now);
       return;
     }
@@ -447,17 +447,18 @@ export class Brain {
         return;
       }
       // Wrapping up. A goodbye ends the call at once, so there is no dead air.
-      // Speech that started before the wrap-up is the agent finishing its thought.
+      // Otherwise hang up after a short quiet. Speech that started before the
+      // wrap-up is the agent finishing its thought, so it gets no reminder.
       const startedAt = now - startedAgoMs;
       if (soundsLikeGoodbye(text)) {
         this.endCall(step);
-      } else if (startedAt >= s.call.wrapUpAt) {
-        if (!s.call.wrapNudged) {
-          s.call.wrapNudged = true;
-          this.pushToCall(step, "instructions", SAY_GOODBYE_NOW);
-        }
-        scheduleTimer(s, step.actions, "call_end_fallback", now + this.cfg.callEndQuietMs);
+        return;
       }
+      if (startedAt >= s.call.wrapUpAt && !s.call.wrapNudged) {
+        s.call.wrapNudged = true;
+        this.pushToCall(step, "instructions", SAY_GOODBYE_NOW);
+      }
+      scheduleTimer(s, step.actions, "call_end_fallback", now + this.cfg.callEndQuietMs);
       return;
     }
     s.lastUserAt = now;

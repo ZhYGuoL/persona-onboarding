@@ -85,6 +85,41 @@ describe("live call", () => {
     expect(w.of("end_call")).toHaveLength(0);
   });
 
+  it("hangs up a few seconds after the agent's last words, even without a goodbye", async () => {
+    const w = new World({ caps: { voice: true } });
+    await onCall(w);
+    await w.hear("stop calling me", { refusals: [{ slot: "call", hard: false }] });
+    // This reply started before the wrap-up, so it is the agent finishing its thought.
+    await w.agentSays("I won't call again.", 5000);
+    expect(w.of("end_call")).toHaveLength(0);
+    await w.advance(w.cfg.callEndQuietMs + 100);
+    expect(w.of("end_call")).toHaveLength(1);
+  });
+
+  it("'stop calling me' on a call means no more call offers", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    await w.hear("stop calling me", { refusals: [{ slot: "call", hard: false }] });
+    await w.agentSays("Got it, bye!", 0);
+    await w.event({ type: "call_ended", callId, reason: "close_requested" });
+    await w.advance(1000);
+    expect(w.state.call.declines).toBe(w.cfg.maxCallDeclines);
+    await w.say("ugh typing is slow", { typing_fatigue: true });
+    expect(w.awaiting()).not.toBe("offer_call");
+  });
+
+  it("a name typed during a call is exact, so it is confirmed with source text", async () => {
+    const w = new World({ caps: { voice: true } });
+    await onCall(w);
+    await w.type("i'm Priya", { user_name: name("Priya") });
+    await w.settle();
+    expect(w.state.slots.user_name).toMatchObject({
+      value: "Priya",
+      status: "confirmed",
+      source: "text",
+    });
+  });
+
   it("a spelling that arrives in pieces never shortens the name", async () => {
     const w = new World({ caps: { voice: true } });
     await onCall(w);
