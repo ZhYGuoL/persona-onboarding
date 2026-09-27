@@ -476,7 +476,7 @@ function abilities(f: PlanFacts): string {
   if (f.canRunTasks) can.push("drafting messages that wait for the user's yes");
   const cannot = f.canRunTasks
     ? "You cannot place real calls to businesses, browse the web, or buy things yet."
-    : `You cannot ${f.gmail ? "take actions in their email, " : "read email, "}draft, call businesses, browse, or buy things yet, and nothing runs in the background. If the user asks for real work, say plainly you cannot do that from here yet.`;
+    : `You cannot ${f.gmail ? "take actions in their email, " : ""}draft, call businesses, browse, or buy things yet, and nothing runs in the background.${f.gmail ? "" : " You can read email only after they connect Gmail."} If the user asks you to do real work now, say plainly you cannot do that from here yet. When they only describe what they need help with, do not list what you cannot do.`;
   return `${can.join(", ")}. ${cannot}`;
 }
 
