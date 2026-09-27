@@ -16,6 +16,13 @@ const LINK_TTL_MS = 24 * 60 * 60_000;
 const FLOW_TTL_MS = 15 * 60_000;
 /** After the popup closes, wait this long for a callback already in flight before calling it cancelled. */
 const CLOSE_GRACE_MS = 2000;
+/**
+ * Once the popup is on Google's pages, the browser's handle to it is not
+ * reliable (Google's opener policy can cut it). Google always redirects back
+ * on finish, deny, or cancel, so only a missing callback after this long means
+ * they abandoned it.
+ */
+const GOOGLE_ABANDON_MS = 3 * 60_000;
 const SCOPES = ["openid", "email", "profile", GMAIL_SCOPE];
 
 export interface OAuthDeps {
@@ -75,7 +82,7 @@ interface Flow {
 export function registerOAuth(app: FastifyInstance, deps: OAuthDeps) {
   const flows = new Map<string, Flow>();
   /** The last connect page each session opened, so a closed popup can count as a cancel. */
-  const opened = new Map<string, { at: number; done: boolean }>();
+  const opened = new Map<string, { at: number; done: boolean; atGoogle: boolean }>();
   const connectPath = "/connect/gmail";
   const now = () => Date.now();
 
@@ -94,7 +101,7 @@ export function registerOAuth(app: FastifyInstance, deps: OAuthDeps) {
     if (!sessionId) {
       return oauthResultPage(false, "This link expired", "Text your assistant for a fresh link.");
     }
-    opened.set(sessionId, { at: now(), done: false });
+    opened.set(sessionId, { at: now(), done: false, atGoogle: false });
     const t = encodeURIComponent(req.query.t ?? "");
     return connectGmailPage(`/auth/google/start?t=${t}`, "/connect/sample", req.query.t ?? "");
   });
@@ -117,6 +124,17 @@ export function registerOAuth(app: FastifyInstance, deps: OAuthDeps) {
     const state = b64url(randomBytes(24));
     const verifier = b64url(randomBytes(48));
     flows.set(state, { sessionId, verifier, at: now() });
+    const o = opened.get(sessionId) ?? { at: now(), done: false, atGoogle: false };
+    o.atGoogle = true;
+    o.done = false;
+    opened.set(sessionId, o);
+    const startedAt = o.at;
+    setTimeout(() => {
+      const again = opened.get(sessionId);
+      if (!again || again.done || again.at !== startedAt) return;
+      again.done = true;
+      void deps.hub.dispatch(sessionId, { type: "oauth_failed", reason: "cancelled" });
+    }, GOOGLE_ABANDON_MS).unref();
     const params = new URLSearchParams({
       client_id: deps.clientId,
       redirect_uri: deps.redirectUri,
@@ -229,7 +247,8 @@ export function registerOAuth(app: FastifyInstance, deps: OAuthDeps) {
     /** The simulator reports that the connect popup closed. No callback means they backed out. */
     popupClosed(sessionId: string) {
       const o = opened.get(sessionId);
-      if (!o || o.done) return;
+      // On Google's pages the close signal is not trustworthy. The callback or the abandon timer decides.
+      if (!o || o.done || o.atGoogle) return;
       setTimeout(() => {
         const again = opened.get(sessionId);
         if (!again || again.done) return;

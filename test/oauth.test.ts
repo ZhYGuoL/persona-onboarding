@@ -164,6 +164,24 @@ describe("oauth routes", () => {
     expect(JSON.stringify(w.store.events(w.sid))).not.toContain("secret-token");
   });
 
+  it("a close signal after reaching Google is ignored; only a missing callback counts", async () => {
+    vi.useFakeTimers();
+    try {
+      const { app, t, oauth, w, events } = await setup();
+      await app.inject(`/connect/gmail?t=${encodeURIComponent(t)}`);
+      await app.inject(`/auth/google/start?t=${encodeURIComponent(t)}`);
+      oauth.popupClosed(w.sid);
+      await vi.advanceTimersByTimeAsync(10_000);
+      await w.settle();
+      expect(events()).not.toContain("oauth_failed");
+      await vi.advanceTimersByTimeAsync(3 * 60_000);
+      await w.settle();
+      expect(events()).toContain("oauth_failed");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("closing the popup without finishing counts as a cancel", async () => {
     vi.useFakeTimers();
     try {
