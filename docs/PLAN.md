@@ -99,3 +99,12 @@ QA stayed read-only on Google. Zhiyuan should run it once with a test user.
 ## Milestone 4: next
 
 Graduation into a real first task: read the full email behind a finding, and draft the outward action (a cancellation email, a reply to a landlord), which waits for the user's yes.
+
+Inputs from the M3 stress run:
+- A "yes" to "want me to start there?" leads nowhere today.
+The agent says "got it" and then "I can't do that from here yet".
+M4 must make that yes start real work, or the offer must not be made.
+- An acknowledgment like "got it: reminding you before the bill is due" reads as a promise.
+The judge flags it as a false promise when the next sentence says the agent cannot do it.
+- Some requests need no tools at all, like "help me plan meals for the week".
+The agent refuses them today, but it can do them right in the thread.

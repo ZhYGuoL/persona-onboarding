@@ -458,3 +458,13 @@ After three answered calls, a new request gets a text that keeps the talk in the
 - **Why.** In the M3 stress run, a rambler asked the agent to call a business and offered to take a call.
 Both read as call requests, and the agent rang four times in one session.
 A dropped line still gets a callback, because three calls leave room for one drop and one retry.
+
+### D54. A Gmail link the user asks for always goes out
+
+- **Choice.** "Send the link again" and "how do I connect gmail?" are their own signal, `wants_gmail_link`.
+The link goes out by text or on a call, even past the ask budget, after an earlier no, or when the user is leaving.
+It does not go out once Gmail is connected.
+The render guard also rejects a draft that says the agent cannot send a link.
+- **Why.** The ask budget limits how often the agent asks, not how often it answers.
+In the M3 stress run, the budget was spent, the user asked for the link, and the agent said it could not send links.
+That was false, and it blocked the user from the one thing they wanted to do.
