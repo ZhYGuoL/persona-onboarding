@@ -93,14 +93,19 @@ export function decideCall(
       }
     }
     const user = s.slots.user_name;
-    if (i.confirms_name) {
+    // A spelling can arrive in pieces ("D A V" then "I D"). A prefix of the name we heard is not a confirmation.
+    const spelled = i.confirms_name?.toLowerCase() ?? "";
+    const heardName = user.value?.toLowerCase() ?? "";
+    const partial =
+      spelled !== "" && heardName.length > spelled.length && heardName.startsWith(spelled);
+    if (i.confirms_name && !partial) {
       const check = checkName(i.confirms_name, cfg.userNameMaxLength);
       if (check.ok) {
         setSlot(user, check.value, "confirmed", "voice", now);
         capture("user_name");
         saved.push(`they confirmed their name is ${check.value}`);
       }
-    } else if (i.user_name && !i.offensive_names.includes("user_name")) {
+    } else if (i.user_name && !partial && !i.offensive_names.includes("user_name")) {
       const check = checkName(i.user_name.value, cfg.userNameMaxLength);
       const same =
         user.value?.localeCompare(check.ok ? check.value : "", undefined, {
