@@ -1,0 +1,669 @@
+// The deterministic policy. Given the session state and a structured reading
+// of what just happened, it updates the ledger and picks the plan for one
+// agent turn: what to acknowledge, what to answer, and at most one question.
+// No model runs here, so every invariant is testable and cannot be talked out of.
+
+import type { BrainConfig } from "./config.ts";
+import {
+  agentDisplayName,
+  applyRefusal,
+  canAsk,
+  recordAsk,
+  setSlot,
+  settleExhausted,
+} from "./ledger.ts";
+import type {
+  Ack,
+  Action,
+  Interpretation,
+  Notice,
+  PendingText,
+  Plan,
+  Question,
+  SessionState,
+  SlotName,
+} from "./types.ts";
+import { checkName, cleanHelpNeed } from "./validate.ts";
+
+export interface DecideInput {
+  texts: PendingText[];
+  notices: Notice[];
+  interp: Interpretation | null;
+  now: number;
+}
+
+export interface DecideOutput {
+  state: SessionState;
+  plan: Plan;
+  actions: Action[];
+}
+
+const STOP_WORDS = /^\s*(stop|stopall|unsubscribe|end|quit)\s*[.!]*\s*$/i;
+const START_WORDS = /^\s*(start|unstop|resume)\s*[.!]*\s*$/i;
+
+export function isStopKeyword(text: string): boolean {
+  return STOP_WORDS.test(text);
+}
+
+export function isStartKeyword(text: string): boolean {
+  return START_WORDS.test(text);
+}
+
+export function emptyPlan(s: SessionState, cfg: BrainConfig): Plan {
+  return {
+    intro: false,
+    acks: [],
+    answers: [],
+    question: null,
+    terminal: null,
+    chat: false,
+    mode: s.phase === "main" ? "main" : "onboarding",
+    facts: planFacts(s, cfg),
+  };
+}
+
+export function isEmptyPlan(plan: Plan): boolean {
+  return (
+    !plan.intro &&
+    !plan.chat &&
+    plan.terminal === null &&
+    plan.question === null &&
+    plan.acks.length === 0 &&
+    plan.answers.length === 0
+  );
+}
+
+export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): DecideOutput {
+  const s = structuredClone(s0);
+  const actions: Action[] = [];
+  const { texts, notices, now } = input;
+  let i = input.interp;
+  const acks: Ack[] = [];
+  const plan = emptyPlan(s, cfg);
+
+  // Consume what this turn covers. Anything that arrived later stays pending.
+  s.pending.texts.splice(0, texts.length);
+  s.pending.notices.splice(0, notices.length);
+
+  const hasTexts = texts.length > 0;
+  const previousUserAt = s.lastUserAt;
+  for (const t of texts) {
+    s.history.push({ from: "user", channel: "text", text: t.text, ts: t.ts });
+  }
+  if (hasTexts) {
+    s.lastUserAt = texts[texts.length - 1]?.ts ?? now;
+    updateCasing(s, texts);
+    if (
+      i?.language &&
+      texts
+        .map((t) => t.text)
+        .join(" ")
+        .trim().length >= 6
+    ) {
+      s.language = i.language;
+    }
+  }
+  trimHistory(s, cfg);
+
+  const awaiting = s.awaiting?.question ?? null;
+  if (hasTexts) s.awaiting = null;
+
+  // 1. Hard stops come first and end the turn.
+  const optOut = texts.some((t) => isStopKeyword(t.text)) || i?.opt_out === true;
+  if (optOut && s.phase !== "opted_out") {
+    s.phaseBeforeOptOut = s.phase;
+    s.phase = "opted_out";
+    s.awaiting = null;
+    stopCall(s, actions);
+    cancelTimer(s, actions, "idle_nudge");
+    return finish(s, { ...plan, terminal: "opt_out" }, actions, cfg);
+  }
+  if (s.phase === "opted_out") {
+    const optIn = texts.some((t) => isStartKeyword(t.text)) || i?.opt_in === true;
+    if (!optIn) return finish(s, plan, actions, cfg);
+    s.phase = s.phaseBeforeOptOut ?? "onboarding";
+    s.phaseBeforeOptOut = null;
+    acks.push({ kind: "opted_in" });
+  }
+  if (i?.under_18 && s.phase !== "underage") {
+    s.phase = "underage";
+    s.awaiting = null;
+    stopCall(s, actions);
+    cancelTimer(s, actions, "idle_nudge");
+    return finish(s, { ...plan, terminal: "underage" }, actions, cfg);
+  }
+  if (s.phase === "underage") return finish(s, plan, actions, cfg);
+
+  // 2. First contact shows value before the first ask.
+  if (hasTexts && !s.introduced) {
+    plan.intro = true;
+    s.introduced = true;
+  }
+
+  // 3. Coming back after a long gap opens with a one-line summary.
+  // The summary uses what was known before this message, so it never repeats it back.
+  const firstTs = texts[0]?.ts;
+  if (
+    firstTs !== undefined &&
+    previousUserAt !== null &&
+    firstTs - previousUserAt >= cfg.resumeGapMs &&
+    s.lastAgentAt !== null
+  ) {
+    const before = planFacts(s0, cfg);
+    acks.push({
+      kind: "resume",
+      agentName: before.agentName,
+      userName: before.userName,
+      topic: before.openTask ?? before.helpNeed,
+    });
+  }
+
+  // 4. Things that happened outside the text thread.
+  let wantCallback = false;
+  let noChase = false;
+  let nudge = false;
+  for (const n of notices) {
+    switch (n.kind) {
+      case "call_declined":
+        acks.push({ kind: "call_declined", final: s.call.declines >= cfg.maxCallDeclines });
+        break;
+      case "call_missed":
+        acks.push({ kind: "call_missed" });
+        wantCallback = true;
+        break;
+      case "call_ended":
+        switch (n.reason) {
+          case "remote_hangup":
+            acks.push({ kind: "call_recap", captured: n.captured });
+            noChase = true;
+            break;
+          case "close_requested":
+            acks.push({ kind: "call_recap", captured: n.captured });
+            break;
+          case "connection_lost":
+          case "expired":
+          case "error":
+            acks.push({ kind: "call_dropped", captured: n.captured });
+            wantCallback = true;
+            break;
+          case "content":
+            acks.push({ kind: "call_cut", captured: n.captured });
+            break;
+          case "mic_denied":
+            acks.push({ kind: "mic_denied" });
+            break;
+        }
+        if (n.captured.some((slot) => s.slots[slot].status === "tentative")) {
+          s.call.recapPending = true;
+        }
+        break;
+      case "gmail_connected":
+        acks.push({ kind: "gmail_connected", email: n.email });
+        break;
+      case "gmail_scope_denied":
+        acks.push({ kind: "gmail_scope_denied" });
+        break;
+      case "gmail_failed":
+        acks.push({ kind: "gmail_failed", reason: n.reason });
+        break;
+      case "nudge":
+        // A nudge is moot once the user has texted.
+        if (!hasTexts) nudge = true;
+        break;
+    }
+  }
+
+  // 5. A yes or no to the question we asked last.
+  let wantCall = false;
+  let callDeclinedNow = false;
+  if (hasTexts && i) {
+    const refusesCall = i.refusals.some((r) => r.slot === "call");
+    if (awaiting?.kind === "offer_call" || awaiting?.kind === "offer_callback") {
+      if (i.reply_to_pending === "yes" || i.wants_call) wantCall = true;
+      else if (i.reply_to_pending === "no" || refusesCall) callDeclinedNow = true;
+    } else if (i.wants_call) {
+      wantCall = true;
+    }
+    if (awaiting?.kind === "confirm_name") {
+      const slot = s.slots[awaiting.slot];
+      if (i.reply_to_pending === "yes" && slot.status === "tentative" && slot.value) {
+        slot.status = "confirmed";
+        slot.updatedAt = now;
+        acks.push({ kind: "user_name_confirmed", value: slot.value });
+      } else if (i.reply_to_pending === "no" && !i.user_name) {
+        slot.status = "unknown";
+        slot.value = null;
+        slot.source = null;
+      }
+    }
+    if (refusesCall && s.call.status === "ringing") callDeclinedNow = true;
+    // "Yes" to "want me to start on X?" turns the need into the first task.
+    const need = s.slots.help_need.value;
+    if (awaiting?.kind === "whats_first" && i.reply_to_pending === "yes" && need && !i.task) {
+      i = { ...i, task: { summary: need, needs_gmail: false } };
+    }
+  }
+
+  // 6. New values and corrections. Typed values are exact, so they are confirmed.
+  // A message flagged as an injection attempt never writes names to the ledger.
+  const corrected = new Set<SlotName>();
+  if (hasTexts && i && !i.injection) {
+    if (i.agent_name) {
+      const blocked = i.offensive_names.includes("agent_name");
+      applyNameClaim(
+        s,
+        "agent_name",
+        i.agent_name.value,
+        i.agent_name.correction,
+        blocked,
+        cfg,
+        now,
+        acks,
+      );
+      corrected.add("agent_name");
+    } else if (i.let_agent_pick_name && s.slots.agent_name.status !== "confirmed") {
+      const pick = cfg.nameIdeas[0] ?? cfg.defaultAgentName;
+      setSlot(s.slots.agent_name, pick, "confirmed", "inferred", now);
+      acks.push({ kind: "agent_name_picked", value: pick });
+    }
+    if (i.user_name) {
+      const blocked = i.offensive_names.includes("user_name");
+      applyNameClaim(
+        s,
+        "user_name",
+        i.user_name.value,
+        i.user_name.correction,
+        blocked,
+        cfg,
+        now,
+        acks,
+      );
+      corrected.add("user_name");
+    }
+    if (i.help_need) {
+      const value = cleanHelpNeed(i.help_need, cfg.helpNeedMaxLength);
+      const slot = s.slots.help_need;
+      if (value && value.toLowerCase() !== slot.value?.toLowerCase()) {
+        setSlot(slot, value, "confirmed", "text", now);
+        acks.push({ kind: "help_need_set", value });
+      }
+    }
+  }
+
+  // A reply to a recap without a correction confirms the names we heard on the call.
+  if (hasTexts && s.call.recapPending) {
+    for (const name of ["agent_name", "user_name"] as const) {
+      const slot = s.slots[name];
+      if (slot.status === "tentative" && !corrected.has(name)) {
+        slot.status = "confirmed";
+        slot.updatedAt = now;
+      }
+    }
+    s.call.recapPending = false;
+  }
+
+  // 7. Refusals. Soft refusals defer, hard ones and repeats decline.
+  if (hasTexts && i) {
+    for (const r of i.refusals) {
+      if (r.slot === "call") {
+        if (r.hard) s.call.declines = Math.max(s.call.declines, cfg.maxCallDeclines - 1);
+        callDeclinedNow = true;
+        continue;
+      }
+      if (s.slots[r.slot].status === "confirmed") continue;
+      applyRefusal(s.slots[r.slot], r.hard);
+      acks.push({ kind: "refusal", slot: r.slot, hard: r.hard });
+    }
+  }
+  if (callDeclinedNow) {
+    s.call.declines += 1;
+    stopCall(s, actions);
+    acks.push({ kind: "call_declined", final: s.call.declines >= cfg.maxCallDeclines });
+    wantCall = false;
+  }
+
+  // 8. Graduation: the user wants to skip ahead, or names a concrete task.
+  if (hasTexts && i?.skip_setup && !s.graduated) {
+    graduate(s);
+    for (const name of ["agent_name", "user_name", "help_need", "gmail"] as const) {
+      if (s.slots[name].status === "unknown") s.slots[name].status = "deferred";
+    }
+    acks.push({ kind: "skip_setup" });
+  }
+  if (hasTexts && i?.task) {
+    const summary = cleanHelpNeed(i.task.summary, cfg.helpNeedMaxLength);
+    if (summary && !s.tasks.some((t) => t.summary.toLowerCase() === summary.toLowerCase())) {
+      const gmailReady = s.slots.gmail.status === "confirmed";
+      s.tasks.push({
+        id: s.tasks.length + 1,
+        summary,
+        needsGmail: i.task.needs_gmail,
+        status: i.task.needs_gmail && !gmailReady ? "waiting_gmail" : "open",
+        createdAt: now,
+      });
+      if (s.slots.help_need.status !== "confirmed") {
+        setSlot(s.slots.help_need, summary, "confirmed", "text", now);
+      }
+      graduate(s);
+      acks.push({ kind: "task_started", summary, needsGmail: i.task.needs_gmail });
+    }
+  }
+
+  // 9. Direct questions get honest answers.
+  if (hasTexts && i) {
+    if (i.asks_if_ai) plan.answers.push({ kind: "is_ai" });
+    if (i.asks_about_recording) plan.answers.push({ kind: "recording" });
+    // The intro already says what Persona is and does.
+    if (i.asks_capabilities && !plan.intro) plan.answers.push({ kind: "capabilities" });
+    if (i.injection) plan.answers.push({ kind: "injection" });
+    if (i.confused && !plan.intro) plan.answers.push({ kind: "confused" });
+    // A question already covered above (or by the intro) is not answered twice.
+    const covered = i.asks_if_ai || i.asks_about_recording || i.asks_capabilities || i.confused;
+    if (i.other_question && !covered)
+      plan.answers.push({ kind: "question", text: i.other_question });
+    if (i.leaving) {
+      acks.push({ kind: "leaving" });
+      noChase = true;
+    }
+  }
+
+  // 10. Slots whose ask budget ran out move down the ladder.
+  const newlyDeferred = settleExhausted(s, cfg);
+  if (newlyDeferred.includes("agent_name")) acks.push({ kind: "agent_name_deferred" });
+
+  // 11. Place a call when the user said yes.
+  let ringing = false;
+  if (wantCall) {
+    if (!s.caps.voice) {
+      acks.push({ kind: "voice_unavailable" });
+    } else if (s.call.status === "idle") {
+      startRinging(s, actions, now, cfg);
+      acks.push({ kind: "calling_now" });
+      ringing = true;
+    }
+  }
+
+  // 12. Onboarding ends when every slot is settled.
+  if (s.phase === "onboarding" && onboardingComplete(s)) {
+    s.phase = "main";
+    if (!s.graduated) acks.push({ kind: "finishing" });
+  }
+
+  // 13. At most one question per turn.
+  if (!ringing && !noChase && s.call.status === "idle") {
+    const question = pickQuestion(s, cfg, {
+      wantCallback,
+      nudge,
+      typingFatigue: i?.typing_fatigue === true,
+      // The link just went out during the call. Do not send it again in the recap.
+      gmailJustSent: s.call.linkSentOnCall && notices.some((n) => n.kind === "call_ended"),
+    });
+    if (question) {
+      plan.question = question;
+      recordQuestion(s, question, now);
+    }
+  }
+  if (nudge && plan.question) acks.push({ kind: "nudge" });
+
+  // 14. In the main experience, anything unstructured gets a normal reply.
+  if (s.phase === "main" && hasTexts && acks.length === 0 && plan.answers.length === 0) {
+    plan.chat = true;
+  }
+
+  // 15. One gentle follow-up if the user goes quiet on an open ask.
+  const nudgeable =
+    plan.question !== null &&
+    (plan.question.kind === "ask_slot" || plan.question.kind === "gmail_link") &&
+    s.nudges < cfg.maxNudges;
+  if (nudgeable) scheduleTimer(s, actions, "idle_nudge", now + cfg.idleNudgeMs);
+  else cancelTimer(s, actions, "idle_nudge");
+
+  // "Calling you now" is always the last thing said before the phone rings.
+  plan.acks = [
+    ...acks.filter((a) => a.kind !== "calling_now"),
+    ...acks.filter((a) => a.kind === "calling_now"),
+  ];
+  return finish(s, plan, actions, cfg);
+}
+
+function finish(s: SessionState, plan: Plan, actions: Action[], cfg: BrainConfig): DecideOutput {
+  plan.mode = s.phase === "main" ? "main" : "onboarding";
+  plan.facts = planFacts(s, cfg);
+  return { state: s, plan, actions };
+}
+
+function applyNameClaim(
+  s: SessionState,
+  name: "agent_name" | "user_name",
+  raw: string,
+  correction: boolean,
+  blocked: boolean,
+  cfg: BrainConfig,
+  now: number,
+  acks: Ack[],
+): void {
+  if (blocked) {
+    acks.push({ kind: "name_blocked", slot: name });
+    return;
+  }
+  const max = name === "agent_name" ? cfg.agentNameMaxLength : cfg.userNameMaxLength;
+  const check = checkName(raw, max);
+  if (!check.ok) {
+    if (check.reason === "too_long") acks.push({ kind: "name_too_long", slot: name });
+    return;
+  }
+  const slot = s.slots[name];
+  if (slot.value === check.value && slot.status === "confirmed") return;
+  const isCorrection = correction || (slot.value !== null && slot.value !== check.value);
+  setSlot(slot, check.value, "confirmed", "text", now);
+  acks.push(
+    name === "agent_name"
+      ? { kind: "agent_name_set", value: check.value, correction: isCorrection }
+      : { kind: "user_name_set", value: check.value, correction: isCorrection },
+  );
+}
+
+function graduate(s: SessionState): void {
+  s.graduated = true;
+  if (s.phase === "onboarding") s.phase = "main";
+}
+
+export function onboardingComplete(s: SessionState): boolean {
+  const { agent_name, user_name, help_need, gmail } = s.slots;
+  const settled = (st: string) => st !== "unknown";
+  return (
+    settled(agent_name.status) &&
+    settled(user_name.status) &&
+    settled(help_need.status) &&
+    (settled(gmail.status) || !s.caps.gmail)
+  );
+}
+
+interface PickContext {
+  wantCallback: boolean;
+  nudge: boolean;
+  typingFatigue: boolean;
+  gmailJustSent: boolean;
+}
+
+function pickQuestion(s: SessionState, cfg: BrainConfig, ctx: PickContext): Question | null {
+  const { agent_name, user_name, help_need, gmail } = s.slots;
+
+  if (ctx.wantCallback && s.caps.voice && s.call.declines < cfg.maxCallDeclines) {
+    return { kind: "offer_callback" };
+  }
+
+  if (s.phase === "main") {
+    // Collect a missing slot only when a task needs it.
+    const needsGmail = s.tasks.some((t) => t.status === "waiting_gmail");
+    if (
+      needsGmail &&
+      !ctx.gmailJustSent &&
+      s.caps.gmail &&
+      gmail.status !== "confirmed" &&
+      canAsk(gmail, cfg, true)
+    ) {
+      return { kind: "gmail_link", variant: gmailVariant(gmail) };
+    }
+    if (ctx.nudge) return null;
+    // An unnamed agent asks once more, casually, after a few turns of real use.
+    const unnamed = agent_name.status === "unknown" || agent_name.status === "deferred";
+    if (unnamed && !agent_name.retryUsed && s.turnsInMain >= cfg.agentNameRetryAfterTurns) {
+      return { kind: "ask_slot", slot: "agent_name", variant: "retry" };
+    }
+    if (!s.askedWhatsFirst && s.tasks.length === 0) return { kind: "whats_first" };
+    return null;
+  }
+
+  if (agent_name.status === "unknown" && canAsk(agent_name, cfg, false)) {
+    return {
+      kind: "ask_slot",
+      slot: "agent_name",
+      variant: agent_name.attempts === 0 ? "first" : "ideas",
+    };
+  }
+  if (
+    user_name.status === "tentative" &&
+    user_name.source === "google_profile" &&
+    user_name.value
+  ) {
+    if (user_name.attempts < cfg.maxAsks) {
+      return { kind: "confirm_name", slot: "user_name", value: user_name.value };
+    }
+  }
+  if (
+    !ctx.nudge &&
+    callOfferAllowed(s, cfg, ctx.typingFatigue) &&
+    (user_name.status === "unknown" || help_need.status === "unknown")
+  ) {
+    return { kind: "offer_call", variant: s.call.autoOffers === 0 ? "first" : "again" };
+  }
+  if (user_name.status === "unknown" && canAsk(user_name, cfg, false)) {
+    return {
+      kind: "ask_slot",
+      slot: "user_name",
+      variant: user_name.attempts === 0 ? "first" : "again",
+    };
+  }
+  if (help_need.status === "unknown" && canAsk(help_need, cfg, false)) {
+    return {
+      kind: "ask_slot",
+      slot: "help_need",
+      variant: help_need.attempts === 0 ? "first" : "again",
+    };
+  }
+  if (
+    s.caps.gmail &&
+    gmail.status === "unknown" &&
+    !ctx.gmailJustSent &&
+    canAsk(gmail, cfg, false)
+  ) {
+    return { kind: "gmail_link", variant: gmailVariant(gmail) };
+  }
+  return null;
+}
+
+function gmailVariant(slot: SessionState["slots"]["gmail"]): "first" | "again" | "retry" {
+  if (slot.status === "deferred") return "retry";
+  return slot.attempts === 0 ? "first" : "again";
+}
+
+/**
+ * The brain offers a call once on its own. It offers a second time only when
+ * the user shows typing fatigue, and never after two declines or after a call
+ * already happened. The user can always ask for a call.
+ */
+function callOfferAllowed(s: SessionState, cfg: BrainConfig, typingFatigue: boolean): boolean {
+  const c = s.call;
+  if (!s.caps.voice || c.status !== "idle" || c.answered > 0 || c.missed > 0) return false;
+  if (c.declines >= cfg.maxCallDeclines || c.autoOffers >= cfg.maxAutoCallOffers) return false;
+  if (c.autoOffers === 0 && c.declines === 0) return true;
+  return typingFatigue;
+}
+
+function recordQuestion(s: SessionState, q: Question, now: number): void {
+  switch (q.kind) {
+    case "ask_slot":
+      recordAsk(s.slots[q.slot]);
+      if (q.variant === "retry") s.slots[q.slot].retryUsed = true;
+      break;
+    case "gmail_link":
+      recordAsk(s.slots.gmail);
+      break;
+    case "confirm_name":
+      recordAsk(s.slots[q.slot]);
+      break;
+    case "offer_call":
+      s.call.autoOffers += 1;
+      break;
+    case "whats_first":
+      s.askedWhatsFirst = true;
+      break;
+    case "offer_callback":
+      break;
+  }
+  s.awaiting = { question: q, at: now };
+}
+
+function startRinging(s: SessionState, actions: Action[], now: number, cfg: BrainConfig): void {
+  const callId = `${s.id}-call-${s.call.answered + s.call.missed + s.call.declines + 1}-${now}`;
+  s.call.status = "ringing";
+  s.call.callId = callId;
+  actions.push({ type: "ring_phone", callId, callerName: agentDisplayName(s, cfg) });
+  scheduleTimer(s, actions, "ring_timeout", now + cfg.ringTimeoutMs);
+}
+
+function stopCall(s: SessionState, actions: Action[]): void {
+  if (s.call.status === "idle" || !s.call.callId) return;
+  actions.push({ type: "end_call", callId: s.call.callId });
+  cancelTimer(s, actions, "ring_timeout");
+  s.call.status = "idle";
+}
+
+export function scheduleTimer(
+  s: SessionState,
+  actions: Action[],
+  kind: SessionState["timers"][string]["kind"],
+  fireAt: number,
+): void {
+  s.timers[kind] = { kind, fireAt };
+  actions.push({ type: "schedule_timer", timerId: kind, kind, fireAt });
+}
+
+export function cancelTimer(s: SessionState, actions: Action[], timerId: string): void {
+  if (!s.timers[timerId]) return;
+  delete s.timers[timerId];
+  actions.push({ type: "cancel_timer", timerId });
+}
+
+function updateCasing(s: SessionState, texts: PendingText[]): void {
+  const letters = texts
+    .map((t) => t.text)
+    .join("")
+    .replace(/[^\p{L}]/gu, "");
+  if (letters.length < 4) return;
+  s.casing = letters === letters.toLowerCase() ? "lower" : "normal";
+}
+
+function trimHistory(s: SessionState, cfg: BrainConfig): void {
+  if (s.history.length > cfg.historyLimit) s.history.splice(0, s.history.length - cfg.historyLimit);
+}
+
+export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
+  const slot = (name: SlotName) => {
+    const v = s.slots[name];
+    return v.status === "confirmed" || v.status === "tentative" ? v.value : null;
+  };
+  return {
+    agentName: s.slots.agent_name.value ? agentDisplayName(s, cfg) : null,
+    userName: slot("user_name"),
+    helpNeed: slot("help_need"),
+    gmail: slot("gmail"),
+    openTask: s.tasks.find((t) => t.status !== "done")?.summary ?? null,
+    canRunTasks: cfg.tasksEnabled,
+    voice: s.caps.voice,
+    gmailAvailable: s.caps.gmail,
+    language: s.language,
+    casing: s.casing,
+  };
+}
