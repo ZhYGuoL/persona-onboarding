@@ -22,6 +22,7 @@
     "src/llm",
     "src/harness",
     "src/shared",
+    "src/voice",
     "test",
     "vite.config.ts",
     "vitest.config.ts"
