@@ -210,9 +210,9 @@ export function ackText(a: Ack, f: PlanFacts): string {
   return "";
 }
 
-/** "From Con Edison, Sep 23: "Due date: Fri, Oct 2"". The quote is the email's own words. */
+/** From Con Edison, Sep 23: “Due date: Fri, Oct 2”. The quote is the email's own words. */
 function receiptLine(r: Receipt, f: PlanFacts): string {
-  return `From ${v(r.from)}, ${formatDay(r.date, f.timeZone)}: "${v(r.quote ?? r.subject)}"`;
+  return `From ${v(r.from)}, ${formatDay(r.date, f.timeZone)}: “${v(r.quote ?? r.subject)}”`;
 }
 
 /** The lines an ack adds. Most acks are one line. A task result can be several. */
@@ -299,7 +299,10 @@ export function questionText(q: Question, f: PlanFacts, ideas: string[]): string
     case "offer_callback":
       return "Want me to call back, or keep going here?";
     case "whats_first":
-      if (f.inboxNext) return `Want me to start on ${v(f.inboxNext)}?`;
+      if (q.finding) {
+        const ask = `Want me to start on ${v(q.finding.next)}?`;
+        return q.finding.fact ? `${v(q.finding.fact)} ${ask}` : ask;
+      }
       if (f.inboxFindings[0]) return "Want me to start there?";
       return f.helpNeed
         ? `Want me to start on ${v(f.helpNeed)}?`
@@ -339,7 +342,7 @@ export class TemplateRenderer implements Renderer {
       body.push(a.kind === "injection" ? injectionText(history) : answerText(a, f));
     }
     if (ringing) body.push(ackText(ringing, f));
-    if (needsClosing(plan)) body.push(closingText(f, history));
+    if (needsClosing(plan)) body.push(closingText(f, history, taskFinished(plan)));
     const merged = mergeShort(body);
     if (plan.question) {
       const q = questionText(plan.question, f, this.ideas);
@@ -499,7 +502,7 @@ export function briefFor(plan: Plan, ideas: string[], history: HistoryItem[] = [
           ? "Do not ask anything. The phone is ringing now. Add nothing after that."
           : closed
             ? "Do not ask anything. The items above already tell the user what comes next."
-            : `End with one short line on what the user can text you next. Do not ask anything and do not promise work. Reference wording: "${stripMarks(closingText(f, history))}"`,
+            : `End with one short line on what the user can text you next. Do not ask anything and do not promise work. Reference wording: "${stripMarks(closingText(f, history, taskFinished(plan)))}"`,
       );
     }
   }
@@ -601,9 +604,21 @@ function fresh(options: string[], history: HistoryItem[]): string {
   );
 }
 
-export function closingText(f: PlanFacts, history: HistoryItem[] = []): string {
+/** A task wrapped up in this turn, so the closing line must not point back at it. */
+function taskFinished(plan: Plan): boolean {
+  return plan.acks.some(
+    (a) =>
+      a.kind === "draft_sent" ||
+      a.kind === "draft_dropped" ||
+      a.kind === "task_limit" ||
+      a.kind === "task_failed" ||
+      (a.kind === "task_result" && (a.result.kind === "answer" || a.result.kind === "cannot")),
+  );
+}
+
+export function closingText(f: PlanFacts, history: HistoryItem[] = [], finished = false): string {
   return fresh(
-    f.helpNeed
+    f.helpNeed && !finished
       ? [
           `Text me whenever you want to dig into ${v(f.helpNeed)}.`,
           "Just text me when you want to pick this back up.",
@@ -923,9 +938,11 @@ function draftOf(plan: Plan): Draft | null {
 
 /**
  * Turns that carry task results use templates only: receipts and drafts must
- * reach the user exactly as the work step checked them.
+ * reach the user exactly as the work step checked them. So does an offer to
+ * start on a finding, which must stay a plain yes/no question about it.
  */
 export function needsTemplate(plan: Plan): boolean {
+  if (plan.question?.kind === "whats_first" && plan.question.finding) return true;
   return plan.acks.some(
     (a) =>
       a.kind === "task_result" ||

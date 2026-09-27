@@ -261,7 +261,7 @@ describe("task service", () => {
     const last = w.last();
     expect(last?.drafts[0]).toMatchObject({ to: "members@planetfitness.com" });
     expect(last?.texts.join(" ")).toContain(
-      '"Cancellation requests must reach us at least 3 days before your billing date."',
+      "“Cancellation requests must reach us at least 3 days before your billing date.”",
     );
     expect(w.awaiting()).toBe("confirm_send");
   });
