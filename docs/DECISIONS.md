@@ -717,3 +717,24 @@ A redraft cannot fix the wrong email, because it revises the same email.
 
 - **Choice.** A turn where the user takes a request back asks nothing new.
 - **Why.** "Okay, I won't send that reminder" came with "want me to start on setting a reminder for hotel check-in?". "Never mind" asks for less.
+
+### D84. An answer to a task's question gets only "Got it."
+
+- **Choice.** When the user answers a task's question, the reply is a fixed "Got it.", and the result follows seconds later.
+- **Why.** With no ack, the model wrote a free reply. It said "i can't set a reminder for tomorrow from here", and the reminder was set a second later.
+
+### D85. The work step always considers emails the user already saw
+
+- **Choice.** Each task job carries the receipts of earlier results. The pick step lists those emails first, even when the search misses them. The avoid list (D80) still wins.
+- **Why.** A search for "NYT" does not match "The New York Times". Right after drafting a reply to the NYT email, a task said it found no NYT email.
+
+### D86. An edit right after a send starts a new draft
+
+- **Choice.** "Make that email shorter" after a draft was sent or dropped starts a new draft from the old one, with the change as a note, and asks "Send it?" again.
+- **Why.** The brain read edits only while "Send it?" was pending. Otherwise the model said "i don't have the email draft here", rewrote the email in plain texts, and later said "i can't send it from here".
+
+### D87. Smaller guards from the stress runs
+
+- **A yes with a different request.** A task stated with a yes to an offer is a restatement only when it names no thing, or its thing-words match the offer (refines D77). "Draft the Adobe cancellation too" stays its own task.
+- **No "nothing" need.** A need like "nothing" or "nada" is never saved, so there is no "Want me to start with nothing?".
+- **No prompt talk.** The render guard rejects text about the brief ("goes here", "the brief", "{{"), after the model sent "lowercase acknowledgments go here.".
