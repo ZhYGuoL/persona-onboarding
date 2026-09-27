@@ -202,9 +202,12 @@ export function decideCall(
       { kind: "link", url: links.gmail, title: "Connect Gmail" },
     );
     const why = s.slots.help_need.value ? `, so you can help with ${s.slots.help_need.value}` : "";
+    // Browser QA: after the link, the agent asked for the need it already had.
+    const nothingLeft =
+      callGoals(s).length === 0 ? " You already know what they need, so do not ask anything." : "";
     plan.pushes.push({
       kind: "commentary",
-      text: `You just texted them a link to connect Gmail${why}. Tell them in one sentence. Do not read the link.`,
+      text: `You just texted them a link to connect Gmail${why}. Tell them in one sentence. Do not read the link.${nothingLeft}`,
     });
   }
 
