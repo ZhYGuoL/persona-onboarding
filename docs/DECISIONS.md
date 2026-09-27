@@ -489,3 +489,12 @@ The model used to add its own disclaimer.
 It stopped when the abilities text changed to not list limits before the Gmail ask, and honesty fell to 80% of stress runs.
 A rule in code does not depend on the model.
 With the rule, honesty went back to 98%.
+
+### D57. The intro promises only what this build does
+
+- **Choice.** The intro now says "I can dig through your email, draft replies, and set reminders".
+It no longer says "I can call places for you".
+The model prompt keeps the full app's features as background, but says this version can do only what its abilities list.
+- **Why.** D28 kept the product pitch until milestone 4.
+With real tasks in place, the stress judge flagged "I can call places" as a false claim, and a user asked "you said you could call places" when the agent declined to call Adobe.
+The brief's rule is plain: when something cannot be done, say so instead of pretending.

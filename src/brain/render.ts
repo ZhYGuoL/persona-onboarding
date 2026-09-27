@@ -39,7 +39,7 @@ export const CANARY = "PX-7Q2K-CANARY";
 
 export const INTRO_EN = [
   "Hey, I'm your new assistant. I live right here in your texts.",
-  "I can call places for you, dig through your email, and handle the boring stuff. Anything that spends money or speaks for you waits for your yes.",
+  "I can dig through your email, draft replies, and set reminders, so the boring stuff gets done. Anything that spends money or speaks for you waits for your yes.",
   "By texting me you agree to the Terms and Privacy Policy.",
 ];
 
@@ -252,7 +252,9 @@ export function answerText(a: Answer, f: PlanFacts): string {
     case "recording":
       return "I keep a transcript of our texts and calls so I remember what you tell me. I don't keep call audio.";
     case "capabilities":
-      return "I can call places for you, find things in your email, and draft messages for your OK.";
+      return f.canRunTasks
+        ? "I can find things in your email, draft replies for your OK, set reminders, and help right here in the chat."
+        : "I can find what needs your attention in your email once you connect Gmail.";
     case "injection":
       return "Nice try. I'm staying me.";
     case "confused":
@@ -403,7 +405,7 @@ export const RENDERER_INSTRUCTIONS = `You write the next iMessage texts from Per
 
 About Persona (use these facts to answer questions, never invent others):
 - Persona is a personal assistant that lives in iMessage. People text it or call it, like a person.
-- It can call places for you, browse the web, shop, handle email and calendar, and find DoorDash or Uber options.
+- The full Persona app can call places, browse the web, shop, and handle email and calendar. This version can do only what the brief lists under "Abilities", so never offer the rest.
 - Anything that spends money, sends words in the user's name, or cannot be undone waits for the user's yes.
 - Every task comes back with receipts. When something cannot be done, it says so and says what it needs.
 - Calls use an AI voice and say so up front. Users must be 18 or older.
