@@ -87,7 +87,7 @@ describe("a task from an inbox finding", () => {
     expect(questionCount(started)).toBe(0);
     expect(w.of("run_task").at(-1)).toMatchObject({
       taskId: 1,
-      job: { threadId: "nyt-trial", useInbox: true, userName: "dan" },
+      job: { threadId: "nyt-trial", inbox: "demo", userName: "dan" },
     });
 
     await w.event({
@@ -228,7 +228,7 @@ describe("a task stated by text", () => {
       task: { summary: "canceling the gym membership", needs_gmail: true },
     });
     await w.say("no, not connecting email", { refusals: [{ slot: "gmail", hard: true }] });
-    expect(w.of("run_task").at(-1)?.job).toMatchObject({ useInbox: false });
+    expect(w.of("run_task").at(-1)?.job).toMatchObject({ inbox: null });
   });
 
   it("without the task service, says plainly it cannot do it yet", async () => {

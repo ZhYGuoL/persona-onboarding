@@ -172,7 +172,7 @@ describe("inbox service", () => {
     });
     const inbox = new InboxService({ hub: w.hub, llm, model: "m", log: quiet });
     inbox.connectDemo(w.sid);
-    inbox.onAction(w.sid, { type: "scan_inbox", need: "bills" });
+    inbox.onAction(w.sid, { type: "scan_inbox", need: "bills", source: "demo" });
     await inbox.idle();
     await w.settle();
     expect(w.state.inbox.findings).toEqual([
@@ -209,7 +209,7 @@ describe("inbox service", () => {
       log: { info: () => {}, warn: () => {} },
     });
     inbox.connectDemo(w.sid);
-    inbox.onAction(w.sid, { type: "scan_inbox", need: "bills" });
+    inbox.onAction(w.sid, { type: "scan_inbox", need: "bills", source: "demo" });
     await inbox.idle();
     await w.settle();
     expect(calls).toBe(2);
@@ -227,7 +227,7 @@ describe("inbox service", () => {
       model: "m",
       log: { info: () => {}, warn: () => {} },
     });
-    inbox.onAction(w.sid, { type: "scan_inbox", need: null });
+    inbox.onAction(w.sid, { type: "scan_inbox", need: null, source: "gmail" });
     await inbox.idle();
     await w.settle();
     expect(w.store.events(w.sid).map((e) => e.type)).toContain("scan_failed");

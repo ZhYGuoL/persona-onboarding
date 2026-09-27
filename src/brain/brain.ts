@@ -164,6 +164,7 @@ export class Brain {
           // The token is gone (expired, revoked, or lost in a restart). Gmail needs a new link.
           s.slots.gmail.status = "unknown";
           s.slots.gmail.value = null;
+          s.slots.gmail.source = null;
         }
         this.addNotice(step, { kind: "task_failed", taskId: ev.taskId, reason: ev.reason }, now);
         break;
@@ -177,6 +178,7 @@ export class Brain {
           // The token is gone (expired, revoked, or lost in a restart). Gmail needs a new link.
           s.slots.gmail.status = "unknown";
           s.slots.gmail.value = null;
+          s.slots.gmail.source = null;
         }
         if (s.call.status === "active") {
           this.pushToCall(
@@ -779,7 +781,13 @@ export class Brain {
         offered: [],
         offersStopped: false,
       };
-      if (scan) step.actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
+      if (scan) {
+        step.actions.push({
+          type: "scan_inbox",
+          need: s.slots.help_need.value,
+          source: demo ? "demo" : "gmail",
+        });
+      }
     }
     if (name && !demo) crossCheckName(s, name, now, this.cfg);
     if (live) {

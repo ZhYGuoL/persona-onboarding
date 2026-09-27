@@ -2,7 +2,7 @@
 // Gmail access tokens live in memory only, for the session. They are never
 // written to disk, logged, or put in the session state.
 
-import type { Action } from "../brain/types.ts";
+import type { Action, InboxSource } from "../brain/types.ts";
 import type { LlmClient } from "../llm/openai.ts";
 import type { Hub } from "../runtime/hub.ts";
 import { DemoInbox } from "./demo.ts";
@@ -48,7 +48,9 @@ export class InboxService {
 
   onAction(sessionId: string, action: Action): void {
     if (action.type !== "scan_inbox") return;
-    const job = this.scan(sessionId, action.need).finally(() => this.running.delete(job));
+    const job = this.scan(sessionId, action.need, action.source).finally(() =>
+      this.running.delete(job),
+    );
     this.running.add(job);
   }
 
@@ -57,8 +59,12 @@ export class InboxService {
     while (this.running.size > 0) await Promise.allSettled([...this.running]);
   }
 
-  /** The session's inbox, or null when none is connected or the token expired. */
-  providerFor(sessionId: string): InboxProvider | null {
+  /**
+   * The session's inbox, or null when none is connected or the token expired.
+   * The sample inbox needs no token, so it comes back after a restart.
+   */
+  providerFor(sessionId: string, source: InboxSource): InboxProvider | null {
+    if (source === "demo" && !this.connections.has(sessionId)) this.connectDemo(sessionId);
     const c = this.connections.get(sessionId);
     if (!c) return null;
     if (c.kind === "demo") return new DemoInbox(this.opts.hub.now(sessionId));
@@ -66,9 +72,9 @@ export class InboxService {
     return new GmailProvider(c.accessToken);
   }
 
-  private async scan(sessionId: string, need: string | null): Promise<void> {
+  private async scan(sessionId: string, need: string | null, source: InboxSource): Promise<void> {
     const { hub } = this.opts;
-    const provider = this.providerFor(sessionId);
+    const provider = this.providerFor(sessionId, source);
     if (!provider) {
       this.forget(sessionId);
       await hub.dispatch(sessionId, { type: "scan_failed", reason: "auth" });

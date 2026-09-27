@@ -266,6 +266,32 @@ describe("task service", () => {
     expect(w.awaiting()).toBe("confirm_send");
   });
 
+  // Browser QA: a dev server restart forgot the sample inbox, and the agent said it lost access.
+  it("the sample inbox comes back after a restart, since it has no token", async () => {
+    const llm = scripted({
+      task_email: (req: JsonRequest) => {
+        const line = req.input[0]?.content.split("\n").find((l) => l.includes("Con Edison"));
+        return { index: Number(line?.split(".")[0] ?? -1) };
+      },
+      task_result: work({ kind: "answer", text: "Your bill of $86.42 is due soon." }),
+    });
+    const { w, done } = await setup(llm);
+    // Connected before the restart. This service instance never saw the connect.
+    await w.event({
+      type: "oauth_done",
+      scopes: ["openid", "https://www.googleapis.com/auth/gmail.readonly"],
+      email: "sample",
+      name: null,
+      demo: true,
+    });
+    await w.say("what do i owe con edison", {
+      task: { summary: "checking the Con Edison bill", needs_gmail: true },
+    });
+    await done();
+    expect(w.state.slots.gmail.status).toBe("confirmed");
+    expect(w.last()?.texts.join(" ")).toMatch(/\$86\.42/);
+  });
+
   it("retries once, then reports a failure", async () => {
     let calls = 0;
     const flaky: LlmClient = {

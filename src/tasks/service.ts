@@ -53,8 +53,8 @@ export class TaskService {
 
   private async run(sessionId: string, taskId: number, job: TaskJob): Promise<void> {
     const { hub, inbox, log } = this.opts;
-    const provider = job.useInbox ? inbox.providerFor(sessionId) : null;
-    if (job.useInbox && !provider) {
+    const provider = job.inbox ? inbox.providerFor(sessionId, job.inbox) : null;
+    if (job.inbox && !provider) {
       inbox.forget(sessionId);
       await hub.dispatch(sessionId, { type: "task_failed", taskId, reason: "auth" });
       return;

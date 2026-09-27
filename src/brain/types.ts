@@ -327,7 +327,7 @@ export type Action =
   | { type: "push_to_call"; callId: string; kind: PushKind; text: string }
   | { type: "end_call"; callId: string }
   /** Look through the connected inbox for what matters to this user. */
-  | { type: "scan_inbox"; need: string | null }
+  | { type: "scan_inbox"; need: string | null; source: InboxSource }
   /** Do the work behind a task. The result comes back as `task_done` or `task_failed`. */
   | { type: "run_task"; taskId: number; job: TaskJob }
   /** The user said yes to a draft. Sending is simulated: this only records it. */
@@ -492,10 +492,13 @@ export interface TaskJob {
   notes: string[];
   /** The draft to revise, when the user asked for changes. */
   previous: Draft | null;
-  /** True when the task should read the connected inbox. */
-  useInbox: boolean;
+  /** The inbox the task reads, or null to work without email. */
+  inbox: InboxSource | null;
   userName: string | null;
   userEmail: string | null;
   language: string;
   timeZone: string;
 }
+
+/** Real Gmail (a token held in memory) or the seeded sample inbox (no token at all). */
+export type InboxSource = "gmail" | "demo";

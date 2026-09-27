@@ -421,7 +421,11 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
     s.inbox.failures < cfg.maxScanFailures
   ) {
     s.inbox.scanning = true;
-    actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
+    actions.push({
+      type: "scan_inbox",
+      need: s.slots.help_need.value,
+      source: s.inbox.source ?? "gmail",
+    });
     acks.push({ kind: "rescanning" });
   }
 
