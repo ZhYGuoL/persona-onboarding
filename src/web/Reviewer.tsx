@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { LogView } from "../shared/protocol.ts";
 import type { CallControls } from "./useCall.ts";
+import { VOICE_SCRIPTS, type VoiceRunState } from "./voiceRuns.ts";
 
 interface Slot {
   status: string;
@@ -23,6 +24,11 @@ interface ReviewerProps {
   onDropCall: () => void;
   onLag: (ms: number) => void;
   onOAuth: (outcome: "scope_denied" | "cancelled" | "admin_blocked") => void;
+  voiceRuns: {
+    state: VoiceRunState;
+    run(ids: string[]): Promise<void>;
+    stop(): void;
+  };
 }
 
 /** Prerecorded lines the test voice can say on a call, for QA without a microphone. */
@@ -73,6 +79,7 @@ export function Reviewer({
   onDropCall,
   onLag,
   onOAuth,
+  voiceRuns,
 }: ReviewerProps) {
   const slots = (state?.slots ?? {}) as Record<string, Slot>;
   const callState = (state?.call ?? {}) as Record<string, unknown>;
@@ -143,6 +150,56 @@ export function Reviewer({
             ))}
           </div>
         )}
+      </section>
+
+      <section className="rv-card">
+        <h2>Voice runs</h2>
+        <div className="rv-buttons">
+          <button
+            type="button"
+            disabled={voiceRuns.state.running !== null || callLive}
+            onClick={() => void voiceRuns.run(VOICE_SCRIPTS.map((s) => s.id))}
+          >
+            Run all {VOICE_SCRIPTS.length}
+          </button>
+          {VOICE_SCRIPTS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              disabled={voiceRuns.state.running !== null || callLive}
+              onClick={() => void voiceRuns.run([s.id])}
+            >
+              {s.label}
+            </button>
+          ))}
+          {voiceRuns.state.running && (
+            <button type="button" className="danger" onClick={voiceRuns.stop}>
+              Stop
+            </button>
+          )}
+        </div>
+        {voiceRuns.state.running && (
+          <p className="rv-note">
+            Running {voiceRuns.state.running}: {voiceRuns.state.step || "starting"}
+          </p>
+        )}
+        {voiceRuns.state.results.length > 0 && (
+          <ul className="rv-runs">
+            {voiceRuns.state.results.map((r) => (
+              <li key={r.id}>
+                <span className={`pill ${r.ok ? "confirmed" : "declined"}`}>
+                  {r.ok ? "done" : "stopped"}
+                </span>{" "}
+                {r.id}
+                {r.detail && <span className="muted"> · {r.detail}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="rv-note">
+          Real calls with prerecorded clips. Each run starts a fresh session. Grade them with
+          <code> pnpm voice:report</code>.
+        </p>
       </section>
 
       <section className="rv-card">

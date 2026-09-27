@@ -4,6 +4,7 @@ import { isConnectLink, openConnectPopup } from "./popup.ts";
 import { Reviewer } from "./Reviewer.tsx";
 import { type CallControls, useCall, voiceSupported } from "./useCall.ts";
 import { useSession } from "./useSession.ts";
+import { useVoiceRuns } from "./voiceRuns.ts";
 
 const VOICE = voiceSupported();
 
@@ -16,6 +17,18 @@ export function App() {
   const call = useCall(sendRaw);
   callRef.current = call;
   const [lagMs, setLagMs] = useState(0);
+  const voiceRuns = useVoiceRuns({
+    reset,
+    sendText: (text) => sendText(text),
+    sendRaw,
+    dropCall: async () => {
+      await reviewer("drop-call");
+    },
+    call: () => callRef.current ?? call,
+    agentTexts: () => view.thread.filter((t) => t.from === "agent").length,
+    connected: () => view.connected,
+    sessionId: () => view.sessionId,
+  });
 
   const state = view.state as {
     slots?: Record<string, { value: string | null; status: string }>;
@@ -64,6 +77,7 @@ export function App() {
           void reviewer("lag", { ms });
         }}
         onOAuth={(outcome) => void reviewer("oauth", { outcome })}
+        voiceRuns={voiceRuns}
       />
     </div>
   );

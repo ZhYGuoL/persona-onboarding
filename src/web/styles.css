@@ -898,6 +898,18 @@ button {
   margin-top: 4px;
 }
 
+.rv-runs {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rv-runs li + li {
+  margin-top: 4px;
+}
+
 .rv-tasks ul {
   margin: 0;
   padding: 0;
