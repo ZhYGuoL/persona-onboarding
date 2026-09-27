@@ -29,6 +29,9 @@ export class Hub {
   private readonly queues = new Map<string, Promise<void>>();
   private readonly timers = new Map<string, TimerHandle>();
   private readonly listeners = new Map<string, Set<HubListener>>();
+  private readonly globalListeners = new Set<HubListener>();
+  /** Extra delay before a turn's result lands, per session. The reviewer panel uses it to simulate lag. */
+  private readonly lag = new Map<string, number>();
   private inflight = 0;
   private idleWaiters: Array<() => void> = [];
 
@@ -57,6 +60,21 @@ export class Hub {
     }
     set.add(fn);
     return () => set.delete(fn);
+  }
+
+  /** Listen to every session. The voice adapter uses this for call actions. */
+  subscribeAll(fn: HubListener): () => void {
+    this.globalListeners.add(fn);
+    return () => this.globalListeners.delete(fn);
+  }
+
+  setLag(sessionId: string, ms: number): void {
+    if (ms > 0) this.lag.set(sessionId, ms);
+    else this.lag.delete(sessionId);
+  }
+
+  getLag(sessionId: string): number {
+    return this.lag.get(sessionId) ?? 0;
   }
 
   /** Queue an event. Events for one session run one at a time, in order. */
@@ -153,9 +171,13 @@ export class Hub {
 
   private runJob(sessionId: string, job: TurnJob): void {
     this.inflight += 1;
+    const lag = this.lag.get(sessionId) ?? 0;
     job
       .run()
-      .then((ev) => this.dispatch(sessionId, ev))
+      .then(async (ev) => {
+        if (lag > 0) await new Promise((resolve) => setTimeout(resolve, lag));
+        return this.dispatch(sessionId, ev);
+      })
       .catch((err) => this.opts.onError?.(err, sessionId))
       .finally(() => this.release());
   }
@@ -197,8 +219,7 @@ export class Hub {
 
   private emit(sessionId: string, msg: HubMessage): void {
     const set = this.listeners.get(sessionId);
-    if (!set) return;
-    for (const fn of set) {
+    for (const fn of [...this.globalListeners, ...(set ?? [])]) {
       try {
         fn(msg);
       } catch (err) {
