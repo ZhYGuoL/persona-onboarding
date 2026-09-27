@@ -57,7 +57,8 @@ export class InboxService {
     while (this.running.size > 0) await Promise.allSettled([...this.running]);
   }
 
-  private provider(sessionId: string): InboxProvider | null {
+  /** The session's inbox, or null when none is connected or the token expired. */
+  providerFor(sessionId: string): InboxProvider | null {
     const c = this.connections.get(sessionId);
     if (!c) return null;
     if (c.kind === "demo") return new DemoInbox(this.opts.hub.now(sessionId));
@@ -67,7 +68,7 @@ export class InboxService {
 
   private async scan(sessionId: string, need: string | null): Promise<void> {
     const { hub } = this.opts;
-    const provider = this.provider(sessionId);
+    const provider = this.providerFor(sessionId);
     if (!provider) {
       this.forget(sessionId);
       await hub.dispatch(sessionId, { type: "scan_failed", reason: "auth" });

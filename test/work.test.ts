@@ -202,3 +202,101 @@ describe("task work", () => {
     expect(llm.requests[0]?.input[0]?.content).toContain("No email for this task.");
   });
 });
+
+describe("task service", () => {
+  async function setup(llm: LlmClient) {
+    const { TaskService } = await import("../src/tasks/service.ts");
+    const { InboxService } = await import("../src/inbox/service.ts");
+    const { World } = await import("./world.ts");
+    const quiet = { info: () => {}, warn: () => {} };
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    const inbox = new InboxService({ hub: w.hub, llm, model: "f", log: quiet });
+    const tasks = new TaskService({
+      hub: w.hub,
+      inbox,
+      llm,
+      model: "m",
+      fastModel: "f",
+      log: quiet,
+    });
+    w.hub.subscribe(w.sid, (msg) => {
+      if (msg.type === "action") tasks.onAction(w.sid, msg.action);
+    });
+    const done = async () => {
+      await tasks.idle();
+      await w.settle();
+      await w.advance(1000);
+    };
+    return { w, inbox, done };
+  }
+
+  it("runs a stated task on the sample inbox and brings back a draft with its receipt", async () => {
+    const llm = scripted({
+      task_email: (req: JsonRequest) => {
+        const line = req.input[0]?.content.split("\n").find((l) => l.includes("Planet Fitness"));
+        return { index: Number(line?.split(".")[0] ?? -1) };
+      },
+      task_result: work({
+        kind: "draft",
+        text: "Here's a reply to Planet Fitness that cancels your membership.",
+        quote: "Cancellation requests must reach us at least 3 days before your billing date.",
+        draft_to: "members@planetfitness.com",
+        draft_subject: "Cancel my membership",
+        draft_body: "Hi,\n\nPlease cancel my Black Card membership.\n\nThanks",
+      }),
+    });
+    const { w, inbox, done } = await setup(llm);
+    inbox.connectDemo(w.sid);
+    await w.event({
+      type: "oauth_done",
+      scopes: ["openid", "https://www.googleapis.com/auth/gmail.readonly"],
+      email: "sample",
+      name: null,
+      demo: true,
+    });
+    await w.say("cancel my gym membership", {
+      task: { summary: "canceling the gym membership", needs_gmail: true },
+    });
+    await done();
+    const last = w.last();
+    expect(last?.drafts[0]).toMatchObject({ to: "members@planetfitness.com" });
+    expect(last?.texts.join(" ")).toContain(
+      '"Cancellation requests must reach us at least 3 days before your billing date."',
+    );
+    expect(w.awaiting()).toBe("confirm_send");
+  });
+
+  it("retries once, then reports a failure", async () => {
+    let calls = 0;
+    const flaky: LlmClient = {
+      async json(): Promise<never> {
+        calls += 1;
+        throw new Error(`deadline ${calls}`);
+      },
+    };
+    const { w, done } = await setup(flaky);
+    await w.say("plan my meals", {
+      task: { summary: "planning meals for the week", needs_gmail: false },
+    });
+    await done();
+    expect(calls).toBe(2);
+    expect(w.state.tasks[0]?.status).toBe("failed");
+    expect(w.last()?.texts.join(" ")).toMatch(/couldn't finish planning meals/i);
+  });
+
+  it("a task that needs the inbox, with no connection left, asks for Gmail again", async () => {
+    const llm = scripted({});
+    const { w, done } = await setup(llm);
+    // Gmail was connected, but the server restarted and the token is gone.
+    await w.event({
+      type: "oauth_done",
+      scopes: ["openid", "https://www.googleapis.com/auth/gmail.readonly"],
+      email: "dan@gmail.com",
+      name: null,
+    });
+    await w.say("find my flight", { task: { summary: "finding the flight", needs_gmail: true } });
+    await done();
+    expect(w.state.slots.gmail.status).toBe("unknown");
+    expect(w.last()?.texts.join(" ")).toMatch(/lost access to your inbox/i);
+  });
+});
