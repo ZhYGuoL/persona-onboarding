@@ -311,3 +311,22 @@ describe("finding anchors", () => {
     expect(saysAnchor("anything", [])).toBe(true);
   });
 });
+
+describe("call cap", () => {
+  it("after three answered calls, a new call request stays in text", async () => {
+    const w = new World({ caps: { voice: true } });
+    await w.say("hi");
+    await w.say("juno", { agent_name: name("juno") });
+    for (let i = 0; i < 3; i++) {
+      await w.say(`call me ${i}`, { wants_call: true });
+      const callId = w.of("ring_phone").at(-1)?.callId ?? "";
+      await w.event({ type: "call_answered", callId });
+      await w.event({ type: "call_ended", callId, reason: "remote_hangup" });
+      await w.advance(1000);
+    }
+    const rings = w.of("ring_phone").length;
+    const t = await w.say("call me again", { wants_call: true });
+    expect(w.of("ring_phone")).toHaveLength(rings);
+    expect(t?.texts.join(" ")).toMatch(/keep it to text/i);
+  });
+});

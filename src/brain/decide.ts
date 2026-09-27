@@ -395,6 +395,8 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   if (wantCall) {
     if (!s.caps.voice) {
       acks.push({ kind: "voice_unavailable" });
+    } else if (s.call.answered >= cfg.maxCallsPerSession) {
+      acks.push({ kind: "call_limit" });
     } else if (s.call.status === "idle") {
       startRinging(s, actions, now, cfg);
       acks.push({ kind: "calling_now" });

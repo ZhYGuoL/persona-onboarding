@@ -276,6 +276,7 @@ export type Ack =
   | { kind: "call_declined"; final: boolean }
   | { kind: "calling_now" }
   | { kind: "voice_unavailable" }
+  | { kind: "call_limit" }
   | { kind: "call_missed" }
   | { kind: "call_dropped"; captured: SlotName[] }
   | { kind: "call_recap"; captured: SlotName[] }

@@ -120,6 +120,8 @@ export function ackText(a: Ack, f: PlanFacts): string {
       return "Calling you now.";
     case "voice_unavailable":
       return "I can't call from here right now, so let's keep going by text.";
+    case "call_limit":
+      return "We've covered a lot by phone already, so let's keep it to text from here.";
     case "call_missed":
       return "Missed you.";
     case "call_dropped": {

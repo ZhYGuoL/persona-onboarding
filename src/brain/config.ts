@@ -13,6 +13,8 @@ export interface BrainConfig {
   callSilenceGiveUpMs: number;
   /** Hard cap on call length, to keep voice cost bounded. */
   callMaxMs: number;
+  /** Answered calls per session. After this, the agent keeps it to text. */
+  maxCallsPerSession: number;
   /** After asking the agent to wrap up, end the call anyway after this long. */
   callEndFallbackMs: number;
   /** After the wrap-up, hang up this long after the agent stops talking without a clear goodbye. */
@@ -52,6 +54,7 @@ export const DEFAULT_CONFIG: BrainConfig = {
   callSilenceNudgeMs: 9_000,
   callSilenceGiveUpMs: 12_000,
   callMaxMs: 4 * 60_000,
+  maxCallsPerSession: 3,
   callEndFallbackMs: 15_000,
   callEndQuietMs: 3_000,
   callGmailWaitMs: 75_000,
