@@ -37,7 +37,9 @@ export type CallAction = "accept" | "decline" | "hangup" | "mic_denied" | "faile
 export type ClientMessage =
   | { t: "text"; text: string; clientId: string }
   | { t: "hello"; voice: boolean }
-  | { t: "call"; action: CallAction; callId?: string };
+  | { t: "call"; action: CallAction; callId?: string }
+  /** The Gmail connect popup closed. */
+  | { t: "oauth_closed" };
 
 export function threadFromLog(entries: LogView[]): ThreadItem[] {
   const items: ThreadItem[] = [];

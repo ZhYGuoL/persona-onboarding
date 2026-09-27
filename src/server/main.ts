@@ -5,14 +5,17 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import fastifyCookie from "@fastify/cookie";
+import fastifyFormbody from "@fastify/formbody";
 import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
+import { InboxService } from "../inbox/service.ts";
 import { RealClock } from "../runtime/clock.ts";
 import { Hub } from "../runtime/hub.ts";
 import { Store } from "../runtime/store.ts";
 import { CallNotActiveError, VoiceManager } from "../voice/live.ts";
 import { buildBrain } from "./deps.ts";
+import { registerOAuth } from "./oauth.ts";
 import { legalPage, privacyPage, termsPage } from "./pages.ts";
 import { attachChannel } from "./ws.ts";
 
@@ -24,6 +27,7 @@ const root = resolve(import.meta.dirname, "../..");
 const COOKIE = "sid";
 
 if (!env.SESSION_SECRET) throw new Error("SESSION_SECRET is required");
+const secret = env.SESSION_SECRET;
 
 const app = Fastify({
   logger: {
@@ -34,16 +38,17 @@ const app = Fastify({
 
 const store = new Store(env.DATABASE_PATH ?? join(root, "data/persona.db"));
 const clock = new RealClock();
-const { brain, models } = buildBrain(env, baseUrl);
+const { brain, llm, fastModel, summary } = buildBrain(env, baseUrl, secret);
 const hub = new Hub({
   store,
   clock,
   brain,
-  // Voice needs the API key. The page also reports whether the browser can do WebRTC.
-  // Gmail turns on in milestone 3.
-  defaultCaps: { voice: Boolean(env.OPENAI_API_KEY), gmail: false },
+  // Voice and inbox scans need the API key. The page also reports whether the
+  // browser can do WebRTC. Without Google credentials, the sample inbox still works.
+  defaultCaps: { voice: Boolean(env.OPENAI_API_KEY), gmail: Boolean(env.OPENAI_API_KEY) },
   onError: (err, sessionId) => app.log.error({ err, sessionId }, "hub error"),
 });
+
 const voice = env.OPENAI_API_KEY
   ? new VoiceManager({
       hub,
@@ -54,10 +59,15 @@ const voice = env.OPENAI_API_KEY
       log: app.log,
     })
   : null;
-if (voice)
-  hub.subscribeAll((msg) => msg.type === "action" && voice.onAction(msg.sessionId, msg.action));
+const inbox = llm ? new InboxService({ hub, llm, model: fastModel, log: app.log }) : null;
+hub.subscribeAll((msg) => {
+  if (msg.type !== "action") return;
+  voice?.onAction(msg.sessionId, msg.action);
+  inbox?.onAction(msg.sessionId, msg.action);
+});
 
-await app.register(fastifyCookie, { secret: env.SESSION_SECRET });
+await app.register(fastifyCookie, { secret });
+await app.register(fastifyFormbody);
 await app.register(fastifyWebsocket);
 
 function sessionFrom(req: FastifyRequest): string | null {
@@ -147,13 +157,52 @@ app.post<{ Body: { ms?: unknown } }>("/api/reviewer/lag", async (req, reply) => 
   return { lagMs: ms };
 });
 
+app.post<{ Body: { outcome?: unknown } }>("/api/reviewer/oauth", async (req, reply) => {
+  const id = sessionFrom(req);
+  if (!id) return reply.code(401).send({ error: "no session" });
+  const outcome = req.body?.outcome;
+  // Stand-ins for what people do on Google's screen, without leaving the simulator.
+  if (outcome === "scope_denied") {
+    await hub.dispatch(id, {
+      type: "oauth_done",
+      scopes: ["openid", "email", "profile"],
+      email: "you@gmail.com",
+      name: null,
+    });
+  } else if (
+    outcome === "cancelled" ||
+    outcome === "admin_blocked" ||
+    outcome === "access_denied"
+  ) {
+    await hub.dispatch(id, { type: "oauth_failed", reason: outcome });
+  } else {
+    return reply
+      .code(400)
+      .send({ error: "outcome must be cancelled, access_denied, scope_denied, or admin_blocked" });
+  }
+  return { ok: true };
+});
+
+const oauth = inbox
+  ? registerOAuth(app, {
+      hub,
+      inbox,
+      secret,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri: env.GOOGLE_REDIRECT_URI ?? `${baseUrl}/auth/google/callback`,
+      baseUrl,
+      log: app.log,
+    })
+  : null;
+
 app.get("/ws", { websocket: true }, (socket, req) => {
   const id = sessionFrom(req);
   if (!id) {
     socket.close(4401, "no session");
     return;
   }
-  attachChannel({ hub, voice }, id, socket);
+  attachChannel({ hub, voice, onOAuthClosed: (sid) => oauth?.popupClosed(sid) }, id, socket);
 });
 
 const html = (body: string) => (_req: FastifyRequest, reply: FastifyReply) =>
@@ -186,7 +235,7 @@ if (isProd) {
 
 const restored = hub.restore();
 await app.listen({ port, host: "0.0.0.0" });
-app.log.info({ models, restored, baseUrl }, "persona onboarding is up");
+app.log.info({ models: summary, restored, baseUrl }, "persona onboarding is up");
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {

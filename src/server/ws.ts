@@ -19,10 +19,12 @@ const MAX_TEXTS_PER_MINUTE = 40;
 export interface ChannelDeps {
   hub: Hub;
   voice: VoiceManager | null;
+  /** The Gmail connect popup closed. No callback by then means the user backed out. */
+  onOAuthClosed: (sessionId: string) => void;
 }
 
 export function attachChannel(
-  { hub, voice }: ChannelDeps,
+  { hub, voice, onOAuthClosed }: ChannelDeps,
   sessionId: string,
   socket: WebSocket,
 ): void {
@@ -99,6 +101,10 @@ export function attachChannel(
         type: "capabilities",
         caps: { voice: voice !== null && msg.voice === true },
       });
+      return;
+    }
+    if (msg?.t === "oauth_closed") {
+      onOAuthClosed(sessionId);
       return;
     }
     if (msg?.t === "call") {
