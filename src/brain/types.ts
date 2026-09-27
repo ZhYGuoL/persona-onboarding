@@ -28,6 +28,8 @@ export type CallEndReason =
   | "remote_hangup"
   | "connection_lost"
   | "mic_denied"
+  /** The call connected, but the agent never made a sound. */
+  | "no_voice"
   | "error";
 
 export interface CallState {
@@ -196,6 +198,7 @@ export type TimerKind =
   | "call_max"
   | "call_end_fallback"
   | "call_gmail_wait"
+  | "call_no_voice"
   | "call_finding_wait"
   /** A reminder the user asked for. Its timer id is `reminder-<taskId>`. */
   | "reminder";
@@ -348,7 +351,8 @@ export type Action =
   /** The user called the agent, and the agent picked up. The phone connects voice for this call. */
   | { type: "call_accepted"; callId: string }
   | { type: "push_to_call"; callId: string; kind: PushKind; text: string }
-  | { type: "end_call"; callId: string }
+  /** With a reason, the call is cut at once and ends with that reason. */
+  | { type: "end_call"; callId: string; reason?: CallEndReason }
   /** Look through the connected inbox for what matters to this user. */
   | { type: "scan_inbox"; need: string | null; source: InboxSource }
   /** Do the work behind a task. The result comes back as `task_done` or `task_failed`. */
@@ -429,6 +433,7 @@ export type Ack =
   | { kind: "call_limit" }
   | { kind: "call_missed" }
   | { kind: "call_dropped"; captured: SlotName[] }
+  | { kind: "call_no_voice" }
   | { kind: "call_recap"; captured: SlotName[] }
   | { kind: "call_cut"; captured: SlotName[] }
   | { kind: "mic_denied" }

@@ -54,9 +54,14 @@ export function attachChannel(
         if (msg.action.type === "end_call") {
           // The brain hung up or the ring timed out. The phone stops ringing at once;
           // a live call stays up until the agent's session closes.
+          // A cut with a reason (no voice) also ends the phone's call at once.
           const state = hub.state(sessionId);
-          if (state.call.status !== "active")
-            send({ t: "call_end", callId: msg.action.callId, reason: "ended" });
+          if (state.call.status !== "active" || msg.action.reason)
+            send({
+              t: "call_end",
+              callId: msg.action.callId,
+              reason: msg.action.reason ?? "ended",
+            });
         }
         break;
       case "log":

@@ -136,12 +136,34 @@ describe("live call", () => {
   it("ends the call anyway if the goodbye never comes", async () => {
     const w = new World({ caps: { voice: true } });
     await onCall(w);
+    await w.agentSays("Hey, it's juno, your AI assistant from Persona. What's your first name?", 0);
     await w.hear("I'm Dana, and I need help with taxes", {
       confirms_name: "Dana",
       help_need: "doing taxes",
     });
     await w.advance(w.cfg.callEndFallbackMs + 100);
     expect(w.of("end_call")).toHaveLength(1);
+  });
+
+  // Voice runs: twice GPT-Live connected but never spoke, and the caller sat in silence.
+  it("a call where the agent never makes a sound ends, and a text says sorry", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    await w.advance(w.cfg.callNoVoiceMs + 100);
+    expect(w.of("end_call").at(-1)).toMatchObject({ callId, reason: "no_voice" });
+    await w.event({ type: "call_ended", callId, reason: "no_voice" });
+    await w.advance(2000);
+    const texts = w.last()?.texts.join(" ") ?? "";
+    expect(texts).toMatch(/no sound/);
+    expect(w.state.awaiting?.question.kind).toBe("offer_callback");
+  });
+
+  it("the agent's first sound cancels the no-voice cut", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    await w.event({ type: "voice_activity", callId, role: "agent" });
+    await w.advance(w.cfg.callNoVoiceMs + 100);
+    expect(w.of("end_call").filter((a) => a.reason === "no_voice")).toHaveLength(0);
   });
 
   it("checks in after silence, then wraps up and moves to text", async () => {

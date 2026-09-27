@@ -131,8 +131,10 @@ export class Brain {
         break;
       case "voice_activity":
         if (s.call.status === "active" && s.call.callId === ev.callId) {
-          if (ev.role === "agent") s.call.agentSpeaking = true;
-          else s.call.silenceStage = 0;
+          if (ev.role === "agent") {
+            s.call.agentSpeaking = true;
+            cancelTimer(s, step.actions, "call_no_voice");
+          } else s.call.silenceStage = 0;
           cancelTimer(s, step.actions, "call_silence");
           // Never hang up on someone who is talking. The next agent reply re-arms the hangup.
           if (s.call.wrapUpAt !== null) {
@@ -279,6 +281,13 @@ export class Brain {
     switch (timer.kind) {
       case "reply":
         this.startTurn(step, now);
+        break;
+      case "call_no_voice":
+        // Twice in the voice runs, GPT-Live connected but never spoke. The caller
+        // would sit in silence. End the call and carry on by text.
+        if (live && s.call.callId) {
+          step.actions.push({ type: "end_call", callId: s.call.callId, reason: "no_voice" });
+        }
         break;
       case "ring_timeout":
         if (s.call.status === "ringing" && s.call.callId) {
@@ -538,6 +547,7 @@ export class Brain {
     if (role === "agent") {
       s.lastAgentAt = now;
       s.call.agentSpeaking = false;
+      cancelTimer(s, step.actions, "call_no_voice");
       if (!live) return;
       if (s.call.wrapUpAt === null) {
         const pending = s.call.pendingDelivery;
@@ -743,6 +753,7 @@ export class Brain {
     cancelTimer(s, step.actions, "ring_timeout");
     cancelTimer(s, step.actions, "idle_nudge");
     scheduleTimer(s, step.actions, "call_max", now + this.cfg.callMaxMs);
+    scheduleTimer(s, step.actions, "call_no_voice", now + this.cfg.callNoVoiceMs);
     for (const p of openingPushes(s, this.cfg)) this.pushToCall(step, p.kind, p.text);
   }
 
@@ -762,6 +773,7 @@ export class Brain {
       "call_max",
       "call_end_fallback",
       "call_gmail_wait",
+      "call_no_voice",
     ]) {
       cancelTimer(s, step.actions, t);
     }

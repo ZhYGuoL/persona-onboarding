@@ -243,7 +243,9 @@ export function useCall(send: (msg: ClientMessage) => void): CallControls {
             ? "Missed Call"
             : msg.reason === "connection_lost"
               ? "Call Lost"
-              : "Call Ended";
+              : msg.reason === "no_voice"
+                ? "Call Failed"
+                : "Call Ended";
         showEnded(current.callerName, label);
       }
     },

@@ -211,6 +211,10 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
           case "content":
             acks.push({ kind: "call_cut", captured });
             break;
+          case "no_voice":
+            acks.push({ kind: "call_no_voice" });
+            wantCallback = true;
+            break;
           case "mic_denied":
             acks.push({ kind: "mic_denied" });
             break;

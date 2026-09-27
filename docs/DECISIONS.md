@@ -624,3 +624,15 @@ The text prompt and the call prompt both include them, with one rule: if a quest
 - **Why.** In a scripted voice run, a caller asked "Is this free?", and the agent said "We do have both free and paid options."
 The call prompt had no facts about Persona, so the voice model filled the gap.
 One list keeps the two surfaces from telling the user different things.
+
+### D73. A call with no agent voice for 10 s is ended and the user gets a text
+
+- **Choice.** If the agent makes no sound within 10 s of the call being answered, the brain ends the call with the reason `no_voice`.
+The phone shows "Call Failed". A text says "Sorry, that call had no sound on my end." and offers a callback or to keep going by text.
+The agent's first sound, or its first transcript, cancels the timer.
+- **Why.** Twice in the scripted voice runs, GPT-Live connected but never spoke.
+Its audio clock never started, and a call to it ended with `context_injection_incomplete`.
+The cause is not confirmed, and it did not happen again in later runs.
+A real caller would sit in silence with no way to know what went wrong.
+The first agent sound comes about 2 s after the tap (p95 2.4 s), so 10 s leaves wide room.
+- **Check.** Browser QA cut the page's outgoing audio to reproduce it. The call ended at 10.0 s, and the text came 1.3 s later.

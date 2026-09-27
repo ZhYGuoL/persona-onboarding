@@ -19,6 +19,8 @@ export interface BrainConfig {
   maxScanFailures: number;
   /** After asking the agent to wrap up, end the call anyway after this long. */
   callEndFallbackMs: number;
+  /** A connected call where the agent has made no sound for this long is dead air. End it. */
+  callNoVoiceMs: number;
   /** After the wrap-up, hang up this long after the agent stops talking without a clear goodbye. */
   callEndQuietMs: number;
   /** After the Gmail link goes out on a call, wait this long for the connect before wrapping up. */
@@ -59,6 +61,7 @@ export const DEFAULT_CONFIG: BrainConfig = {
   maxCallsPerSession: 3,
   maxScanFailures: 3,
   callEndFallbackMs: 15_000,
+  callNoVoiceMs: 10_000,
   callEndQuietMs: 3_000,
   callGmailWaitMs: 75_000,
   callFindingWaitMs: 20_000,

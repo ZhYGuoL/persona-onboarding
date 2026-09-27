@@ -233,6 +233,10 @@ export class VoiceManager {
         this.outbox.set(action.callId, box);
       }
     } else if (action.type === "end_call") {
+      if (action.reason) {
+        this.endFromClient(sessionId, action.callId, action.reason);
+        return;
+      }
       const call = this.calls.get(action.callId);
       if (call) call.hangUp();
       this.outbox.delete(action.callId);

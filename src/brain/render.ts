@@ -146,6 +146,8 @@ export function ackText(a: Ack, f: PlanFacts): string {
       return "We've covered a lot by phone already, so let's keep it to text from here.";
     case "call_missed":
       return "Missed you.";
+    case "call_no_voice":
+      return "Sorry, that call had no sound on my end.";
     case "call_dropped": {
       const got = capturedLine(a.captured, f);
       return got ? `Lost you there. So far I got that ${got}.` : "Lost you there.";
@@ -721,6 +723,8 @@ function ackGuide(a: Ack, f: PlanFacts): string {
       return a.reminder
         ? "They took back a reminder. Say plainly, in a few words, that you won't send it."
         : "They took back their request. Say in a few words that you dropped it.";
+    case "call_no_voice":
+      return "The call connected, but your voice never came through, so it was ended. Say sorry in a few words.";
     case "call_dropped":
       return "The call dropped. Say so and name what you already captured, so they know nothing was lost.";
     case "call_recap":
