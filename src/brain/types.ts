@@ -176,6 +176,10 @@ export interface SessionState {
 
 export interface InboxFinding {
   fact: string;
+  /** What the assistant could do next, as a short noun phrase. */
+  next: string;
+  /** The email the finding came from, so a task can read it in full. */
+  threadId: string;
   related: boolean;
 }
 

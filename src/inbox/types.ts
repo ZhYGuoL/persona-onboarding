@@ -55,6 +55,8 @@ export function addressesIn(header: string): string[] {
 /** One concrete thing the scan found, safe to say out loud. */
 export interface Finding {
   fact: string;
+  /** What the assistant could do next, as a short noun phrase ("canceling the NYT trial"). */
+  next: string;
   threadId: string;
   /** True when it relates to what the user said they need. */
   related: boolean;

@@ -104,7 +104,12 @@ export class InboxService {
       );
       await hub.dispatch(sessionId, {
         type: "scan_done",
-        findings: result.findings.map((f) => ({ fact: f.fact, related: f.related })),
+        findings: result.findings.map((f) => ({
+          fact: f.fact,
+          next: f.next,
+          threadId: f.threadId,
+          related: f.related,
+        })),
         source: result.source,
         ms: Math.round(result.ms),
       });

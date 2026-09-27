@@ -43,7 +43,14 @@ describe("the magic moment on a call", () => {
 
     await w.event({
       type: "scan_done",
-      findings: [{ fact: PF, related: true }],
+      findings: [
+        {
+          fact: PF,
+          next: "canceling the Planet Fitness membership",
+          threadId: "pf-renewal",
+          related: true,
+        },
+      ],
       source: "gmail",
       ms: 1800,
     });
@@ -71,7 +78,14 @@ describe("the magic moment on a call", () => {
     await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
     await w.event({
       type: "scan_done",
-      findings: [{ fact: PF, related: true }],
+      findings: [
+        {
+          fact: PF,
+          next: "canceling the Planet Fitness membership",
+          threadId: "pf-renewal",
+          related: true,
+        },
+      ],
       source: "gmail",
       ms: 1800,
     });
@@ -88,7 +102,14 @@ describe("the magic moment on a call", () => {
     await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
     await w.event({
       type: "scan_done",
-      findings: [{ fact: PF, related: true }],
+      findings: [
+        {
+          fact: PF,
+          next: "canceling the Planet Fitness membership",
+          threadId: "pf-renewal",
+          related: true,
+        },
+      ],
       source: "gmail",
       ms: 1800,
     });
@@ -155,7 +176,14 @@ describe("inbox by text", () => {
     expect(connected?.texts.join(" ")).not.toMatch(/\?/);
     await w.event({
       type: "scan_done",
-      findings: [{ fact: "Your Con Edison bill of $86.42 is due Oct 6.", related: true }],
+      findings: [
+        {
+          fact: "Your Con Edison bill of $86.42 is due Oct 6.",
+          next: "a reminder before the Con Edison bill is due",
+          threadId: "conedison",
+          related: true,
+        },
+      ],
       source: "gmail",
       ms: 1500,
     });

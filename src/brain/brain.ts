@@ -36,6 +36,7 @@ import type {
   Bubble,
   CallEndReason,
   CallPlan,
+  InboxFinding,
   Interpretation,
   Notice,
   PendingText,
@@ -771,18 +772,17 @@ export class Brain {
     );
   }
 
-  private onScanDone(
-    step: Step,
-    findings: Array<{ fact: string; related: boolean }>,
-    now: number,
-  ): void {
+  private onScanDone(step: Step, findings: InboxFinding[], now: number): void {
     const s = step.state;
     s.inbox.scanning = false;
     s.inbox.scannedAt = now;
     s.inbox.failures = 0;
-    s.inbox.findings = findings
-      .slice(0, 3)
-      .map((f) => ({ fact: sanitize(f.fact).slice(0, 200), related: f.related }));
+    s.inbox.findings = findings.slice(0, 3).map((f) => ({
+      fact: sanitize(f.fact).slice(0, 200),
+      next: sanitize(f.next ?? "").slice(0, 80),
+      threadId: f.threadId ?? "",
+      related: f.related,
+    }));
     const top = s.inbox.findings[0];
     if (s.call.status === "active" && s.call.callId) {
       if (top) {
