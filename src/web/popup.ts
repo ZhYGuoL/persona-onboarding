@@ -28,8 +28,9 @@ export function openConnectPopup(url: string, onClosed: () => void): boolean {
   if (!popup) return false;
   popup.focus();
   clearInterval(watcher);
-  const qa = window as unknown as { __popupEvents?: string[] };
+  const qa = window as unknown as { __popupEvents?: string[]; __popup?: Window };
   qa.__popupEvents = ["opened"];
+  qa.__popup = popup;
   watcher = setInterval(() => {
     if (!popup.closed) return;
     clearInterval(watcher);
