@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Phone } from "./Phone.tsx";
+import { isConnectLink, openConnectPopup } from "./popup.ts";
 import { Reviewer } from "./Reviewer.tsx";
 import { type CallControls, useCall, voiceSupported } from "./useCall.ts";
 import { useSession } from "./useSession.ts";
@@ -37,6 +38,11 @@ export function App() {
           onSend={sendText}
           call={call}
           voiceAvailable={Boolean(state?.caps?.voice)}
+          onOpenLink={(url) => {
+            if (!isConnectLink(url)) return false;
+            openConnectPopup(url, () => sendRaw({ t: "oauth_closed" }));
+            return true;
+          }}
         />
       </main>
       <Reviewer
@@ -58,6 +64,7 @@ export function App() {
           setLagMs(ms);
           void reviewer("lag", { ms });
         }}
+        onOAuth={(outcome) => void reviewer("oauth", { outcome })}
       />
     </div>
   );

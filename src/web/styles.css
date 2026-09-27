@@ -821,6 +821,23 @@ button {
   margin-top: 8px;
 }
 
+.rv-note {
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.rv-inbox ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.rv-inbox li + li {
+  margin-top: 4px;
+}
+
 .ledger {
   width: 100%;
   border-collapse: collapse;

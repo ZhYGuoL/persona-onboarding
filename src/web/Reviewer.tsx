@@ -22,6 +22,7 @@ interface ReviewerProps {
   lagMs: number;
   onDropCall: () => void;
   onLag: (ms: number) => void;
+  onOAuth: (outcome: "scope_denied" | "cancelled" | "admin_blocked") => void;
 }
 
 /** Prerecorded lines the test voice can say on a call, for QA without a microphone. */
@@ -61,6 +62,7 @@ export function Reviewer({
   lagMs,
   onDropCall,
   onLag,
+  onOAuth,
 }: ReviewerProps) {
   const slots = (state?.slots ?? {}) as Record<string, Slot>;
   const callState = (state?.call ?? {}) as Record<string, unknown>;
@@ -130,6 +132,22 @@ export function Reviewer({
             ))}
           </div>
         )}
+      </section>
+
+      <section className="rv-card">
+        <h2>Google consent</h2>
+        <div className="rv-buttons">
+          <button type="button" onClick={() => onOAuth("scope_denied")}>
+            Uncheck Gmail box
+          </button>
+          <button type="button" onClick={() => onOAuth("cancelled")}>
+            Cancel sign-in
+          </button>
+          <button type="button" onClick={() => onOAuth("admin_blocked")}>
+            Admin block
+          </button>
+        </div>
+        <Inbox inbox={state?.inbox as InboxView | undefined} />
       </section>
 
       <section className="rv-card">
@@ -286,4 +304,34 @@ function summarize(e: LogView): string {
     default:
       return "";
   }
+}
+
+interface InboxView {
+  source: "gmail" | "demo" | null;
+  scanning: boolean;
+  scannedAt: number | null;
+  findings: Array<{ fact: string; related: boolean }>;
+}
+
+function Inbox({ inbox }: { inbox: InboxView | undefined }) {
+  if (!inbox?.source) return <p className="rv-note">No inbox connected.</p>;
+  const label = inbox.source === "demo" ? "Sample inbox" : "Gmail";
+  if (inbox.scanning) return <p className="rv-note">{label} connected · scanning…</p>;
+  return (
+    <div className="rv-inbox">
+      <p className="rv-note">
+        {label} connected · {inbox.findings.length} finding{inbox.findings.length === 1 ? "" : "s"}
+      </p>
+      {inbox.findings.length > 0 && (
+        <ol>
+          {inbox.findings.map((f) => (
+            <li key={f.fact}>
+              {f.fact}
+              {!f.related && <span className="muted"> (not tied to their need)</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
 }
