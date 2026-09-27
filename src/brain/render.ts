@@ -814,10 +814,17 @@ export function templateBubbles(template: TemplateRenderer, input: RenderInput):
 
 function toBubbles(r: Rendered, input: RenderInput): Bubble[] {
   const bubbles: Bubble[] = [];
-  for (const t of r.intro) bubbles.push({ kind: "text", text: t });
+  const seen = new Set<string>();
+  const text = (t: string) => {
+    const key = t.trim().toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    bubbles.push({ kind: "text", text: t });
+  };
+  for (const t of r.intro) text(t);
   if (input.plan.intro)
     bubbles.push({ kind: "link", url: input.links.legal, title: "Terms and Privacy" });
-  for (const t of r.body) bubbles.push({ kind: "text", text: t });
+  for (const t of r.body) text(t);
   if (input.plan.question?.kind === "gmail_link") {
     bubbles.push({ kind: "link", url: input.links.gmail, title: "Connect Gmail" });
   }

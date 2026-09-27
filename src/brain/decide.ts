@@ -368,6 +368,11 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         setSlot(s.slots.help_need, summary, "confirmed", "text", now);
       }
       graduate(s);
+      // The task says the same thing as a help need set from it, so say it once.
+      const same = acks.findIndex(
+        (a) => a.kind === "help_need_set" && a.value.toLowerCase() === summary.toLowerCase(),
+      );
+      if (same >= 0) acks.splice(same, 1);
       acks.push({ kind: "task_started", summary, needsGmail: i.task.needs_gmail });
     }
   }

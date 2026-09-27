@@ -239,3 +239,18 @@ describe("lowercase mirroring", () => {
     expect(inner.body[0]).toBe("irises bloom.");
   });
 });
+
+describe("one task, one acknowledgment", () => {
+  // Stress run: "Got it: calling Planet Fitness to ask how to cancel." was sent twice in one turn.
+  it("does not repeat the task as a help need in the same turn", async () => {
+    const w = new World();
+    await w.say("hi");
+    const t = await w.say("call planet fitness and ask how to cancel", {
+      help_need: "calling Planet Fitness to ask how to cancel",
+      task: { summary: "calling Planet Fitness to ask how to cancel", needs_gmail: false },
+    });
+    const acks = t?.texts.filter((x) => /^got it/i.test(x)) ?? [];
+    expect(acks).toHaveLength(1);
+    expect(new Set(t?.texts).size).toBe(t?.texts.length);
+  });
+});
