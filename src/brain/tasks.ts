@@ -102,6 +102,14 @@ export function applyTaskNotice(
       const task = find(s, n.taskId);
       const r = task?.result;
       if (!task || !r || task.status !== "working") return null;
+      // A task never asks the same thing twice. In a stress run, a user who did not
+      // know the restaurant yet got the same question four times. The first ask
+      // stands, so the brain waits for its answer and sends nothing.
+      if (r.kind === "question" && task.asked.some((q) => sameQuestion(q, r.text))) {
+        task.status = "needs_info";
+        return { kind: "task_info", taskId: task.id, text: r.text, quiet: true };
+      }
+      if (r.kind === "question") task.asked.push(r.text);
       acks.push({ kind: "task_result", taskId: task.id, result: r });
       switch (r.kind) {
         case "draft":
@@ -232,4 +240,31 @@ export function cancelLatest(s: SessionState, actions: Action[]): Ack | null {
   }
   target.status = "dropped";
   return { kind: "task_canceled", reminder: reminder !== undefined };
+}
+
+/** Words that carry no meaning of their own in a question. */
+const FILLER = new Set(
+  "what which whom when where should would could does your their them they with want like that this have need please about there".split(
+    " ",
+  ),
+);
+
+function keyWords(text: string): Set<string> {
+  const plain = text.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "");
+  return new Set((plain.match(/\p{L}+/gu) ?? []).filter((w) => w.length > 3 && !FILLER.has(w)));
+}
+
+/**
+ * Two questions ask for the same thing when most key words of the shorter one
+ * are in the other. "Which restaurant should I address it to?" repeats "What
+ * restaurant, date, and party size should I include?", but "What date are you
+ * moving out?" does not repeat "Are you staying or moving out?".
+ */
+export function sameQuestion(a: string, b: string): boolean {
+  const x = keyWords(a);
+  const y = keyWords(b);
+  if (x.size === 0 || y.size === 0) return a.trim().toLowerCase() === b.trim().toLowerCase();
+  let shared = 0;
+  for (const w of x) if (y.has(w)) shared += 1;
+  return shared / Math.min(x.size, y.size) >= 0.6;
 }

@@ -362,6 +362,36 @@ describe("other task results", () => {
     expect(answered?.texts.join(" ") ?? "").not.toMatch(/looking into it/i);
   });
 
+  // Stress run: a user who did not know the restaurant yet got the same question four times.
+  it("never asks the same question twice, and keeps waiting for the answer", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await started(w);
+    const ask = async (text: string) => {
+      await w.event({
+        type: "task_done",
+        taskId: 1,
+        result: { kind: "question", text, receipt: null },
+        threadId: null,
+        ms: 700,
+      });
+      await w.advance(1000);
+    };
+    await ask(
+      "What restaurant or venue, date and time, and party size should I include in the reservation request?",
+    );
+    const sent = w.turns().length;
+    await w.say("not sure of the name yet, i'll get back to you", {
+      task_detail: "not sure of the name yet",
+    });
+    const afterReply = w.turns().length;
+    await ask("Which restaurant or venue should I address the reservation request to?");
+    expect(w.turns()).toHaveLength(afterReply);
+    expect(afterReply).toBeGreaterThan(sent);
+    expect(w.awaiting()).toBe("task_info");
+    await w.say("it's Thai Villa on 5th", { task_detail: "Thai Villa on 5th" });
+    expect(w.of("run_task").at(-1)?.job.notes.at(-1)).toMatch(/They said: Thai Villa on 5th$/);
+  });
+
   it("a failure says so plainly, and a lost token asks for Gmail again", async () => {
     const w = new World({ caps: { gmail: true, tasks: true } });
     await started(w);
@@ -655,5 +685,26 @@ describe("tasks and calls", () => {
     await w.advance(1000);
     expect(w.of("run_task")).toHaveLength(1);
     expect(w.last()?.texts.join(" ")).toMatch(/looking into it\./i);
+  });
+});
+
+describe("the same question", () => {
+  it("matches a repeat, not a new question on the same topic", async () => {
+    const { sameQuestion } = await import("../src/brain/tasks.ts");
+    const cases: Array<[string, string, boolean]> = [
+      [
+        "What restaurant or venue, date and time, and party size should I include in the reservation request?",
+        "Which restaurant or venue should I address the reservation request to?",
+        true,
+      ],
+      [
+        "¿A quién se lo envío? Necesito su correo electrónico.",
+        "¿A quién se lo mando? Necesito su correo electrónico.",
+        true,
+      ],
+      ["Are you staying or moving out?", "What date are you moving out?", false],
+      ["Which account is the renewal for?", "Which email should I send it to?", false],
+    ];
+    for (const [a, b, same] of cases) expect(sameQuestion(a, b)).toBe(same);
   });
 });

@@ -85,7 +85,8 @@ export type Question =
   /** A draft is ready. Nothing goes out without a yes. */
   | { kind: "confirm_send"; taskId: number }
   /** The task needs one detail from the user. The work step wrote the question. */
-  | { kind: "task_info"; taskId: number; text: string };
+  /** `quiet`: the task asked this already, so the brain waits for the answer without asking again. */
+  | { kind: "task_info"; taskId: number; text: string; quiet?: boolean };
 
 /**
  * A task's life: `open` (ready to run) or `waiting_gmail` (needs the inbox
@@ -126,6 +127,8 @@ export interface Task {
   result: TaskResult | null;
   /** Work runs so far. Caps retries and re-drafts. */
   runs: number;
+  /** Questions this task asked the user, so it never asks the same thing twice. */
+  asked: string[];
 }
 
 /** The email behind a result, so the user can check the work. */

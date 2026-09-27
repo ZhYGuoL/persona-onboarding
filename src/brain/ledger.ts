@@ -187,5 +187,6 @@ export function newTask(
     notes: [],
     result: null,
     runs: 0,
+    asked: [],
   };
 }

@@ -78,6 +78,7 @@ export class Store {
       notes: t.notes ?? [],
       result: t.result ?? null,
       runs: t.runs ?? 0,
+      asked: t.asked ?? [],
     }));
     return { state, clockOffsetMs: row.clock_offset };
   }

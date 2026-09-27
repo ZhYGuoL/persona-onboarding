@@ -499,7 +499,10 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   // that asks about a result ("Send it?") waits for the answer before the next one.
   if (!ringing && !taskQuestion) startNextTask(s, acks, actions);
   const working = s.tasks.some((t) => t.status === "working");
-  if (taskQuestion) {
+  if (taskQuestion?.kind === "task_info" && taskQuestion.quiet) {
+    // The task asked this already. Wait for the answer, and ask nothing else meanwhile.
+    s.awaiting = { question: { ...taskQuestion, quiet: false }, at: now };
+  } else if (taskQuestion) {
     plan.question = taskQuestion;
     recordQuestion(s, taskQuestion, now);
   } else if (
