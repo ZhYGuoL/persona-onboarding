@@ -101,8 +101,16 @@ The stress runs found these bugs, and each one is fixed with a regression test:
 - "Got it: reminding you before the bill is due" read as a promise (D56).
 - A typed name that matched the call got "Fixed", and the confused answer said "I'm Persona" to a user who named the agent.
 
-Not verified: the last step of real Google consent (pick an account, then Allow).
-QA stayed read-only on Google. Zhiyuan should run it once with a test user.
+Real Google consent was verified on 2026-09-27 with the test user, first by Zhiyuan and then again in the browser with his approval:
+- The Gmail box unchecked, then checked: the right message each time, from the granted scopes.
+- Cancel on Google's screen: "nothing's connected", with no re-ask (fixed after this run).
+- The popup closed on Google's page: no false alarm, then "sign-in didn't finish" after 3 minutes.
+- A plain scan by text, and a task, both on the real inbox.
+- A draft reply to a real sender: addressed from the email's headers, and sent only to the simulated outbox.
+- A dev server restart: the next task said it lost access and sent a new link.
+- A live call: Gmail connected mid-call, and the agent said a real finding within 12 seconds, then hung up and texted the recap.
+
+Not tested: a Google account outside the test users, which Google blocks on its own page.
 
 ## Milestone 4: a real first task
 
