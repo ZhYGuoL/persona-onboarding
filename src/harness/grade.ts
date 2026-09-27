@@ -62,6 +62,8 @@ export interface Grade {
     confirmedSlots: number;
     graduated: boolean;
     templateFallbacks: number;
+    /** Turns read by the keyword reader because the model interpreter failed. */
+    keywordReads: number;
     turnMs: number[];
     /** Task work time, from start to result: search, read, and one model call. */
     taskMs: number[];
@@ -177,6 +179,7 @@ interface TurnNote {
   interp: Interpretation | null;
   meta: {
     renderer: string;
+    interpreter?: string | null;
     interpretMs: number | null;
     renderMs: number;
     guardFailures?: string[];
@@ -435,6 +438,7 @@ export function grade(conv: Conversation, verdict: JudgeOut | null): Grade {
       templateFallbacks: notes.filter(
         (n) => n.meta.renderer === "template" && (n.meta.guardFailures?.length ?? 0) > 0,
       ).length,
+      keywordReads: notes.filter((n) => n.meta.interpreter === "keyword").length,
       turnMs: notes.map((n) => (n.meta.interpretMs ?? 0) + n.meta.renderMs),
       taskMs: log
         .filter((e) => e.dir === "in" && e.type === "task_done")

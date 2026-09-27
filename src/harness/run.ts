@@ -413,11 +413,13 @@ function renderReport(allRows: Row[], seconds: number): string {
   const turnMs = rows.flatMap((r) => r.grade.metrics.turnMs);
   const taskMs = rows.flatMap((r) => r.grade.metrics.taskMs);
   const fallbacks = rows.reduce((a, r) => a + r.grade.metrics.templateFallbacks, 0);
+  const keywordReads = rows.reduce((a, r) => a + r.grade.metrics.keywordReads, 0);
   lines.push(
     "",
     `Model time per text turn (interpret + render, excludes the ${cfg.replyDebounceMs} ms debounce): p50 ${pct(turnMs, 50)} ms, p95 ${pct(turnMs, 95)} ms over ${turnMs.length} turns.`,
     `Task work time (find the emails, read them, write the result): p50 ${pct(taskMs, 50)} ms, p95 ${pct(taskMs, 95)} ms over ${taskMs.length} tasks.`,
     `Template fallbacks (guard rejected the model twice, or the model failed): ${fallbacks} of ${turnMs.length} turns.`,
+    `Keyword reads (the model interpreter failed, so a keyword reader read the texts): ${keywordReads} of ${turnMs.length} turns.`,
     "",
     "## Failures",
     "",
