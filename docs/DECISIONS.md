@@ -468,3 +468,14 @@ The render guard also rejects a draft that says the agent cannot send a link.
 - **Why.** The ask budget limits how often the agent asks, not how often it answers.
 In the M3 stress run, the budget was spent, the user asked for the link, and the agent said it could not send links.
 That was false, and it blocked the user from the one thing they wanted to do.
+
+### D55. A failed inbox scan retries, and the agent never guesses its result
+
+- **Choice.** The inbox service retries a failed scan once, after one second.
+If it still fails, the next user text starts a new scan, up to three failures in a row.
+The failure text promises only that retry ("I'll try again when you text me next"), or says the agent gave up.
+The renderer gets the scan state (`none`, `scanning`, `failed`, `scanned`), so it never says a failed scan found nothing.
+- **Why.** In the M3 stress run, a scan failed under load.
+The agent said "I'll try again later", but nothing retried.
+Three texts later it said the scan found no subscriptions, which was false.
+A retry that runs on the user's next text is honest, because the agent keeps no background jobs.
