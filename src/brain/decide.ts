@@ -516,6 +516,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
       wantGmailLink,
       nudge,
       typingFatigue: i?.typing_fatigue === true,
+      tookBack: i?.cancels_task === true,
       // The link just went out during the call. Do not send it again in the recap.
       gmailJustSent: s.call.linkSentOnCall && notices.some((n) => n.kind === "call_ended"),
     });
@@ -644,6 +645,8 @@ interface PickContext {
   nudge: boolean;
   typingFatigue: boolean;
   gmailJustSent: boolean;
+  /** The user just took a request back. */
+  tookBack: boolean;
 }
 
 function pickQuestion(s: SessionState, cfg: BrainConfig, ctx: PickContext): Question | null {
@@ -658,6 +661,9 @@ function pickQuestion(s: SessionState, cfg: BrainConfig, ctx: PickContext): Ques
   if (s.inbox.scanning) return null;
 
   if (s.phase === "main") {
+    // "Never mind" asks for less. Stress run: "okay, i won't send that reminder"
+    // came with "want me to start on setting a reminder for hotel check-in?".
+    if (ctx.tookBack) return null;
     // Collect a missing slot only when a task needs it.
     const needsGmail = s.tasks.some((t) => t.status === "waiting_gmail");
     if (

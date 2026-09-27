@@ -484,6 +484,34 @@ describe("an answer's follow-up", () => {
     });
   });
 
+  // Stress run: "okay, i won't send that reminder" came with "want me to start on
+  // setting a reminder for hotel check-in?".
+  it("a take-back makes no new offer in the same reply", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toFinding(w);
+    await w.say("yes", { reply_to_pending: "yes" });
+    const at = w.hub.now(w.sid) + DAY;
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: { kind: "remind", text: "Cancel the NYT trial today.", at, receipt: null },
+      threadId: "nyt-trial",
+      ms: 500,
+    });
+    await w.advance(1000);
+    // One finding not offered yet, as in the stress run.
+    w.state.inbox.findings.push({
+      fact: "Your Denver Marriott stay is Oct 4 to 7, with check-in on Sun, Oct 4.",
+      next: "setting a reminder for hotel check-in",
+      threadId: "marriott",
+      related: true,
+    });
+    const reply = await w.say("actually never mind, don't remind me", { cancels_task: true });
+    expect(reply?.texts.join(" ")).toMatch(/i won't send that reminder/i);
+    expect(reply?.texts.join(" ")).not.toMatch(/want me to start/i);
+    expect(w.awaiting()).toBeNull();
+  });
+
   // Stress run: "sí, ponme un recordatorio antes de que termine el plazo" to a Marriott
   // offer became a new task that searched on its own and quoted the NYT email.
   it("a yes that restates the offer stays on the offered email, with the user's words as a note", async () => {
