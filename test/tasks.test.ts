@@ -383,8 +383,9 @@ describe("other task results", () => {
     expect(w.of("run_task").at(-1)?.job.notes).toEqual([
       'You asked "What time should I remind you?" They said: 9am the day before',
     ]);
-    // They just answered. The result is seconds away, so no "looking into it" first.
-    expect(answered?.texts.join(" ") ?? "").not.toMatch(/looking into it/i);
+    // They just answered. The result is seconds away, so only "Got it." Stress run: a
+    // free reply here said "i can't set a reminder", and the reminder came right after.
+    expect(answered?.texts.join(" ") ?? "").toMatch(/^got it\.$/i);
   });
 
   // Stress run: a user who did not know the restaurant yet got the same question four times.

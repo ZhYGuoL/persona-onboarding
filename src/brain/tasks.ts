@@ -234,8 +234,11 @@ export function applyTaskReply(
       return true;
     }
     task.notes.push(`You asked "${awaiting.text}" They said: ${answer}`);
-    // No "looking into it" this time: they just answered, and the result is seconds away.
+    // They just answered, and the result is seconds away: "Got it." and nothing else.
+    // Stress run: a free reply here said "i can't set a reminder for tomorrow", and the
+    // reminder came through right after.
     run(s, task, actions, null);
+    acks.push({ kind: "task_resumed" });
     return true;
   }
   return false;

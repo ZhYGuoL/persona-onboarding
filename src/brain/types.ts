@@ -434,6 +434,8 @@ export type Ack =
   | { kind: "task_redraft" }
   /** The draft was about the wrong email. The task starts over without it. */
   | { kind: "task_retarget" }
+  /** The user answered a task's question. The result follows in seconds. */
+  | { kind: "task_resumed" }
   | { kind: "task_limit" }
   /** `reminder` is true when a pending reminder was called off. */
   | { kind: "task_canceled"; reminder: boolean }
