@@ -169,3 +169,25 @@ M4 must make that yes start real work, or the offer must not be made.
 The judge flags it as a false promise when the next sentence says the agent cannot do it.
 - Some requests need no tools at all, like "help me plan meals for the week".
 The agent refuses them today, but it can do them right in the thread.
+
+## Milestone 5: scale the stress tests, fix failures, measure latency
+
+Budget: at most $2.50 of the remaining OpenAI credit.
+
+### Plan
+
+Text:
+1. Text that code writes (receipt labels, "Send it?", "Looking into it.") follows the user's language.
+A short translation pass keeps quotes, names, and addresses exact.
+2. A new invariant, `same_language`, flags agent texts in a different language than the user's.
+3. Three new personas aim at the task loop: an editor who revises a draft several times, a user who takes requests back, and a user who asks for things the agent cannot do.
+4. The report adds task latency (p50 and p95) next to text-turn latency.
+
+Voice:
+5. The browser measures voice latency on every call: time to first audio after the user accepts, and the gap between the end of the user's speech and the start of the agent's reply.
+With the test voice, the end of each clip is exact.
+6. Scripted voice runs play prerecorded clips into real GPT-Live calls: the happy path, a spelled unusual name, an interruption, silence, Spanish, "are you a bot?", "gotta go", and a dropped line.
+A runner in the reviewer panel drives them, so anyone can rerun them without tools.
+7. A report script grades the runs from the event log and writes `docs/voice-results.md`.
+
+Then run everything, fix what fails, and record the results.
