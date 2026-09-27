@@ -96,6 +96,22 @@ export function Phone({
           />
         )}
         <header className="thread-header">
+          <svg
+            className="header-back"
+            width="12"
+            height="20"
+            viewBox="0 0 12 20"
+            aria-hidden="true"
+          >
+            <path
+              d="M10 2L2 10l8 8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           <button
             type="button"
             className="header-call"
@@ -131,7 +147,12 @@ export function Phone({
             const groupStart = !prev || prev.from !== item.from || separator;
             return (
               <div key={item.id} className="thread-row-wrap">
-                {separator && <div className="separator">{formatSeparator(item.ts, now)}</div>}
+                {separator && (
+                  <div className="separator">
+                    {i === 0 && <span className="service">iMessage</span>}
+                    {formatSeparator(item.ts, now)}
+                  </div>
+                )}
                 <Bubble
                   item={item}
                   onOpenLink={onOpenLink}
@@ -246,6 +267,18 @@ function Composer({
           maxLength={2000}
           autoComplete="off"
         />
+        {!text.trim() && (
+          <svg className="mic" width="12" height="18" viewBox="0 0 12 18" aria-hidden="true">
+            <rect x="3" y="1" width="6" height="10" rx="3" fill="currentColor" />
+            <path
+              d="M1 8.5a5 5 0 0 0 10 0M6 13.5V17"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
         {text.trim() && (
           <button type="submit" className="send" aria-label="Send">
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">

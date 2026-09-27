@@ -41,7 +41,7 @@ body,
 
 body {
   margin: 0;
-  background: var(--canvas);
+  background: var(--surface);
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -66,6 +66,13 @@ button {
   place-items: center;
   min-width: 0;
   min-height: 0;
+  /* A soft glow behind the phone, like the backdrop on yourpersona.com. */
+  background: radial-gradient(
+    closest-side,
+    #eceef2 0%,
+    rgba(236, 238, 242, 0.55) 55%,
+    transparent 100%
+  );
 }
 
 /* ------------------------------------------------------------ phone */
@@ -74,13 +81,14 @@ button {
   --phone-h: min(844px, calc(100vh - 48px));
   height: var(--phone-h);
   aspect-ratio: 390 / 844;
-  padding: 11px;
+  padding: 4px;
   border-radius: 58px;
-  background: #1b1b1d;
+  background: linear-gradient(150deg, #f7f7f9 0%, #d9d9de 45%, #eeeef1 70%, #c9c9cf 100%);
   box-shadow:
-    0 0 0 1.5px #3a3a3c inset,
-    0 30px 60px -20px rgba(0, 0, 0, 0.35),
-    0 12px 24px -12px rgba(0, 0, 0, 0.25);
+    0 0 0 1px rgba(0, 0, 0, 0.14) inset,
+    0 0 0 0.5px rgba(0, 0, 0, 0.18),
+    0 30px 60px -24px rgba(0, 0, 0, 0.28),
+    0 12px 24px -14px rgba(0, 0, 0, 0.2);
 }
 
 .phone-screen {
@@ -89,7 +97,8 @@ button {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  border-radius: 47px;
+  border: 7px solid #0b0b0c;
+  border-radius: 54px;
   background: var(--surface);
   container-type: inline-size;
 }
@@ -182,6 +191,11 @@ button {
 
 .separator:first-child {
   margin-top: 6px;
+}
+
+.separator .service {
+  display: block;
+  font-weight: 600;
 }
 
 .row {
@@ -470,6 +484,19 @@ button {
   flex: none;
   border-radius: 3px;
   background: #000;
+}
+
+.header-back {
+  position: absolute;
+  top: 22px;
+  left: 18px;
+  color: var(--imsg-blue);
+}
+
+.mic {
+  position: absolute;
+  right: 11px;
+  color: var(--ink-mute);
 }
 
 .header-call {
@@ -839,9 +866,9 @@ button {
 
 .rv-buttons button {
   height: 30px;
-  padding: 0 12px;
+  padding: 0 13px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--surface);
   color: var(--ink);
   font-size: 13px;
