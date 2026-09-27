@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { LogView } from "../shared/protocol.ts";
+import type { CallControls } from "./useCall.ts";
 
 interface Slot {
   status: string;
@@ -16,7 +17,22 @@ interface ReviewerProps {
   connected: boolean;
   onFastForward: (ms: number) => void;
   onReset: () => void;
+  call: CallControls;
+  callLive: boolean;
+  lagMs: number;
+  onDropCall: () => void;
+  onLag: (ms: number) => void;
 }
+
+/** Prerecorded lines the test voice can say on a call, for QA without a microphone. */
+const CLIPS: Array<[string, string]> = [
+  ["My name is David", "/voice/name.m4a"],
+  ["Cancel subscriptions", "/voice/need.m4a"],
+  ["Are you a bot?", "/voice/bot.m4a"],
+  ["Gotta go", "/voice/bye.m4a"],
+  ["Spanish", "/voice/spanish.m4a"],
+  ["Stop", "/voice/stop.m4a"],
+];
 
 const SLOT_LABELS: Array<[string, string]> = [
   ["agent_name", "Agent name"],
@@ -40,9 +56,14 @@ export function Reviewer({
   connected,
   onFastForward,
   onReset,
+  call,
+  callLive,
+  lagMs,
+  onDropCall,
+  onLag,
 }: ReviewerProps) {
   const slots = (state?.slots ?? {}) as Record<string, Slot>;
-  const call = (state?.call ?? {}) as Record<string, unknown>;
+  const callState = (state?.call ?? {}) as Record<string, unknown>;
   return (
     <aside className="reviewer" aria-label="Reviewer panel">
       <div className="rv-head">
@@ -70,6 +91,45 @@ export function Reviewer({
             Reset session
           </button>
         </div>
+      </section>
+
+      <section className="rv-card">
+        <h2>Chaos</h2>
+        <div className="rv-buttons">
+          <button type="button" onClick={onDropCall} disabled={!callLive}>
+            Drop call
+          </button>
+          <button
+            type="button"
+            aria-pressed={lagMs > 0}
+            onClick={() => onLag(lagMs > 0 ? 0 : 3000)}
+          >
+            {lagMs > 0 ? "Lag on (+3 s)" : "Simulate lag"}
+          </button>
+          <label className="rv-check">
+            <input
+              type="checkbox"
+              checked={call.testVoice}
+              onChange={(e) => call.setTestVoice(e.target.checked)}
+              disabled={call.call.phase !== "idle"}
+            />
+            Test voice
+          </label>
+        </div>
+        {call.testVoice && (
+          <div className="rv-buttons rv-clips">
+            {CLIPS.map(([label, url]) => (
+              <button
+                key={url}
+                type="button"
+                disabled={call.call.phase !== "active"}
+                onClick={() => void call.sayClip(url)}
+              >
+                Say “{label}”
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rv-card">
@@ -116,8 +176,8 @@ export function Reviewer({
           <div>
             <dt>Call</dt>
             <dd>
-              {String(call.status ?? "idle")} · offers {String(call.autoOffers ?? 0)} · declines{" "}
-              {String(call.declines ?? 0)}
+              {String(callState.status ?? "idle")} · offers {String(callState.autoOffers ?? 0)} ·
+              declines {String(callState.declines ?? 0)}
             </dd>
           </div>
           <div>
