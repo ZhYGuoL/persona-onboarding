@@ -288,3 +288,72 @@ Reading the transcript ourselves keeps one brain, one interpreter, and one valid
 - **Choice.** The session starts with the base voice prompt plus the call brief in `instructions`, and the recent text thread in `input`.
 After the sideband attaches, the server sends an instruction with the exact disclosure ("Hey, it's {name}, your AI assistant from Persona.") and a commentary append that triggers the greeting.
 - **Why.** This is the combination the spike proved.
+
+### D33. Turning transcript fragments into utterances
+
+- **Choice.** The server groups GPT-Live transcript fragments per speaker.
+A user utterance ends after 900 ms of quiet, or when the agent answers.
+An agent fragment that overlaps the user's speech within 300 ms is a backchannel ("mm-hmm") and does not end the user's utterance.
+An agent utterance ends after 1400 ms of quiet, or when the user speaks.
+- **Why.** GPT-Live sends no end-of-turn event.
+The brain needs whole utterances to read names and needs, and to tell a goodbye from speech in progress.
+
+### D34. How a call ends
+
+- **Choice.** When nothing is left to learn, or the user has to go, the brain pushes a wrap-up instruction.
+An agent line with a goodbye cue ("bye", "take care", "talk soon", "adiós", "cuídate", and others) hangs up at once.
+Any other agent line during the wrap-up arms a 3 s quiet hangup, and a line that starts after the wrap-up also gets one "say goodbye now" reminder.
+The user starting to speak cancels the quiet hangup.
+A 15 s fallback covers an agent that says nothing.
+- **Why.** Persona's live call said goodbye and then left the line open.
+Browser QA found the first version of this rule cutting the agent off mid-sentence, and a second version leaving 14 s of dead air.
+
+### D35. Silence and length on a call
+
+- **Choice.** 9 s after the agent's last words with no user speech, the agent checks in once.
+12 s later, it says it will follow up by text and wraps up.
+Calls are capped at 4 minutes.
+- **Why.** The brief asks for a nudge after a few seconds and a move to text after a longer silence.
+The cap bounds voice cost at $0.20 per call.
+
+### D36. A spelling and a typed name beat a heard name
+
+- **Choice.** A name heard on a call is tentative.
+An unprompted letter-by-letter spelling confirms it.
+A spelling that is a prefix of the heard name ("D A V" for "David") is ignored, because spellings arrive in pieces.
+A name typed during a call is exact and confirmed.
+A name heard on a call never replaces a confirmed typed name unless the user corrects it.
+- **Why.** Browser QA saw "D A V" arrive alone and turn "David" into "Dav".
+
+### D37. "Stop calling me" is not "stop texting me"
+
+- **Choice.** Refusing a call during a call ends the call politely, records a firm no to calls, and continues onboarding by text.
+STOP and "stop texting me" still opt out of everything.
+- **Why.** The first version treated a call refusal like "gotta go" and stalled the text flow.
+
+### D38. The browser is untrusted on a call
+
+- **Choice.** The GPT-Live session sets `client.data_channel.allowed_client_events` to none, and lets the browser hear only `session.started` and `session.closed`.
+Only the server's sideband can push context or close the session.
+- **Why.** Otherwise anyone with the page could send `session.instructions.append` from the browser console.
+
+### D39. Test voice for QA
+
+- **Choice.** The reviewer panel has a "Test voice" switch.
+It replaces the microphone with prerecorded clips (made with macOS `say`, 14 to 40 KB each) and streams silence between them.
+- **Why.** Browser QA and the demo need repeatable calls without a person speaking.
+The silence matters: GPT-Live's session timeline only moves while audio arrives, so a silent gap froze the agent.
+
+### D40. Texting during a call
+
+- **Choice.** The call screen has a "Messages" control that shrinks the call to a green pill in the status bar, as on iOS.
+A text sent during the call reaches the agent as context, and the brain reads it like speech.
+New texts from the agent during a full-screen call show as a Messages banner.
+- **Why.** The brief requires texts during a call to reach the call.
+
+### D41. Voice and cost
+
+- **Choice.** Voice `marin` (the default), set by `LIVE_VOICE`.
+A typical onboarding call runs 35 to 40 s, about $0.03.
+- **Measured.** The first agent words arrive about 1 s after the session starts.
+The agent starts answering as the user's last word is transcribed.
