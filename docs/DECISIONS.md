@@ -603,3 +603,14 @@ With the old 900 ms and 300 ms limits, "Necesito ayuda con mi" and "calendario" 
 The cost is about 400 ms more before the brain reads a caller's words.
 The agent's voice does not wait for the brain, so the caller does not hear this delay.
 A split at a sentence break is harmless, because the next turn reads the rest.
+
+### D71. When the caller has to go, the agent says goodbye once
+
+- **Choice.** When the caller has to go or is under 18, the brain does not push a wrap-up on top of the agent's own goodbye.
+If the agent's last line already said goodbye, the call ends at once.
+If the agent is still talking, the brain waits for the end of its line.
+A goodbye in that line ends the call. A line with no goodbye gets the wrap-up push.
+If the agent is quiet, the push goes out at once, as before.
+- **Why.** The session rules already tell the agent to say goodbye in these cases, and it usually does before the brain decides.
+In the scripted voice runs, the push arrived after that goodbye and made a second one: "Bye for now. Okay, take care, and talk soon."
+The voice layer now reports when the agent starts to speak, so the brain knows if a line is in progress.

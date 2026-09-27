@@ -54,12 +54,21 @@ export interface CallState {
   wrapNudged: boolean;
   /** The user said they have to go, so the recap does not chase. */
   userLeaving: boolean;
+  /** The agent's current utterance has started and has no final yet. */
+  agentSpeaking: boolean;
+  /**
+   * A wrap-up that waits for the agent to finish talking. The agent often says
+   * goodbye on its own, and a push on top of that makes a second goodbye.
+   */
+  deferredWrapUp: WrapUpReason | null;
   /**
    * An inbox result went to the agent. The call wraps up after the agent line
    * that delivers it: one that starts after `since` and says one of the anchors.
    */
   pendingDelivery: { since: number; anchors: string[] } | null;
 }
+
+export type WrapUpReason = "done" | "leaving" | "silence" | "time" | "underage" | "gmail_later";
 
 export type AskableSlot = "agent_name" | "user_name" | "help_need";
 
@@ -302,7 +311,7 @@ export type BrainEvent =
   | { type: "call_answered"; callId: string }
   | { type: "call_declined"; callId: string }
   | { type: "call_ended"; callId: string; reason: CallEndReason }
-  | { type: "voice_activity"; callId: string; role: "user" }
+  | { type: "voice_activity"; callId: string; role: "user" | "agent" }
   | {
       type: "transcript_final";
       callId: string;

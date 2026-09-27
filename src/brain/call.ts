@@ -4,7 +4,7 @@
 
 import type { BrainConfig } from "./config.ts";
 import { agentDisplayName } from "./ledger.ts";
-import type { HistoryItem, SessionState } from "./types.ts";
+import type { HistoryItem, SessionState, WrapUpReason } from "./types.ts";
 
 /** The spoken name. A name with no letters (an emoji) cannot be said aloud. */
 export function spokenAgentName(s: SessionState, cfg: BrainConfig): string | null {
@@ -116,9 +116,7 @@ export function openingPushes(
   ];
 }
 
-export function wrapUpInstruction(
-  reason: "done" | "leaving" | "silence" | "time" | "underage" | "gmail_later",
-): string {
+export function wrapUpInstruction(reason: WrapUpReason): string {
   switch (reason) {
     case "gmail_later":
       return "No rush on Gmail. Say in one sentence that the link is in their texts whenever they want it, then say goodbye.";
@@ -182,7 +180,7 @@ export function saysAnchor(text: string, anchors: string[]): boolean {
 }
 
 /** A short spoken cue that makes the agent say goodbye now. */
-export function wrapUpCue(reason: Parameters<typeof wrapUpInstruction>[0]): string {
+export function wrapUpCue(reason: WrapUpReason): string {
   if (reason === "done") return "Wrap up now: say you'll text a quick recap, then say goodbye.";
   if (reason === "gmail_later")
     return "Wrap up now: say the Gmail link is in their texts whenever they want it, then say goodbye.";

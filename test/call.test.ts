@@ -210,6 +210,64 @@ describe("live call", () => {
     expect(w.state.awaiting).toBeNull();
   });
 
+  // Voice runs: the agent said bye on its own, then the wrap-up push made it say
+  // bye again ("Bye for now. Okay, take care, and talk soon.").
+  it("'gotta go' after the agent already said bye hangs up with no second goodbye", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    const before = w.pushes("instructions").length;
+    let release!: () => void;
+    w.interp.gate = new Promise((r) => {
+      release = r;
+    });
+    w.interp.readings.set("sorry gotta go", { leaving: true });
+    await w.hub.dispatch(w.sid, {
+      type: "transcript_final",
+      callId,
+      role: "user",
+      text: "sorry gotta go",
+    });
+    await w.hub.dispatch(w.sid, { type: "voice_activity", callId, role: "agent" });
+    await w.hub.dispatch(w.sid, {
+      type: "transcript_final",
+      callId,
+      role: "agent",
+      text: "No problem. Talk soon.",
+      startedAgoMs: 1500,
+    });
+    w.interp.gate = null;
+    release();
+    await w.settle();
+    expect(w.pushes("instructions")).toHaveLength(before);
+    expect(w.of("end_call").at(-1)?.callId).toBe(callId);
+  });
+
+  it("'gotta go' while the agent is talking waits for its line, and a goodbye there ends the call", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    const before = w.pushes("instructions").length;
+    await w.event({ type: "voice_activity", callId, role: "agent" });
+    await w.hear("sorry gotta go", { leaving: true });
+    expect(w.pushes("instructions")).toHaveLength(before);
+    expect(w.of("end_call")).toHaveLength(0);
+    await w.agentSays("No worries. Bye!", 800);
+    expect(w.pushes("instructions")).toHaveLength(before);
+    expect(w.of("end_call").at(-1)?.callId).toBe(callId);
+  });
+
+  it("'gotta go' while the agent is talking: a line with no goodbye gets the wrap-up push", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    await w.event({ type: "voice_activity", callId, role: "agent" });
+    await w.hear("sorry gotta go", { leaving: true });
+    await w.agentSays("Oh, one more thing about", 800);
+    expect(w.pushes("instructions").at(-1)).toMatch(/need to go/);
+    expect(w.pushes("commentary").at(-1)).toMatch(/say goodbye/);
+    expect(w.of("end_call")).toHaveLength(0);
+    await w.agentSays("Okay, bye!", 0);
+    expect(w.of("end_call").at(-1)?.callId).toBe(callId);
+  });
+
   it("STOP on a call ends it at once and confirms by text", async () => {
     const w = new World({ caps: { voice: true } });
     const callId = await onCall(w);

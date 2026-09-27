@@ -3,7 +3,7 @@
 // tentative), decides what the live agent should know next, and when to wrap up.
 // Like `decide()`, it is pure code, so the same input always gives the same plan.
 
-import { callGoals, wrapUpCue, wrapUpInstruction } from "./call.ts";
+import { callGoals, soundsLikeGoodbye, wrapUpCue, wrapUpInstruction } from "./call.ts";
 import type { BrainConfig } from "./config.ts";
 import { cancelTimer, isStopKeyword, scheduleTimer } from "./decide.ts";
 import { applyRefusal, canAsk, newTask, recordAsk, setSlot } from "./ledger.ts";
@@ -15,6 +15,7 @@ import type {
   PendingText,
   SessionState,
   SlotName,
+  WrapUpReason,
 } from "./types.ts";
 import { checkName, cleanHelpNeed } from "./validate.ts";
 
@@ -247,16 +248,44 @@ export function startWrapUp(
   actions: Action[],
   cfg: BrainConfig,
   now: number,
-  reason: Parameters<typeof wrapUpInstruction>[0],
+  reason: WrapUpReason,
 ): void {
   s.call.wrapUpAt = now;
   plan.wrapUp = true;
-  plan.pushes.push({ kind: "instructions", text: wrapUpInstruction(reason) });
-  // An instruction alone does not make the agent speak (see D30). This cue does,
-  // so the goodbye comes even when the agent had already stopped talking.
-  plan.pushes.push({ kind: "commentary", text: wrapUpCue(reason) });
   cancelTimer(s, actions, "call_silence");
+  // The session rules already tell the agent to say goodbye when the caller has to
+  // go or is under 18, and it usually does before the brain decides. A push on top
+  // of that made a second goodbye in the voice runs.
+  const selfClosing = SELF_CLOSING.has(reason);
+  if (selfClosing && agentSaidGoodbye(s)) {
+    plan.end = true;
+    return;
+  }
   scheduleTimer(s, actions, "call_end_fallback", now + cfg.callEndFallbackMs);
+  if (selfClosing && s.call.agentSpeaking) {
+    s.call.deferredWrapUp = reason;
+    return;
+  }
+  plan.pushes.push(...wrapUpPushes(reason));
+}
+
+const SELF_CLOSING = new Set<WrapUpReason>(["leaving", "underage"]);
+
+/** An instruction alone does not make the agent speak (see D30). The cue does. */
+export function wrapUpPushes(
+  reason: WrapUpReason,
+): Array<{ kind: "instructions" | "commentary"; text: string }> {
+  return [
+    { kind: "instructions", text: wrapUpInstruction(reason) },
+    { kind: "commentary", text: wrapUpCue(reason) },
+  ];
+}
+
+/** The agent's last line on this call came after the user's last line and said goodbye. */
+function agentSaidGoodbye(s: SessionState): boolean {
+  const call = s.history.filter((h) => h.channel === "call");
+  const last = call.at(-1);
+  return last?.from === "agent" && soundsLikeGoodbye(last.text);
 }
 
 function finishCall(

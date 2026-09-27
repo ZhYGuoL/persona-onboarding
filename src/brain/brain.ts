@@ -26,7 +26,7 @@ import {
   isStopKeyword,
   scheduleTimer,
 } from "./decide.ts";
-import { decideCall, startWrapUp } from "./decide-call.ts";
+import { decideCall, startWrapUp, wrapUpPushes } from "./decide-call.ts";
 import { type Interpreter, KeywordInterpreter } from "./interpret.ts";
 import { setSlot } from "./ledger.ts";
 import { type Renderer, renderTurn, type TemplateRenderer, templateBubbles } from "./render.ts";
@@ -131,7 +131,8 @@ export class Brain {
         break;
       case "voice_activity":
         if (s.call.status === "active" && s.call.callId === ev.callId) {
-          s.call.silenceStage = 0;
+          if (ev.role === "agent") s.call.agentSpeaking = true;
+          else s.call.silenceStage = 0;
           cancelTimer(s, step.actions, "call_silence");
           // Never hang up on someone who is talking. The next agent reply re-arms the hangup.
           if (s.call.wrapUpAt !== null) {
@@ -536,6 +537,7 @@ export class Brain {
     const live = s.call.status === "active";
     if (role === "agent") {
       s.lastAgentAt = now;
+      s.call.agentSpeaking = false;
       if (!live) return;
       if (s.call.wrapUpAt === null) {
         const pending = s.call.pendingDelivery;
@@ -567,6 +569,14 @@ export class Brain {
       const startedAt = now - startedAgoMs;
       if (soundsLikeGoodbye(text)) {
         this.endCall(step);
+        return;
+      }
+      const deferred = s.call.deferredWrapUp;
+      if (deferred !== null) {
+        // The agent finished its line without a goodbye. Now it needs the push.
+        s.call.deferredWrapUp = null;
+        for (const p of wrapUpPushes(deferred)) this.pushToCall(step, p.kind, p.text);
+        scheduleTimer(s, step.actions, "call_end_fallback", now + this.cfg.callEndFallbackMs);
         return;
       }
       if (startedAt >= s.call.wrapUpAt && !s.call.wrapNudged) {
@@ -726,6 +736,8 @@ export class Brain {
     s.call.silenceStage = 0;
     s.call.wrapNudged = false;
     s.call.userLeaving = false;
+    s.call.agentSpeaking = false;
+    s.call.deferredWrapUp = null;
     s.call.pendingDelivery = null;
     s.awaiting = null;
     cancelTimer(s, step.actions, "ring_timeout");

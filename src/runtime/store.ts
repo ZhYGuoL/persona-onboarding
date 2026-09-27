@@ -69,6 +69,8 @@ export class Store {
     state.outbox ??= [];
     state.reminders ??= [];
     state.timeZone ??= DEFAULT_TIME_ZONE;
+    state.call.agentSpeaking ??= false;
+    state.call.deferredWrapUp ??= null;
     state.tasks = (state.tasks ?? []).map((t) => ({
       ...t,
       threadId: t.threadId ?? null,

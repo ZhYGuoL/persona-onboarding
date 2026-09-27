@@ -64,6 +64,9 @@ class LiveCall {
       onUserStart: () => {
         void mgr.opts.hub.dispatch(sessionId, { type: "voice_activity", callId, role: "user" });
       },
+      onAgentStart: () => {
+        void mgr.opts.hub.dispatch(sessionId, { type: "voice_activity", callId, role: "agent" });
+      },
       onFinal: (role, text, startedAt) => {
         void mgr.opts.hub.dispatch(sessionId, {
           type: "transcript_final",
