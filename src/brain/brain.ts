@@ -11,6 +11,7 @@
 
 import {
   anchorsOf,
+  CHECK_IN_CUE,
   CHECK_IN_INSTRUCTION,
   openingPushes,
   SAY_GOODBYE_NOW,
@@ -315,7 +316,9 @@ export class Brain {
         if (!live || s.call.wrapUpAt !== null || quietIsExpected(s)) break;
         if (s.call.silenceStage === 0) {
           s.call.silenceStage = 1;
+          // An instruction alone does not make the agent speak (D30). The cue does.
           this.pushToCall(step, "instructions", CHECK_IN_INSTRUCTION);
+          this.pushToCall(step, "commentary", CHECK_IN_CUE);
           scheduleTimer(s, step.actions, "call_silence", now + this.cfg.callSilenceGiveUpMs);
         } else {
           this.wrapUp(step, now, "silence");
@@ -541,7 +544,7 @@ export class Brain {
       step.notes.push({ type: "ignored_stale_call_event" });
       return;
     }
-    s.history.push({ from: role, channel: "call", text, ts: now });
+    s.history.push({ from: role, channel: "call", text, ts: now, startedAt: now - startedAgoMs });
     if (s.history.length > this.cfg.historyLimit) s.history.shift();
     const live = s.call.status === "active";
     if (role === "agent") {

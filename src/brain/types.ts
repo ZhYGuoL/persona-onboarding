@@ -180,7 +180,10 @@ export interface HistoryItem {
   from: "user" | "agent";
   channel: "text" | "call";
   text: string;
+  /** When the message arrived. For call speech, when the utterance ended. */
   ts: number;
+  /** Call speech only: when the utterance started. */
+  startedAt?: number;
 }
 
 export interface Capabilities {

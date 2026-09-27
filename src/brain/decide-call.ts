@@ -282,11 +282,16 @@ export function wrapUpPushes(
   ];
 }
 
-/** The agent's last line on this call came after the user's last line and said goodbye. */
+/**
+ * The agent said goodbye after the user started their last line. The user's
+ * words can split the agent's goodbye in two ("Bye," then "David."), so every
+ * agent line since then counts, not only the last one.
+ */
 function agentSaidGoodbye(s: SessionState): boolean {
   const call = s.history.filter((h) => h.channel === "call");
-  const last = call.at(-1);
-  return last?.from === "agent" && soundsLikeGoodbye(last.text);
+  const lastUser = call.findLast((h) => h.from === "user");
+  const since = lastUser ? (lastUser.startedAt ?? lastUser.ts) : 0;
+  return call.some((h) => h.from === "agent" && h.ts >= since && soundsLikeGoodbye(h.text));
 }
 
 function finishCall(

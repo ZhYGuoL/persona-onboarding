@@ -172,6 +172,7 @@ describe("live call", () => {
     await w.agentSays("What's your first name?", 0);
     await w.advance(w.cfg.callSilenceNudgeMs + 100);
     expect(w.pushes("instructions").at(-1)).toMatch(/still there/);
+    expect(w.pushes("commentary").at(-1)).toMatch(/still there/);
     await w.advance(w.cfg.callSilenceGiveUpMs + 100);
     expect(w.pushes("instructions").at(-1)).toMatch(/follow up by text/);
     await w.agentSays("I'll follow up by text. Bye!", 0);
@@ -259,6 +260,55 @@ describe("live call", () => {
       role: "agent",
       text: "No problem. Talk soon.",
       startedAgoMs: 1500,
+    });
+    w.interp.gate = null;
+    release();
+    await w.settle();
+    expect(w.pushes("instructions")).toHaveLength(before);
+    expect(w.of("end_call").at(-1)?.callId).toBe(callId);
+  });
+
+  // Voice runs: the agent said "Bye," while the caller was still saying bye, and the
+  // caller's words split it from "David.". The last line alone had no goodbye.
+  it("a goodbye split by the caller's words still counts", async () => {
+    const w = new World({ caps: { voice: true } });
+    const callId = await onCall(w);
+    const before = w.pushes("instructions").length;
+    await w.hub.dispatch(w.sid, {
+      type: "transcript_final",
+      callId,
+      role: "agent",
+      text: "Okay, just texted a link to connect your Gmail.",
+      startedAgoMs: 1500,
+    });
+    await w.clock.advance(1500);
+    await w.hub.dispatch(w.sid, {
+      type: "transcript_final",
+      callId,
+      role: "agent",
+      text: "Bye,",
+      startedAgoMs: 300,
+    });
+    let release!: () => void;
+    w.interp.gate = new Promise((r) => {
+      release = r;
+    });
+    await w.clock.advance(1300);
+    const leaving = "Thanks. I'll connect Gmail later. Bye";
+    w.interp.readings.set(leaving, { leaving: true });
+    await w.hub.dispatch(w.sid, {
+      type: "transcript_final",
+      callId,
+      role: "user",
+      text: leaving,
+      startedAgoMs: 2300,
+    });
+    await w.hub.dispatch(w.sid, {
+      type: "transcript_final",
+      callId,
+      role: "agent",
+      text: "David.",
+      startedAgoMs: 100,
     });
     w.interp.gate = null;
     release();

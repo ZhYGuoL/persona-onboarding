@@ -199,3 +199,6 @@ export const SAY_GOODBYE_NOW = "Say goodbye now, in one short sentence. Do not a
 
 export const CHECK_IN_INSTRUCTION =
   "The caller has been quiet for a bit. Gently check if they are still there, in a few words.";
+
+/** Voice runs: the instruction alone once got no words at all. */
+export const CHECK_IN_CUE = "Check if they are still there.";
