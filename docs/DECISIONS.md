@@ -583,3 +583,12 @@ After an empty search, the follow-up is the note it could draft instead, with no
 The brain offers it the same way as an inbox finding, once, as a plain yes/no question.
 - **Why.** Stress runs and browser QA showed answers that ended in "text me whenever something lands on your plate", which leaves the user with nothing to do.
 A yes to a concrete offer keeps the user moving from finding to action.
+
+### D69. The user can take a request back
+
+- **Choice.** "Never mind" and "don't remind me" drop the latest open task.
+A pending reminder's timer is canceled, so it never goes out, and a result that arrives after the drop is ignored.
+A request and its take-back in the same message never becomes a task.
+- **Why.** In a stress run, a user said "never mind" in the same breath as a reminder request.
+The reminder was set anyway, and the agent's "I won't remind you" left the timer running.
+A promise not to do something must be kept as strictly as a promise to do it.
