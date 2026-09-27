@@ -171,6 +171,16 @@ const CASES: Case[] = [
   { label: "leaving", text: "gotta go, ttyl", expect: (i) => i.leaving && !i.opt_out },
   { label: "typing fatigue", text: "ugh this is so much typing", expect: (i) => i.typing_fatigue },
   {
+    label: "calling a business is a task, not a call request",
+    text: "can you call the NYT and cancel my subscription before the 28th?",
+    expect: (i) => !i.wants_call && i.task !== null,
+  },
+  {
+    label: "an offer to take a call is not a request",
+    text: "honestly i'm free to take a call if you need me",
+    expect: (i) => !i.wants_call,
+  },
+  {
     label: "unprompted spelling confirms the name",
     text: "Hi, my name is David, D, A, V, I, D",
     awaiting: askUser,
