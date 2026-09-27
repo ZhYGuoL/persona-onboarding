@@ -772,14 +772,17 @@ export class Brain {
       // By text, a task that waited for Gmail is the look: it runs next. On a
       // call, the quick scan gives the agent something to say right away.
       const scan = live || waiting.length === 0 || !s.caps.tasks;
+      // The sample inbox coming back is the same inbox, so what it found still holds.
+      // A Gmail connect may be a different account, so it starts fresh.
+      const same = demo && s.inbox.source === "demo";
       s.inbox = {
         source: demo ? "demo" : "gmail",
         scanning: scan,
-        scannedAt: null,
-        findings: [],
+        scannedAt: same ? s.inbox.scannedAt : null,
+        findings: same ? s.inbox.findings : [],
         failures: 0,
-        offered: [],
-        offersStopped: false,
+        offered: same ? s.inbox.offered : [],
+        offersStopped: same ? s.inbox.offersStopped : false,
       };
       if (scan) {
         step.actions.push({
