@@ -120,6 +120,12 @@ export function applyTaskNotice(
       // stands, so the brain waits for its answer and sends nothing.
       if (r.kind === "question" && task.asked.some((q) => sameQuestion(q, r.text))) {
         task.status = "needs_info";
+        // Once, say it waits, so "Got it." is not the last word. Stress run: three
+        // conversations ended on "Got it." with nothing after it.
+        if (!task.held) {
+          task.held = true;
+          acks.push({ kind: "task_waiting" });
+        }
         return { kind: "task_info", taskId: task.id, text: r.text, quiet: true };
       }
       if (r.kind === "question") task.asked.push(r.text);
@@ -354,10 +360,23 @@ export function restatesOffer(summary: string, offer: OfferedFinding): boolean {
  * the old one. Stress run: the model answered "i don't have the email draft here",
  * then rewrote it in plain texts and said "i can't send it from here".
  */
-export function reviseLastDraft(s: SessionState, edit: string, acks: Ack[], now: number): boolean {
+export function reviseLastDraft(
+  s: SessionState,
+  edit: string,
+  acks: Ack[],
+  actions: Action[],
+  now: number,
+): boolean {
   const last = [...s.tasks].reverse().find((t) => t.result?.kind === "draft");
-  if (!last || (last.status !== "done" && last.status !== "dropped")) return false;
-  if (last.result?.kind !== "draft") return false;
+  if (last?.result?.kind !== "draft") return false;
+  // Still waiting for "Send it?", but another question came in between: revise it.
+  if (last.status === "needs_yes") {
+    last.notes.push(`Change the draft: ${edit}`);
+    run(s, last, actions, last.result.draft);
+    acks.push({ kind: "task_redraft" });
+    return true;
+  }
+  if (last.status !== "done" && last.status !== "dropped") return false;
   const task = newTask(s, last.summary, last.needsGmail, now, last.threadId, last.search);
   task.notes.push(...last.notes, `Change the draft: ${edit}`);
   task.avoid.push(...last.avoid);

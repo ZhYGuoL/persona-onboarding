@@ -82,6 +82,7 @@ export class Store {
       asked: t.asked ?? [],
       avoid: t.avoid ?? [],
       base: t.base ?? null,
+      held: t.held ?? false,
     }));
     return { state, clockOffsetMs: row.clock_offset };
   }

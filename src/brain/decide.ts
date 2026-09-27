@@ -276,7 +276,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   // that task, so it never starts a new one.
   let taskReply = hasTexts && applyTaskReply(s, awaiting, i, acks, actions, now, cfg);
   if (!taskReply && hasTexts && i?.draft_edit && s.caps.tasks) {
-    taskReply = reviseLastDraft(s, i.draft_edit, acks, now);
+    taskReply = reviseLastDraft(s, i.draft_edit, acks, actions, now);
   }
   if (taskReply && i) {
     i = { ...i, task: null, extra_tasks: [], help_need: null, cancels_task: false };

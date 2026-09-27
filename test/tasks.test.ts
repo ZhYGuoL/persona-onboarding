@@ -209,6 +209,20 @@ describe("a task from an inbox finding", () => {
     });
   });
 
+  // Stress run: an edit after an unrelated question got "i'll add that you moved away",
+  // with no new draft.
+  it("an edit to a waiting draft revises it, even after another question", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toDraft(w);
+    await w.say("wait, is this sent already?", { other_question: "is the draft sent already?" });
+    const reply = await w.say("add that i moved away", { draft_edit: "add that I moved away" });
+    expect(reply?.texts.join(" ")).toMatch(/updating the draft/i);
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      taskId: 1,
+      job: { previous: NYT_DRAFT, notes: ["Change the draft: add that I moved away"] },
+    });
+  });
+
   it("a later task knows the emails earlier results quoted", async () => {
     const w = new World({ caps: { gmail: true, tasks: true } });
     await toDraft(w);
@@ -448,10 +462,17 @@ describe("other task results", () => {
       task_detail: "not sure of the name yet",
     });
     const afterReply = w.turns().length;
-    await ask("Which restaurant or venue should I address the reservation request to?");
-    expect(w.turns()).toHaveLength(afterReply);
     expect(afterReply).toBeGreaterThan(sent);
+    // The repeat is not asked. Once, the agent says it waits, so "Got it." is not the last word.
+    await ask("Which restaurant or venue should I address the reservation request to?");
+    expect(w.turns()).toHaveLength(afterReply + 1);
+    expect(w.last()?.texts.join(" ")).toMatch(/^no rush\. text me when you have it\.$/i);
     expect(w.awaiting()).toBe("task_info");
+    // A second non-answer and a second repeat send nothing more.
+    await w.say("still don't know", { task_detail: "still don't know" });
+    const afterSecond = w.turns().length;
+    await ask("Which restaurant or venue should I address the reservation request to?");
+    expect(w.turns()).toHaveLength(afterSecond);
     await w.say("it's Thai Villa on 5th", { task_detail: "Thai Villa on 5th" });
     expect(w.of("run_task").at(-1)?.job.notes.at(-1)).toMatch(/They said: Thai Villa on 5th$/);
   });

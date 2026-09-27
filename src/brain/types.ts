@@ -133,6 +133,8 @@ export interface Task {
   avoid: string[];
   /** A draft this task revises: one already sent or dropped, which the user wants changed. */
   base: Draft | null;
+  /** The brain said once that it waits for the answer to this task's question. */
+  held: boolean;
 }
 
 /** The email behind a result, so the user can check the work. */
@@ -438,6 +440,8 @@ export type Ack =
   | { kind: "task_retarget" }
   /** The user answered a task's question. The result follows in seconds. */
   | { kind: "task_resumed" }
+  /** The task still needs the answer it asked for. Said once per task. */
+  | { kind: "task_waiting" }
   | { kind: "task_limit" }
   /** `reminder` is true when a pending reminder was called off. */
   | { kind: "task_canceled"; reminder: boolean }
