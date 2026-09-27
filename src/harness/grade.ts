@@ -163,7 +163,12 @@ interface TurnNote {
   turnId: number;
   plan: Plan;
   interp: Interpretation | null;
-  meta: { renderer: string; interpretMs: number | null; renderMs: number };
+  meta: {
+    renderer: string;
+    interpretMs: number | null;
+    renderMs: number;
+    guardFailures?: string[];
+  };
 }
 
 export function grade(conv: Conversation, verdict: JudgeOut | null): Grade {
@@ -404,7 +409,10 @@ export function grade(conv: Conversation, verdict: JudgeOut | null): Grade {
       userTurns: conv.timeline.filter((l) => l.kind === "user").length,
       confirmedSlots: Object.values(final.slots).filter((s) => s.status === "confirmed").length,
       graduated: final.graduated,
-      templateFallbacks: notes.filter((n) => n.meta.renderer === "template").length,
+      // Task results use templates on purpose. A fallback is a template after the model failed.
+      templateFallbacks: notes.filter(
+        (n) => n.meta.renderer === "template" && (n.meta.guardFailures?.length ?? 0) > 0,
+      ).length,
       turnMs: notes.map((n) => (n.meta.interpretMs ?? 0) + n.meta.renderMs),
       finalPhase: final.phase,
     },
