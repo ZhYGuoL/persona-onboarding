@@ -267,9 +267,28 @@ const FILLER = new Set(
   ),
 );
 
-function keyWords(text: string): Set<string> {
+/** Words that say what to do, not what it is about. Tasks share them freely. */
+const ACTIONS = new Set(
+  "cancel canceling cancelling cancellation setting reminder remind reminding drafting draft reply replying finding find sending send confirming confirm checking check asking email note message before after free ends".split(
+    " ",
+  ),
+);
+
+function keyWords(text: string, skip: Set<string> = FILLER): Set<string> {
   const plain = text.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "");
-  return new Set((plain.match(/\p{L}+/gu) ?? []).filter((w) => w.length > 3 && !FILLER.has(w)));
+  return new Set(
+    (plain.match(/\p{L}+/gu) ?? []).filter((w) => w.length > 3 && !FILLER.has(w) && !skip.has(w)),
+  );
+}
+
+/** The share of the shorter text's key words that the other text also has, 0 to 1. */
+function overlap(a: string, b: string, skip: Set<string> = FILLER): number {
+  const x = keyWords(a, skip);
+  const y = keyWords(b, skip);
+  if (x.size === 0 || y.size === 0) return 0;
+  let shared = 0;
+  for (const w of x) if (y.has(w)) shared += 1;
+  return shared / Math.min(x.size, y.size);
 }
 
 /**
@@ -279,10 +298,28 @@ function keyWords(text: string): Set<string> {
  * moving out?" does not repeat "Are you staying or moving out?".
  */
 export function sameQuestion(a: string, b: string): boolean {
-  const x = keyWords(a);
-  const y = keyWords(b);
-  if (x.size === 0 || y.size === 0) return a.trim().toLowerCase() === b.trim().toLowerCase();
-  let shared = 0;
-  for (const w of x) if (y.has(w)) shared += 1;
-  return shared / Math.min(x.size, y.size) >= 0.6;
+  if (keyWords(a).size === 0 || keyWords(b).size === 0) {
+    return a.trim().toLowerCase() === b.trim().toLowerCase();
+  }
+  return overlap(a, b) >= 0.6;
+}
+
+/**
+ * The inbox finding a stated task is about, when one clearly matches: "canceling
+ * the NYT trial" is "canceling the New York Times free trial". Only the words about
+ * the thing count, not the action ("setting a reminder" matches many findings).
+ * Two equally good matches mean the task is not clear, so neither is picked.
+ */
+export function findingFor(
+  s: SessionState,
+  summary: string,
+): SessionState["inbox"]["findings"][number] | null {
+  const scored = s.inbox.findings
+    .filter((f) => f.threadId)
+    .map((f) => ({ f, score: overlap(summary, `${f.next} ${f.fact}`, ACTIONS) }))
+    .filter((x) => x.score >= 0.5)
+    .sort((a, b) => b.score - a.score);
+  const [best, second] = scored;
+  if (!best || (second && second.score === best.score)) return null;
+  return best.f;
 }

@@ -512,6 +512,20 @@ describe("an answer's follow-up", () => {
     expect(w.awaiting()).toBeNull();
   });
 
+  // Stress run: "yes please start canceling the NYT trial", a few texts after the offer,
+  // searched on its own, missed the NYT email, and looped on "who should it go to?".
+  it("a stated task that matches a finding runs on that finding's email", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toFinding(w);
+    await w.say("sorry my cat is on the keyboard lol", {});
+    await w.say("wait, yes please start canceling the NYT trial before monday", {
+      task: { summary: "canceling the NYT trial", needs_gmail: true },
+    });
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      job: { summary: "canceling the NYT trial", threadId: "nyt-trial" },
+    });
+  });
+
   // Stress run: "sí, ponme un recordatorio antes de que termine el plazo" to a Marriott
   // offer became a new task that searched on its own and quoted the NYT email.
   it("a yes that restates the offer stays on the offered email, with the user's words as a note", async () => {
@@ -763,5 +777,38 @@ describe("the same question", () => {
       ["Which account is the renewal for?", "Which email should I send it to?", false],
     ];
     for (const [a, b, same] of cases) expect(sameQuestion(a, b)).toBe(same);
+  });
+});
+
+describe("the finding a stated task is about", () => {
+  it("matches on what it is about, not on the action", async () => {
+    const { findingFor } = await import("../src/brain/tasks.ts");
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toFinding(w);
+    w.state.inbox.findings.push(
+      {
+        fact: "Your Denver Marriott stay is Oct 4 to 7, with free cancellation until 48 hours before arrival.",
+        next: "setting a reminder before free cancellation ends",
+        threadId: "marriott",
+        related: true,
+      },
+      {
+        fact: "Your Delta flight from JFK to DEN is Sunday, Oct 4 at 7:05 AM.",
+        next: "setting a reminder for the flight",
+        threadId: "delta",
+        related: true,
+      },
+    );
+    const cases: Array<[string, string | null]> = [
+      ["canceling the NYT trial", "nyt-trial"],
+      ["cancel my adobe subscription", "adobe-renewal"],
+      ["setting a reminder for the flight", "delta"],
+      ["setting a reminder before the Marriott free cancellation ends", "marriott"],
+      ["drafting a reply asking to cancel", null],
+      ["canceling my subscription", null],
+    ];
+    for (const [summary, threadId] of cases) {
+      expect(findingFor(w.state, summary)?.threadId ?? null).toBe(threadId);
+    }
   });
 });

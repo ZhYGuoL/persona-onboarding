@@ -17,6 +17,7 @@ import {
   applyTaskNotice,
   applyTaskReply,
   cancelLatest,
+  findingFor,
   isActive,
   offerKey,
   startNextTask,
@@ -614,7 +615,10 @@ function addTask(
   if (!summary) return;
   const same = (t: { summary: string }) => t.summary.toLowerCase() === summary.toLowerCase();
   if (s.tasks.some((t) => same(t) && isActive(t))) return;
-  const task = newTask(s, summary, needsGmail, now, threadId, search);
+  // Stress run: "yes please start canceling the NYT trial", a few texts after the
+  // offer, searched on its own, missed the NYT email, and never got a draft.
+  const finding = threadId === null && search ? findingFor(s, summary) : null;
+  const task = newTask(s, summary, needsGmail, now, finding?.threadId ?? threadId, search);
   task.notes.push(...notes);
   s.tasks.push(task);
   if (s.slots.help_need.status !== "confirmed") {
