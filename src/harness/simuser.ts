@@ -72,7 +72,8 @@ export class SimUser {
       ],
       schema: SCHEMA,
       timeoutMs: 20_000,
-      maxOutputTokens: 300,
+      // A rambling persona can run long. A cut-off reply ends the run as a harness error.
+      maxOutputTokens: 600,
       reasoning: "none",
     });
     return {
