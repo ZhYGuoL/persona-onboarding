@@ -167,7 +167,7 @@ describe("inbox by text", () => {
   }
 
   it("says it is taking a look, then shares the finding and offers to start there", async () => {
-    const w = new World({ caps: { gmail: true } });
+    const w = new World({ caps: { gmail: true, tasks: true } });
     await toGmailAsk(w);
     await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: "Dana" });
     await w.advance(1000);

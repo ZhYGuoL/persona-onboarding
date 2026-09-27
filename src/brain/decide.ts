@@ -20,6 +20,7 @@ import type {
   Action,
   Interpretation,
   Notice,
+  OfferedFinding,
   PendingText,
   Plan,
   Question,
@@ -281,15 +282,19 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
       }
     }
     if (refusesCall && s.call.status === "ringing") callDeclinedNow = true;
-    // "Yes" to "want me to start on X?" turns the finding (or the need) into the first task.
+    // "Yes" to "want me to start on X?" turns the finding (or the need) into a task.
     if (awaiting?.kind === "whats_first" && i.reply_to_pending === "yes" && !i.task) {
-      const top = s.inbox.findings[0];
+      const offered = awaiting.finding;
       const need = s.slots.help_need.value;
-      if (top?.next && s.caps.tasks) {
-        addTask(s, top.next, true, now, cfg, acks, top.threadId || null);
+      if (offered && s.caps.tasks) {
+        addTask(s, offered.next, true, now, cfg, acks, offered.threadId);
       } else if (need) {
         i = { ...i, task: { summary: need, needs_gmail: s.slots.gmail.status === "confirmed" } };
       }
+    }
+    // A no to an offered finding ends the offers. The findings stay in the thread.
+    if (awaiting?.kind === "whats_first" && awaiting.finding && i.reply_to_pending === "no") {
+      s.inbox.offersStopped = true;
     }
   }
 
@@ -616,6 +621,8 @@ function pickQuestion(s: SessionState, cfg: BrainConfig, ctx: PickContext): Ques
     if (unnamed && !agent_name.retryUsed && s.turnsInMain >= cfg.agentNameRetryAfterTurns) {
       return { kind: "ask_slot", slot: "agent_name", variant: "retry" };
     }
+    const offer = nextFindingOffer(s);
+    if (offer) return { kind: "whats_first", finding: offer };
     if (!s.askedWhatsFirst && s.tasks.length === 0) return { kind: "whats_first" };
     return null;
   }
@@ -668,6 +675,22 @@ function pickQuestion(s: SessionState, cfg: BrainConfig, ctx: PickContext): Ques
   return null;
 }
 
+/**
+ * The next inbox finding to offer as a task: one the user has not started
+ * or been offered, while nothing else is going on. The first offer follows
+ * the text that showed the finding. Later ones say their fact.
+ */
+function nextFindingOffer(s: SessionState): OfferedFinding | null {
+  if (!s.caps.tasks || s.inbox.offersStopped || s.tasks.some(isActive)) return null;
+  const used = new Set(s.tasks.map((t) => t.threadId));
+  const f = s.inbox.findings.find(
+    (x) => x.threadId && x.next && !used.has(x.threadId) && !s.inbox.offered.includes(x.threadId),
+  );
+  if (!f) return null;
+  const shown = f === s.inbox.findings[0] && s.inbox.offered.length === 0;
+  return { threadId: f.threadId, next: f.next, fact: shown ? null : f.fact };
+}
+
 function gmailVariant(slot: SessionState["slots"]["gmail"]): "first" | "again" | "retry" {
   if (slot.status === "deferred") return "retry";
   return slot.attempts === 0 ? "first" : "again";
@@ -703,6 +726,7 @@ function recordQuestion(s: SessionState, q: Question, now: number): void {
       break;
     case "whats_first":
       s.askedWhatsFirst = true;
+      if (q.finding) s.inbox.offered.push(q.finding.threadId);
       break;
     case "offer_callback":
     case "confirm_send":
@@ -753,7 +777,6 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     openTask: s.tasks.find((t) => t.status !== "done")?.summary ?? null,
     canRunTasks: s.caps.tasks === true,
     inboxFindings: s.inbox.findings.map((f) => f.fact),
-    inboxNext: s.inbox.findings[0]?.next || null,
     sampleInbox: s.inbox.source === "demo",
     inboxStatus: s.inbox.scanning
       ? "scanning"

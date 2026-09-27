@@ -776,6 +776,8 @@ export class Brain {
         scannedAt: null,
         findings: [],
         failures: 0,
+        offered: [],
+        offersStopped: false,
       };
       if (scan) step.actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
     }

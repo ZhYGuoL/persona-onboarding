@@ -62,6 +62,8 @@ export class Store {
       scannedAt: null,
       findings: [],
       failures: 0,
+      offered: [],
+      offersStopped: false,
       ...(state.inbox as Partial<InboxState> | undefined),
     };
     state.outbox ??= [];

@@ -69,7 +69,8 @@ export type Question =
   | { kind: "confirm_name"; slot: "user_name"; value: string }
   | { kind: "offer_call"; variant: "first" | "again" }
   | { kind: "offer_callback" }
-  | { kind: "whats_first" }
+  /** "Want me to start on X?". With a finding, a yes starts a task on that email. */
+  | { kind: "whats_first"; finding?: OfferedFinding }
   /** A draft is ready. Nothing goes out without a yes. */
   | { kind: "confirm_send"; taskId: number }
   /** The task needs one detail from the user. The work step wrote the question. */
@@ -90,6 +91,13 @@ export type TaskStatus =
   | "done"
   | "dropped"
   | "failed";
+
+export interface OfferedFinding {
+  threadId: string;
+  next: string;
+  /** Said with the offer when the thread has not shown it yet. */
+  fact: string | null;
+}
 
 export interface Task {
   id: number;
@@ -269,6 +277,10 @@ export interface InboxState {
   findings: InboxFinding[];
   /** Scans that failed since the last success. The next text retries while this is under the limit. */
   failures: number;
+  /** Findings already offered as a task, by thread id. Each is offered once. */
+  offered: string[];
+  /** The user said no to an offer, so no more findings are offered. */
+  offersStopped: boolean;
 }
 
 export type BrainEvent =
@@ -436,8 +448,6 @@ export interface PlanFacts {
   gmailAvailable: boolean;
   /** Findings from the last inbox scan, most useful first. */
   inboxFindings: string[];
-  /** What the agent could do about the top finding, as a short noun phrase. */
-  inboxNext: string | null;
   /** The connected inbox is the sample inbox, not the user's real email. */
   sampleInbox: boolean;
   /** Where the inbox scan stands, so the agent never guesses what a failed scan found. */

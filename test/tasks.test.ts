@@ -46,6 +46,12 @@ async function toFinding(w: World) {
         threadId: "nyt-trial",
         related: true,
       },
+      {
+        fact: "Your Adobe Creative Cloud plan renews Oct 4 for $659.88.",
+        next: "canceling the Adobe plan",
+        threadId: "adobe-renewal",
+        related: true,
+      },
     ],
     source: "demo",
     ms: 900,
@@ -95,7 +101,7 @@ describe("a task from an inbox finding", () => {
     const result = w.last();
     const text = result?.texts.join(" ") ?? "";
     expect(text).toMatch(/from The New York Times, Sep 26:/i);
-    expect(text).toContain('"Cancel before Tue, Sep 29 and you won\'t be charged."');
+    expect(text).toContain("“Cancel before Tue, Sep 29 and you won't be charged.”");
     // The card sits right above "Send it?".
     expect(result?.bubbles.slice(-2).map((b) => b.kind)).toEqual(["draft", "text"]);
     expect(result?.texts.at(-1)).toMatch(/^send it\?$/i);
@@ -164,6 +170,34 @@ describe("a task from an inbox finding", () => {
     await w.say("wait what's this for", { confused: true });
     await w.say("yes", { reply_to_pending: "yes" });
     expect(w.of("simulated_send")).toHaveLength(0);
+  });
+});
+
+describe("offering findings", () => {
+  it("after a task wraps up, offers the next finding once, with its fact", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toDraft(w);
+    const sent = await w.say("yes send it", { reply_to_pending: "yes" });
+    const text = sent?.texts.join(" ") ?? "";
+    expect(text).toMatch(
+      /your adobe creative cloud plan renews oct 4 for \$659\.88\. want me to start on canceling the adobe plan\?/i,
+    );
+    // The finished task is not the closing line's topic.
+    expect(text).not.toMatch(/dig into/i);
+    await w.say("yes", { reply_to_pending: "yes" });
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      taskId: 2,
+      job: { summary: "canceling the Adobe plan", threadId: "adobe-renewal" },
+    });
+  });
+
+  it("a no ends the offers", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toFinding(w);
+    await w.say("no thanks", { reply_to_pending: "no" });
+    expect(w.state.inbox.offersStopped).toBe(true);
+    const t = await w.say("ok cool");
+    expect(t?.texts.join(" ") ?? "").not.toMatch(/want me to start/i);
   });
 });
 
