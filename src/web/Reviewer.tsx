@@ -241,6 +241,23 @@ function summarize(e: LogView): string {
   switch (e.type) {
     case "text_in":
       return `“${String(p.text ?? "")}”`;
+    case "transcript_final":
+      return `${String(p.role)} said “${String(p.text ?? "")}”`;
+    case "push_to_call":
+      return `${String(p.kind)}: ${String(p.text ?? "")}`;
+    case "call_ended":
+      return String(p.reason ?? "");
+    case "call_turn": {
+      const plan = (p.plan ?? {}) as {
+        pushes?: Array<{ kind: string }>;
+        wrapUp?: boolean;
+        end?: boolean;
+      };
+      const kinds = (plan.pushes ?? []).map((x) => x.kind).join(", ");
+      return [kinds && `push ${kinds}`, plan.wrapUp && "wrap up", plan.end && "end"]
+        .filter(Boolean)
+        .join(" · ");
+    }
     case "send_text":
       return ((p.bubbles as Array<Record<string, string>>) ?? [])
         .map((b) => (b.kind === "link" ? `[${b.title}]` : b.text))
