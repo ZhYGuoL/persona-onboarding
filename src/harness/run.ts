@@ -302,7 +302,7 @@ async function main() {
   };
   await Promise.all(Array.from({ length: Number(args.concurrency) }, worker));
   const report = renderReport(rows, (Date.now() - started) / 1000);
-  const out = join(root, args.out ?? "docs/stress-results.md");
+  const out = resolve(root, args.out ?? "docs/stress-results.md");
   writeFileSync(out, report);
   const dataDir = join(root, "data/stress");
   mkdirSync(dataDir, { recursive: true });
