@@ -32,6 +32,8 @@ export interface Rendered {
 
 export interface Renderer {
   render(input: RenderInput, feedback?: string): Promise<Rendered>;
+  /** Translate lines into a language. `{{vN}}` tokens must come back unchanged. */
+  translate?(lines: string[], language: string): Promise<string[]>;
 }
 
 /** Never output this token. The guard checks for it to catch prompt leaks. */
@@ -350,9 +352,14 @@ export class TemplateRenderer implements Renderer {
     return this.renderSync(input);
   }
 
-  renderSync({ plan, history }: RenderInput): Rendered {
+  renderSync(input: RenderInput): Rendered {
+    return applyCasing(this.renderMarked(input), input.plan.facts.casing);
+  }
+
+  /** The English lines, with user values still marked, before casing. */
+  renderMarked({ plan, history }: RenderInput): Rendered {
     const f = plan.facts;
-    if (plan.terminal) return applyCasing({ intro: [], body: [TERMINAL[plan.terminal]] }, f.casing);
+    if (plan.terminal) return { intro: [], body: [TERMINAL[plan.terminal]] };
     const body: string[] = [];
     // "Calling you now" is always the last line before the phone rings.
     const ringing = plan.acks.find((a) => a.kind === "calling_now");
@@ -371,8 +378,40 @@ export class TemplateRenderer implements Renderer {
       if (plan.question.kind === "confirm_send") merged.push(q);
       else merged.splice(0, merged.length, ...mergeShort([...body, q]));
     }
-    return applyCasing({ intro: plan.intro ? [...INTRO_EN] : [], body: merged }, f.casing);
+    return { intro: plan.intro ? [...INTRO_EN] : [], body: merged };
   }
+}
+
+const VALUE_MARK = new RegExp(`${V_OPEN}([^${V_CLOSE}]*)${V_CLOSE}`, "g");
+
+/**
+ * Translate template lines, keeping marked values (names, quotes, addresses)
+ * exact. Each value becomes a `{{vN}}` token, and every token must come back
+ * unchanged. Otherwise this throws, and the caller keeps the English.
+ */
+export async function translateMarked(
+  r: Rendered,
+  language: string,
+  translate: (lines: string[], language: string) => Promise<string[]>,
+): Promise<Rendered> {
+  const values: string[] = [];
+  const lines = [...r.intro, ...r.body].map((line) =>
+    line.replace(VALUE_MARK, (_, value: string) => {
+      values.push(value);
+      return `{{v${values.length}}}`;
+    }),
+  );
+  const out = await translate(lines, language);
+  if (out.length !== lines.length) throw new Error("translation changed the line count");
+  for (const [i, line] of lines.entries()) {
+    for (const token of line.match(/\{\{v\d+\}\}/g) ?? []) {
+      if (!out[i]?.includes(token)) throw new Error(`translation dropped ${token}`);
+    }
+  }
+  const restored = out.map((line) =>
+    line.replace(/\{\{v(\d+)\}\}/g, (_, n: string) => v(values[Number(n) - 1] ?? "")),
+  );
+  return { intro: restored.slice(0, r.intro.length), body: restored.slice(r.intro.length) };
 }
 
 /** Join very short lines so a turn does not become five tiny bubbles. */
@@ -781,6 +820,13 @@ function questionGuide(q: Question): string {
   }
 }
 
+const TRANSLATION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["lines"],
+  properties: { lines: { type: "array", items: { type: "string" } } },
+} as const;
+
 export class LlmRenderer implements Renderer {
   private readonly llm: LlmClient;
   private readonly model: string;
@@ -821,6 +867,19 @@ export class LlmRenderer implements Renderer {
       maxOutputTokens: 500,
     });
     return result.data;
+  }
+
+  async translate(lines: string[], language: string): Promise<string[]> {
+    const result = await this.llm.json<{ lines: string[] }>({
+      model: this.model,
+      name: "translation",
+      instructions: `Translate each line of an iMessage thread into ${languageName(language)}. Keep the meaning and the short, casual texting tone. If a line is all lowercase, keep it lowercase. Keep every {{vN}} token exactly as written: it stands for a name, a quote, or an address. Return the same number of lines, in the same order.`,
+      input: [{ role: "user", content: JSON.stringify({ lines }) }],
+      schema: TRANSLATION_SCHEMA,
+      timeoutMs: this.timeoutMs,
+      maxOutputTokens: 800,
+    });
+    return result.data.lines;
   }
 }
 
@@ -948,7 +1007,20 @@ export async function renderTurn(
       }
     }
   }
-  const draft = template.renderSync(input);
+  const marked = template.renderMarked(input);
+  const f = input.plan.facts;
+  let draft = applyCasing(marked, f.casing);
+  // The templates are English. Anyone texting in another language gets them translated.
+  if (llm?.translate && f.language !== "en") {
+    try {
+      draft = applyCasing(
+        await translateMarked(marked, f.language, llm.translate.bind(llm)),
+        f.casing,
+      );
+    } catch (err) {
+      failures.push(`translate: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
   return {
     bubbles: toBubbles(draft, input),
     renderer: "template",
