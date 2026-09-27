@@ -744,6 +744,7 @@ A redraft cannot fix the wrong email, because it revises the same email.
 - **Choice.** `SPEND_CAP_USD` caps what the server spends, counting every model call and call minute in SQLite, so a restart does not reset it.
 Past the cap, no new calls start and text calls fail fast, so the brain uses its keyword reader and templates.
 The deploy starts at $1.50.
+A call counts the longer of the seconds GPT-Live reports and the time since the session opened, because a hangup finishes the call before the final usage arrives.
 - **Why.** A public URL spends real money for every visitor, and the account is prepaid with no auto-reload.
 Each session allows three calls of up to four minutes, and anyone can start new sessions.
 Without a cap, one curious visitor could use up the balance before a reviewer tries the app. With it, the app gets plainer instead of breaking.

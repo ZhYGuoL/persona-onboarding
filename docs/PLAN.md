@@ -214,3 +214,24 @@ A runner in the reviewer panel drives them, so anyone can rerun them without too
 7. A report script grades the runs from the event log and writes `docs/voice-results.md`.
 
 Then run everything, fix what fails, and record the results.
+
+## Milestone 6: UI polish, README, deploy
+
+### Status (2026-09-27)
+
+Done. The app is live at https://web-production-add64.up.railway.app on Railway, with SQLite on a volume.
+- **UI.** The phone matches the one on yourpersona.com: a light titanium frame, a white page with a soft glow, pill buttons, a back chevron, an "iMessage" label over the first timestamp, and a mic in the empty field. The reviewer panel shows a start hint on an empty session.
+- **Public deploy guards.** A spend cap (`SPEND_CAP_USD`, set to $1.50) turns calls off and falls back to templates when reached. Scripted voice runs are hidden unless the URL has `?qa`.
+- **README.** It covers the thesis, the flow, the architecture, the failure matrix, the stress and voice results, what I would do next, and how it maps to iMessage and real phone numbers.
+- **Checked in production.** The page, a text turn, a real call with the test voice (the agent greeted and the recap text came), and the sample inbox flow.
+
+Decisions D88 to D91 are in `docs/DECISIONS.md`.
+
+Bugs found on the way, each fixed with a test or a live check:
+- Production mode had never run. `@fastify/static` also registered "/", and the first deploy crashed on the duplicate route.
+- The spend cap counted a short call as zero seconds, because the hangup came before GPT-Live's usage report.
+- After a silent call, the model texted "i captured your name as unknown".
+
+Left for Zhiyuan:
+- Google sign-in on the hosted URL needs the production origin and the redirect URI `https://web-production-add64.up.railway.app/auth/google/callback` on the OAuth client. Google Branding must also be finished and the app published. Until then, the sample inbox works for everyone, and Google works only for the test users.
+- The repo has no remote yet. The brief asks for a private repo.

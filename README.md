@@ -180,7 +180,7 @@ pnpm dev               # http://localhost:3000
 Without Google keys, the sample inbox still works.
 Without an OpenAI key, the brain runs on its keyword reader and templates, with no voice.
 
-- `pnpm test`: 198 unit and flow tests, no network.
+- `pnpm test`: unit and flow tests, no network.
 - `pnpm stress --runs 6`: the persona simulations above.
 - `pnpm eval:interpreter` and `pnpm eval:tasks`: the model's reading of tricky messages and the task step, on the real model.
 - `pnpm voice:report`: grades the scripted voice runs.
