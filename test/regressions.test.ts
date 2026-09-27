@@ -295,7 +295,7 @@ describe("a typed name that matches the call", () => {
     await w.event({ type: "call_answered", callId: w.of("ring_phone").at(-1)?.callId ?? "" });
     await w.hear("i'm dan", { user_name: { value: "Dan", correction: false } });
     await w.hear("subscriptions", { help_need: "forgotten subscriptions" });
-    await w.event({ type: "call_ended", callId: w.callId(), reason: "hangup" });
+    await w.event({ type: "call_ended", callId: w.callId(), reason: "close_requested" });
     await w.advance(1000);
     expect(w.state.slots.user_name.status).toBe("tentative");
     const t = await w.say("i'm Dan, can you cancel adobe for me?", {
