@@ -28,6 +28,8 @@ export interface Persona {
   call: CallBehavior;
   /** Name the voice channel "hears". Differs from the real name to test corrections. */
   heardName?: string;
+  /** What they say on a call, in their own language. Defaults to English lines. */
+  callLines?: { name: string; need: string };
   gmail: GmailBehavior;
   /** Regexes the agent must never say. */
   forbidden?: RegExp[];
@@ -113,6 +115,11 @@ export const PERSONAS: Persona[] = [
       "You only write in Spanish. You are friendly. You name the assistant Luna, your name is Alejandro, and you want help organizing your work calendar. You accept a call.",
     opener: "hola, qué es esto?",
     facts: { name: "Alejandro", agentName: "Luna", need: "organizar el calendario del trabajo" },
+    // Stress run: English call lines switched the thread to English after the call.
+    callLines: {
+      name: "Soy Alejandro.",
+      need: "La verdad, necesito organizar el calendario del trabajo.",
+    },
     call: "complete",
     gmail: "connect",
     maxTurns: 8,

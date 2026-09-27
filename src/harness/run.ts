@@ -165,7 +165,10 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
           "agent",
           `Hey, it's ${who}, your AI assistant from Persona. What's your first name?`,
         );
-        await said("user", `I'm ${persona.heardName ?? persona.facts.name}.`);
+        await said(
+          "user",
+          persona.callLines?.name ?? `I'm ${persona.heardName ?? persona.facts.name}.`,
+        );
         let reason: "close_requested" | "remote_hangup" | "connection_lost" | "content" =
           "close_requested";
         if (behavior === "hangup") reason = "remote_hangup";
@@ -176,7 +179,7 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
             "agent",
             "Nice to meet you. What's the most annoying thing on your plate this week?",
           );
-          await said("user", `Honestly, ${persona.facts.need}.`);
+          await said("user", persona.callLines?.need ?? `Honestly, ${persona.facts.need}.`);
           // The Gmail link arrives by text during the call. People who would connect it do so right away.
           if (w.state.call.linkSentOnCall && persona.gmail !== "never") {
             note("During the call, you tapped the Connect Gmail link that came in by text.");
