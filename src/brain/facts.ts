@@ -9,6 +9,9 @@ export const PERSONA_FACTS = [
   "Texting STOP stops all messages right away. People can ask the Persona team to delete their data.",
 ];
 
-/** Price and plans are not in the facts. Voice runs showed the agent guessing them. */
+/**
+ * Price and plans are not in the facts. Voice runs showed the agent guessing
+ * them, then offering to "check and follow up", which nothing would do.
+ */
 export const UNKNOWN_FACTS_RULE =
-  "If they ask about something these facts do not cover, such as price or plans, say you are not sure. Never guess.";
+  "If they ask about something these facts do not cover, such as price or plans, say you are not sure. Never guess, and do not offer to find out.";

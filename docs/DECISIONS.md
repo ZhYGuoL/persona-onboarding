@@ -603,6 +603,8 @@ With the old 900 ms and 300 ms limits, "Necesito ayuda con mi" and "calendario" 
 The cost is about 400 ms more before the brain reads a caller's words.
 The agent's voice does not wait for the brain, so the caller does not hear this delay.
 A split at a sentence break is harmless, because the next turn reads the rest.
+A fast caller can now have two turns merged into one, when they reply within 1.3 s of their own last words.
+A merge is harmless too, because the interpreter reads both turns together. A split in the middle of a phrase lost half a value.
 
 ### D71. When the caller has to go, the agent says goodbye once
 

@@ -320,8 +320,10 @@ describe("facts about Persona", () => {
       expect(call).toContain(fact);
       expect(RENDERER_INSTRUCTIONS).toContain(fact);
     }
-    expect(call).toMatch(/such as price or plans, say you are not sure\. Never guess\./);
-    expect(RENDERER_INSTRUCTIONS).toMatch(/Never guess\./);
+    expect(call).toMatch(
+      /such as price or plans, say you are not sure\. Never guess, and do not offer to find out\./,
+    );
+    expect(RENDERER_INSTRUCTIONS).toMatch(/Never guess, and do not offer to find out\./);
   });
 });
 
@@ -335,6 +337,8 @@ describe("goodbye cues", () => {
       "Adiós",
       "À bientôt",
       "Tchau",
+      "No problem. I'll let you go.",
+      "Okay, talk to you later.",
     ]) {
       expect(soundsLikeGoodbye(t)).toBe(true);
     }

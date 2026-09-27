@@ -115,7 +115,8 @@ export function openingPushes(
   return [
     {
       kind: "instructions",
-      text: `Speak first, right now. Your first sentence must be exactly: "${line}"${callback} ${next} Then pause and listen.`,
+      // Voice runs: talked over during the greeting, the agent once said all of it anyway.
+      text: `Speak first, right now. Your first sentence must be exactly: "${line}"${callback} ${next} Then pause and listen. If they talk over you after the first sentence, stop at once and listen.`,
     },
     { kind: "commentary", text: `Greet the caller now: ${line} ${next}` },
   ];
@@ -140,7 +141,7 @@ export function wrapUpInstruction(reason: WrapUpReason): string {
 
 /** Words that close a call, in the languages the agent is likely to speak. */
 const GOODBYE =
-  /(?<!\p{L})(bye|goodbye|good-bye|talk (to you )?soon|take care|see you|have a (good|great|nice)|adi[oó]s|hasta (luego|pronto|mañana)|cu[ií]date|nos vemos|hablamos (luego|pronto)|chao|ciao|au revoir|[aà] bient[oô]t|tsch[uü]ss|tchau|at[eé] logo)(?!\p{L})/iu;
+  /(?<!\p{L})(bye|goodbye|good-bye|talk (to you )?(soon|later)|take care|see you|(i['’]ll|i will) let you go|have a (good|great|nice)|adi[oó]s|hasta (luego|pronto|mañana)|cu[ií]date|nos vemos|hablamos (luego|pronto)|chao|ciao|au revoir|[aà] bient[oô]t|tsch[uü]ss|tchau|at[eé] logo)(?!\p{L})/iu;
 
 export function soundsLikeGoodbye(text: string): boolean {
   return GOODBYE.test(text);
