@@ -241,7 +241,7 @@ describe("lowercase mirroring", () => {
 });
 
 describe("one task, one acknowledgment", () => {
-  // Stress run: "Got it: calling Planet Fitness to ask how to cancel." was sent twice in one turn.
+  // Stress run: the task acknowledgment was sent twice in one turn.
   it("does not repeat the task as a help need in the same turn", async () => {
     const w = new World();
     await w.say("hi");
@@ -249,8 +249,37 @@ describe("one task, one acknowledgment", () => {
       help_need: "calling Planet Fitness to ask how to cancel",
       task: { summary: "calling Planet Fitness to ask how to cancel", needs_gmail: false },
     });
-    const acks = t?.texts.filter((x) => /^got it/i.test(x)) ?? [];
+    const acks = t?.texts.filter((x) => /can't take care of/i.test(x)) ?? [];
     expect(acks).toHaveLength(1);
     expect(new Set(t?.texts).size).toBe(t?.texts.length);
+  });
+});
+
+describe("a task the agent cannot do yet", () => {
+  // Stress run: "got it: reminding you before the bill is due" read as a promise.
+  it("says plainly that it cannot do it, and never 'got it'", async () => {
+    const w = new World();
+    await w.say("hi");
+    const t = await w.say("remind me before the con edison bill is due", {
+      task: { summary: "reminding you before the Con Edison bill is due", needs_gmail: false },
+    });
+    const text = t?.texts.join(" ") ?? "";
+    expect(text).toMatch(/can't take care of reminding you before the Con Edison bill is due/i);
+    expect(text).not.toMatch(/got it/i);
+  });
+
+  it("the guard rejects a model draft that sounds like it took the task on", async () => {
+    const { guard } = await import("../src/brain/render.ts");
+    const { emptyPlan } = await import("../src/brain/decide.ts");
+    const w = new World();
+    await w.say("hi");
+    const plan = {
+      ...emptyPlan(w.state, w.cfg),
+      acks: [{ kind: "task_started" as const, summary: "bill reminders", needsGmail: false }],
+    };
+    const check = (text: string) => guard({ intro: [], body: [text] }, plan).join(" ");
+    expect(check("got it: reminding you before the bill is due.")).toMatch(/cannot do the task/);
+    expect(check("I'll remind you before it's due, but I can't yet.")).toMatch(/took on/);
+    expect(check("I can't set bill reminders from here yet.")).not.toMatch(/task/);
   });
 });

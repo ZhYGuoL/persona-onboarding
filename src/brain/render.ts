@@ -106,11 +106,8 @@ export function ackText(a: Ack, f: PlanFacts): string {
     case "skip_setup":
       return "Sure, skipping the setup.";
     case "task_started":
-      if (!f.canRunTasks) {
-        return a.needsGmail
-          ? `Got it: ${v(a.summary)}. That starts with your email.`
-          : `Got it: ${v(a.summary)}.`;
-      }
+      // "Got it: <task>" reads as a promise when the agent cannot do the task.
+      if (!f.canRunTasks) return `I can't take care of ${v(a.summary)} from here yet.`;
       return a.needsGmail
         ? `On it: ${v(a.summary)}. I'll need to look through your email for the details.`
         : `On it: ${v(a.summary)}. I'll check with you before anything goes out.`;
@@ -228,7 +225,11 @@ export function questionText(q: Question, f: PlanFacts, ideas: string[]): string
     case "gmail_link":
       if (q.variant === "requested") return "Here's the link to connect Gmail.";
       if (q.variant === "again") return "Here's the Gmail link again if you want it.";
-      if (f.openTask) return "For that I need to look through your email. Connect Gmail here.";
+      if (f.openTask) {
+        return f.canRunTasks
+          ? "For that I need to look through your email. Connect Gmail here."
+          : "I can look through your email for anything related, though. Connect Gmail here.";
+      }
       if (f.helpNeed) return "To help with that I need to see your email. Connect Gmail here.";
       return "Connect your Gmail and I'll find what needs your attention.";
     case "confirm_name":
@@ -557,7 +558,7 @@ function ackGuide(a: Ack, f: PlanFacts): string {
     case "task_started":
       return f.canRunTasks
         ? "They asked for a concrete task. Acknowledge it in their words and say you are on it."
-        : "They asked for a concrete task. Acknowledge it in their words. Your abilities do not cover it yet, so do not say you are on it, will do it, or will remind them.";
+        : 'They asked for a concrete task your abilities do not cover yet. Say plainly, in their words, that you cannot do it from here yet. Never write "got it", "on it", or anything that sounds like you took it on.';
     case "call_dropped":
       return "The call dropped. Say so and name what you already captured, so they know nothing was lost.";
     case "call_recap":
@@ -738,6 +739,19 @@ export function guard(r: Rendered, plan: Plan, history: HistoryItem[] = []): str
     }
     if (q.slot === "user_name" && /\b(call me|my name)\b/i.test(last)) {
       problems.push("the question must ask for the USER's name, not yours");
+    }
+  }
+  if (
+    !plan.facts.canRunTasks &&
+    plan.facts.language === "en" &&
+    plan.acks.some((a) => a.kind === "task_started")
+  ) {
+    const text = all.join(" ");
+    if (!/\b(can't|can’t|cannot|can not|unable|not able)\b/i.test(text)) {
+      problems.push("must say plainly that you cannot do the task from here yet");
+    }
+    if (/\b(got it:|on it\b|i'll (remind|call|set|cancel|handle|take care))/i.test(text)) {
+      problems.push("must not sound like you took on a task you cannot do");
     }
   }
   const questions = all.join(" ").match(/[?？]/g)?.length ?? 0;
