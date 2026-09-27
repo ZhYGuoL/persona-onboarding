@@ -9,6 +9,7 @@ import type {
   SlotName,
   SlotSource,
   SlotStatus,
+  Task,
 } from "./types.ts";
 import { SLOT_NAMES } from "./types.ts";
 
@@ -145,4 +146,30 @@ export function applyRefusal(slot: Slot, hard: boolean): void {
 export function agentDisplayName(s: SessionState, cfg: BrainConfig): string {
   const slot = s.slots.agent_name;
   return slot.value && slot.status !== "declined" ? slot.value : cfg.defaultAgentName;
+}
+
+/**
+ * A new task. It waits for Gmail only when it needs the inbox and Gmail can
+ * still be connected. Otherwise it runs with what it has.
+ */
+export function newTask(
+  s: SessionState,
+  summary: string,
+  needsGmail: boolean,
+  now: number,
+  threadId: string | null = null,
+): Task {
+  const gmail = s.slots.gmail.status;
+  const wait = needsGmail && s.caps.gmail && gmail !== "confirmed" && gmail !== "declined";
+  return {
+    id: s.tasks.length + 1,
+    summary,
+    needsGmail,
+    status: wait ? "waiting_gmail" : "open",
+    createdAt: now,
+    threadId,
+    notes: [],
+    result: null,
+    runs: 0,
+  };
 }

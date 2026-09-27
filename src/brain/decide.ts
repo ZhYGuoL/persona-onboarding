@@ -8,6 +8,7 @@ import {
   agentDisplayName,
   applyRefusal,
   canAsk,
+  newTask,
   recordAsk,
   setSlot,
   settleExhausted,
@@ -356,14 +357,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   if (hasTexts && i?.task) {
     const summary = cleanHelpNeed(i.task.summary, cfg.helpNeedMaxLength);
     if (summary && !s.tasks.some((t) => t.summary.toLowerCase() === summary.toLowerCase())) {
-      const gmailReady = s.slots.gmail.status === "confirmed";
-      s.tasks.push({
-        id: s.tasks.length + 1,
-        summary,
-        needsGmail: i.task.needs_gmail,
-        status: i.task.needs_gmail && !gmailReady ? "waiting_gmail" : "open",
-        createdAt: now,
-      });
+      s.tasks.push(newTask(s, summary, i.task.needs_gmail, now));
       if (s.slots.help_need.status !== "confirmed") {
         setSlot(s.slots.help_need, summary, "confirmed", "text", now);
       }

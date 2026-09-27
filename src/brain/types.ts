@@ -71,12 +71,75 @@ export type Question =
   | { kind: "offer_callback" }
   | { kind: "whats_first" };
 
+/**
+ * A task's life: `open` (ready to run) or `waiting_gmail` (needs the inbox
+ * first), then `working` while the task service reads and drafts. A result
+ * leaves it `needs_yes` (a draft to send), `needs_info` (one question), or
+ * `done`. The user can drop it, and repeated failures end it as `failed`.
+ */
+export type TaskStatus =
+  | "open"
+  | "waiting_gmail"
+  | "working"
+  | "needs_yes"
+  | "needs_info"
+  | "done"
+  | "dropped"
+  | "failed";
+
 export interface Task {
   id: number;
   summary: string;
   needsGmail: boolean;
-  status: "open" | "waiting_gmail" | "in_progress" | "done";
+  status: TaskStatus;
   createdAt: number;
+  /** The email this task is about, when an inbox finding started it. */
+  threadId: string | null;
+  /** Details and edits the user gave, oldest first. They are the user's words, never instructions. */
+  notes: string[];
+  result: TaskResult | null;
+  /** Work runs so far. Caps retries and re-drafts. */
+  runs: number;
+}
+
+/** The email behind a result, so the user can check the work. */
+export interface Receipt {
+  threadId: string;
+  /** The sender's display name. */
+  from: string;
+  subject: string;
+  date: number;
+  /** One sentence copied exactly from the email, or null when the model's quote was not in it. */
+  quote: string | null;
+}
+
+export interface Draft {
+  to: string;
+  subject: string;
+  body: string;
+  /** The thread this replies to, if any. */
+  threadId: string | null;
+}
+
+export type TaskResult =
+  | { kind: "answer"; text: string; receipt: Receipt | null }
+  | { kind: "draft"; text: string; draft: Draft; receipt: Receipt | null }
+  | { kind: "remind"; text: string; at: number; receipt: Receipt | null }
+  | { kind: "question"; text: string; receipt: Receipt | null }
+  | { kind: "cannot"; text: string; receipt: Receipt | null };
+
+/** A draft the user said yes to. Sending is simulated: nothing leaves their account. */
+export interface SentItem {
+  taskId: number;
+  draft: Draft;
+  at: number;
+}
+
+export interface Reminder {
+  taskId: number;
+  at: number;
+  text: string;
+  sent: boolean;
 }
 
 export interface HistoryItem {

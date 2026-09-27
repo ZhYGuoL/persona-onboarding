@@ -6,7 +6,7 @@
 import { callGoals, wrapUpCue, wrapUpInstruction } from "./call.ts";
 import type { BrainConfig } from "./config.ts";
 import { cancelTimer, isStopKeyword, scheduleTimer } from "./decide.ts";
-import { applyRefusal, canAsk, recordAsk, setSlot } from "./ledger.ts";
+import { applyRefusal, canAsk, newTask, recordAsk, setSlot } from "./ledger.ts";
 import type {
   Action,
   CallPlan,
@@ -143,14 +143,7 @@ export function decideCall(
     if (i.task) {
       const summary = cleanHelpNeed(i.task.summary, cfg.helpNeedMaxLength);
       if (summary && !s.tasks.some((t) => t.summary.toLowerCase() === summary.toLowerCase())) {
-        s.tasks.push({
-          id: s.tasks.length + 1,
-          summary,
-          needsGmail: i.task.needs_gmail,
-          status:
-            i.task.needs_gmail && s.slots.gmail.status !== "confirmed" ? "waiting_gmail" : "open",
-          createdAt: now,
-        });
+        s.tasks.push(newTask(s, summary, i.task.needs_gmail, now));
         if (s.slots.help_need.status !== "confirmed") {
           setSlot(s.slots.help_need, summary, "confirmed", source, now);
           capture("help_need");
