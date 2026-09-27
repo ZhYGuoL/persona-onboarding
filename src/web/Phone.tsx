@@ -195,6 +195,20 @@ function Bubble({
       </div>
     );
   }
+  if (item.kind === "draft") {
+    return (
+      <div className={cls}>
+        <article className="draft-card" aria-label={`Draft email to ${item.to}`}>
+          <header className="draft-head">
+            <span className="draft-label">Draft email</span>
+            <span className="draft-subject">{item.subject}</span>
+            <span className="draft-to">To {item.to}</span>
+          </header>
+          <div className="draft-body">{item.body}</div>
+        </article>
+      </div>
+    );
+  }
   return (
     <div className={cls}>
       <div className={`bubble ${side}${tail ? " tail" : ""}`}>{item.text}</div>

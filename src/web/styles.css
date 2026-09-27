@@ -310,6 +310,52 @@ button {
   color: var(--imsg-meta);
 }
 
+.draft-card {
+  display: flex;
+  flex-direction: column;
+  width: 78%;
+  padding: 4px;
+  border-radius: 18px;
+  background: var(--imsg-gray);
+  color: #000;
+}
+
+.draft-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px 8px;
+}
+
+.draft-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--imsg-meta);
+}
+
+.draft-subject {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.draft-to {
+  font-size: 13px;
+  color: var(--imsg-meta);
+  overflow-wrap: anywhere;
+}
+
+.draft-body {
+  padding: 10px 12px 11px;
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 19px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .receipt {
   margin: 3px 4px 0 0;
   text-align: right;

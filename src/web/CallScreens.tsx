@@ -197,7 +197,12 @@ export function Banner({
     const t = setTimeout(onDone, 6000);
     return () => clearTimeout(t);
   }, [onDone]);
-  const body = item.kind === "link" ? item.title : item.text;
+  const body =
+    item.kind === "link"
+      ? item.title
+      : item.kind === "draft"
+        ? `Draft email: ${item.subject}`
+        : item.text;
   const content = (
     <>
       <span className="banner-icon" aria-hidden="true">
