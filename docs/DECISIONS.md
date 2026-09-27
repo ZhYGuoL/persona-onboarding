@@ -672,3 +672,48 @@ It cuts in only while the agent's audio has sound, so every interruption is meas
 - **Grading rules.** Caller words are timed from the start of their utterance, because a final can arrive after the reply to it.
 The barge-in bar is 2 s, because GPT-Live finishes its current sentence before it yields.
 A check-in passes only if the agent actually spoke, not when the push went out.
+
+### D77. A yes to an offer keeps the offer's email, even when the user restates it
+
+- **Choice.** A yes to an offered finding always starts that offer's task, tied to its email.
+If the same message restates the task ("sí, ponme un recordatorio antes del plazo"), those words become a note on it, not a second task.
+Other requests in the message are still their own tasks.
+- **Why.** A restated yes became a new task with no email. It searched on its own, quoted the NYT email for a Marriott reminder, and said it found no email about a dental cleaning it had just offered.
+
+### D78. A stated task takes the email of the finding it clearly matches
+
+- **Choice.** A new task with no email takes the email of the inbox finding it matches.
+Only the words about the thing count ("NYT trial", "gym membership", "flight"). Action words ("setting a reminder", "canceling") do not, because many findings share them.
+The match needs half of the task's thing-words in the finding's next step and fact. A tie means no match, and the task searches as before.
+- **Why.** "Yes please start canceling the NYT trial" came a few texts after the offer, when the offer was no longer pending.
+The search missed the NYT email, and the user got "who should it go to?" loops and never got a draft.
+
+### D79. A task never asks the same question twice
+
+- **Choice.** A task remembers the questions it asked.
+If a result asks the same thing again (most key words of the shorter question are in the other), nothing is sent.
+The brain keeps waiting for the first question's answer, and asks nothing else meanwhile. The run cap still ends a task that never gets its answer.
+- **Why.** A user who did not know the restaurant name yet ("I'll get back to you") got the same question four times, once with "sorry for asking again".
+
+### D80. "Wrong email" starts the task over without that email
+
+- **Choice.** A new `wrong_target` signal marks "that's for my dentist, I meant Planet Fitness".
+The brain drops the draft and starts the task again with a note on what they meant. The rejected email goes on an avoid list, and the work step never picks from it.
+The interpreter also names a task's target from the recent conversation when the user leaves it out ("draft a reply asking to cancel").
+- **Why.** The correction was read as an edit, and four redrafts in a row went back to the dentist.
+A redraft cannot fix the wrong email, because it revises the same email.
+
+### D81. Template variants rotate by the English lines already sent
+
+- **Choice.** The brain keeps the last 40 English template lines it sent. Templates treat them as already said when they pick a variant.
+- **Why.** Variants are picked by checking the history for each English option. For a Spanish user, the history holds translations, so no option ever matched, and every closing was the same Spanish line.
+
+### D82. A reminder confirmation quotes the reminder
+
+- **Choice.** "Done. I'll text you Sun, Sep 27 at 9:00 AM: “Call your dentist.”"
+- **Why.** The user can check what will arrive, like a receipt. Two reminders at the same time also no longer read the same.
+
+### D83. A take-back makes no new offer
+
+- **Choice.** A turn where the user takes a request back asks nothing new.
+- **Why.** "Okay, I won't send that reminder" came with "want me to start on setting a reminder for hotel check-in?". "Never mind" asks for less.
