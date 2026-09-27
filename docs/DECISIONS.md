@@ -259,3 +259,32 @@ Once the main experience exists, the pitch should promise only what the demo sho
 - **Choice.** The repo has a local git history with no commits and no remote.
 - **Why.** The brief says to keep the repo private until Zhiyuan says otherwise.
 Commits wait for his go-ahead.
+
+## Milestone 2: voice call
+
+### D30. GPT-Live spike results (2026-09-27)
+
+A Node script opened `gpt-live-1` sessions over the primary WebSocket, fed speech clips made with macOS `say`, and logged every event.
+Five runs cost about $0.08.
+
+- **Turn-taking.** The agent answered 0.2 to 0.6 s after the user stopped talking.
+- **Transcripts.** User and agent transcripts stream in 200 ms fragments with timeline offsets. No event marks the end of a turn.
+- **Greeting.** `session.instructions.append` alone did not make the agent speak first. It waited for the user, and once it skipped the disclosure. An instruction with the exact wording plus a `session.commentary.append` that triggers speech opened the call 700 ms later with the disclosure word for word.
+- **Close.** `session.close` returns `session.closed` with `close_requested` and the billed seconds.
+- **Sideband.** `attach` returns 404 for a session whose primary transport is a WebSocket. The docs describe attach for WebRTC and SIP sessions only, which is what the browser call uses.
+
+### D31. GPT-Live talks, the brain writes the slots
+
+- **Choice.** Stay on GPT-Live with client delegation and no backend tools.
+The server attaches a sideband to each call, groups the transcript fragments into utterances, and feeds each finished user utterance to the brain as `transcript_final`.
+The brain reads it with the same interpreter as texts, validates and writes the slots, and steers the call with `session.thinking.append` (quiet state updates) and `session.instructions.append` (opening, wrap-up, guardrails).
+- **Why.** GPT-Live has no in-session function tools.
+A slot write through Responses delegation needs a second model to decide to call a tool, which adds latency and a new way to fail.
+Reading the transcript ourselves keeps one brain, one interpreter, and one validation path for text and voice.
+- **Not chosen.** The Realtime fallback (`gpt-realtime-2.1`). It has in-session function calling, but the brief prefers GPT-Live, and the spike showed GPT-Live's turn-taking is fast.
+
+### D32. How the call opens
+
+- **Choice.** The session starts with the base voice prompt plus the call brief in `instructions`, and the recent text thread in `input`.
+After the sideband attaches, the server sends an instruction with the exact disclosure ("Hey, it's {name}, your AI assistant from Persona.") and a commentary append that triggers the greeting.
+- **Why.** This is the combination the spike proved.
