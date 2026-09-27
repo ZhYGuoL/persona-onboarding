@@ -64,9 +64,21 @@ It says so plainly, and the stress harness counts the resulting "connect Gmail s
 5. Run `pnpm eval:interpreter` for the interpreter eval (30 cases, under $0.01).
 6. Run `pnpm lint` and `pnpm typecheck` before you commit.
 
-## Milestone 2: next
+## Milestone 2: voice call
 
-Voice call in the simulator with GPT-Live, plus hangup, drop, and timer logic.
-The brain already handles the call events and the voice tools.
-Milestone 2 adds the WebRTC call in the page, the sideband connection from the server, and the call UI (ring screen, in-call screen, iMessage banner).
-The first step is a time-boxed GPT-Live spike, as the brief asks.
+### Status (2026-09-27)
+
+Done.
+The phone rings, the user accepts, and the browser connects to GPT-Live over WebRTC.
+The server attaches a sideband, groups transcripts into utterances, and the brain writes slots from them and steers the call.
+The agent opens with the exact AI disclosure, collects the name and the need, wraps up, and hangs up on its own goodbye.
+A recap text follows every call.
+
+Browser QA and the test voice passed these flows: accept, decline on the ring screen, ring timeout, drop mid-call with a text 1.6 s later, callback that resumes, "gotta go", text during a call, "stop calling me", a call the user places, and Spanish.
+Decisions D30 to D41 are in `docs/DECISIONS.md`.
+
+Not covered in a real browser: a denied microphone (unit tests cover it) and the Messages banner (it shows real content once the Gmail link can go out in milestone 3).
+
+## Milestone 3: next
+
+Gmail OAuth in a popup, a targeted inbox scan pushed into the live call, and a demo inbox.
