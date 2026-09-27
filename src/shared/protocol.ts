@@ -25,9 +25,19 @@ export type ServerMessage =
   | { t: "thread"; items: ThreadItem[] }
   | { t: "typing"; on: boolean }
   | { t: "log"; entry: LogView }
-  | { t: "state"; state: unknown; now: number };
+  | { t: "state"; state: unknown; now: number }
+  | { t: "ring"; callId: string; callerName: string }
+  /** The agent picked up a call the user placed. */
+  | { t: "call_accepted"; callId: string }
+  /** The call is over: the brain hung up, the ring timed out, or the line dropped. */
+  | { t: "call_end"; callId: string; reason: string };
 
-export type ClientMessage = { t: "text"; text: string; clientId: string };
+export type CallAction = "accept" | "decline" | "hangup" | "mic_denied" | "failed" | "start";
+
+export type ClientMessage =
+  | { t: "text"; text: string; clientId: string }
+  | { t: "hello"; voice: boolean }
+  | { t: "call"; action: CallAction; callId?: string };
 
 export function threadFromLog(entries: LogView[]): ThreadItem[] {
   const items: ThreadItem[] = [];

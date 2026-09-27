@@ -11,9 +11,10 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { RealClock } from "../runtime/clock.ts";
 import { Hub } from "../runtime/hub.ts";
 import { Store } from "../runtime/store.ts";
+import { CallNotActiveError, VoiceManager } from "../voice/live.ts";
 import { buildBrain } from "./deps.ts";
 import { legalPage, privacyPage, termsPage } from "./pages.ts";
-import { attachTextChannel } from "./ws.ts";
+import { attachChannel } from "./ws.ts";
 
 const env = process.env;
 const isProd = env.NODE_ENV === "production";
@@ -32,15 +33,29 @@ const app = Fastify({
 });
 
 const store = new Store(env.DATABASE_PATH ?? join(root, "data/persona.db"));
+const clock = new RealClock();
 const { brain, models } = buildBrain(env, baseUrl);
 const hub = new Hub({
   store,
-  clock: new RealClock(),
+  clock,
   brain,
-  // Milestone 1 is text only. Voice and Gmail turn on in milestones 2 and 3.
-  defaultCaps: { voice: false, gmail: false },
+  // Voice needs the API key. The page also reports whether the browser can do WebRTC.
+  // Gmail turns on in milestone 3.
+  defaultCaps: { voice: Boolean(env.OPENAI_API_KEY), gmail: false },
   onError: (err, sessionId) => app.log.error({ err, sessionId }, "hub error"),
 });
+const voice = env.OPENAI_API_KEY
+  ? new VoiceManager({
+      hub,
+      cfg: brain.cfg,
+      apiKey: env.OPENAI_API_KEY,
+      clock,
+      voice: env.LIVE_VOICE || "marin",
+      log: app.log,
+    })
+  : null;
+if (voice)
+  hub.subscribeAll((msg) => msg.type === "action" && voice.onAction(msg.sessionId, msg.action));
 
 await app.register(fastifyCookie, { secret: env.SESSION_SECRET });
 await app.register(fastifyWebsocket);
@@ -87,13 +102,58 @@ app.post<{ Body: { ms?: unknown } }>("/api/reviewer/fast-forward", async (req, r
   return { now: hub.now(id) };
 });
 
+app.post<{ Body: { callId?: unknown; sdp?: unknown } }>("/api/call/offer", async (req, reply) => {
+  const id = sessionFrom(req);
+  if (!id) return reply.code(401).send({ error: "no session" });
+  if (!voice) return reply.code(503).send({ error: "voice is not available" });
+  const { callId, sdp } = req.body ?? {};
+  if (
+    typeof callId !== "string" ||
+    typeof sdp !== "string" ||
+    !sdp.trim() ||
+    sdp.length > 100_000
+  ) {
+    return reply.code(400).send({ error: "callId and an SDP offer are required" });
+  }
+  try {
+    return { sdp: await voice.connect(id, callId, sdp) };
+  } catch (err) {
+    if (err instanceof CallNotActiveError) return reply.code(409).send({ error: err.message });
+    req.log.error({ err }, "live session creation failed");
+    return reply.code(502).send({ error: "could not start the call" });
+  }
+});
+
+app.post("/api/reviewer/drop-call", async (req, reply) => {
+  const id = sessionFrom(req);
+  if (!id) return reply.code(401).send({ error: "no session" });
+  const call = hub.state(id).call;
+  if (call.status === "idle" || !call.callId) return reply.code(409).send({ error: "no call" });
+  // Simulate the network dropping the call mid-sentence.
+  if (voice) voice.endFromClient(id, call.callId, "connection_lost");
+  else
+    await hub.dispatch(id, { type: "call_ended", callId: call.callId, reason: "connection_lost" });
+  return { ok: true };
+});
+
+app.post<{ Body: { ms?: unknown } }>("/api/reviewer/lag", async (req, reply) => {
+  const id = sessionFrom(req);
+  const ms = Number(req.body?.ms);
+  if (!id) return reply.code(401).send({ error: "no session" });
+  if (!Number.isFinite(ms) || ms < 0 || ms > 20_000) {
+    return reply.code(400).send({ error: "ms must be between 0 and 20000" });
+  }
+  hub.setLag(id, ms);
+  return { lagMs: ms };
+});
+
 app.get("/ws", { websocket: true }, (socket, req) => {
   const id = sessionFrom(req);
   if (!id) {
     socket.close(4401, "no session");
     return;
   }
-  attachTextChannel(hub, id, socket);
+  attachChannel({ hub, voice }, id, socket);
 });
 
 const html = (body: string) => (_req: FastifyRequest, reply: FastifyReply) =>
