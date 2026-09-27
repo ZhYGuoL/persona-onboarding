@@ -192,11 +192,11 @@ export function decideCall(
     recordAsk(s.slots.gmail);
     s.call.linkSentOnCall = true;
     const lead =
-      s.casing === "lower"
-        ? "here's the link to connect gmail."
+      s.slots.gmail.attempts > 1
+        ? "Here's that Gmail link again."
         : "Here's the link to connect Gmail.";
     plan.texts.push(
-      { kind: "text", text: lead },
+      { kind: "text", text: s.casing === "lower" ? lead.toLowerCase() : lead },
       { kind: "link", url: links.gmail, title: "Connect Gmail" },
     );
     plan.pushes.push({

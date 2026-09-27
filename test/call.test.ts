@@ -279,3 +279,21 @@ describe("call refusal on a call", () => {
     expect(w.awaiting()).toBe("ask:user_name");
   });
 });
+
+describe("gmail link on calls", () => {
+  it("words the link differently when a second call sends it again", async () => {
+    const w = new World({ caps: { voice: true, gmail: true } });
+    const callId = await onCall(w);
+    await w.hear("bills", { help_need: "keeping up with bills" });
+    await w.event({ type: "call_ended", callId, reason: "connection_lost" });
+    await w.advance(1000);
+    await w.say("yes call back", { reply_to_pending: "yes" });
+    await w.event({ type: "call_answered", callId: w.of("ring_phone").at(-1)?.callId ?? "" });
+    await w.hear("my bills are a mess", { help_need: "catching up on bills" });
+    const leads = w
+      .turns()
+      .flatMap((t) => t.texts)
+      .filter((t) => /gmail link|connect gmail/i.test(t));
+    expect(new Set(leads).size).toBe(leads.length);
+  });
+});
