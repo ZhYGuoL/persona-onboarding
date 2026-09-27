@@ -79,6 +79,23 @@ Decisions D30 to D41 are in `docs/DECISIONS.md`.
 
 Not covered in a real browser: a denied microphone (unit tests cover it) and the Messages banner (it shows real content once the Gmail link can go out in milestone 3).
 
-## Milestone 3: next
+## Milestone 3: Gmail and the inbox scan
 
-Gmail OAuth in a popup, a targeted inbox scan pushed into the live call, and a demo inbox.
+### Status (2026-09-27)
+
+Done.
+The agent texts a signed Gmail link, tied to the user's need.
+It opens a popup with Google or a sample inbox.
+On connect, a scan picks one concrete finding.
+On a call, the agent says the finding in its own words, then wraps up and hangs up on its goodbye, and the recap text repeats it.
+
+Browser QA passed the sample inbox by text and during a call, where the link arrives as a Messages banner.
+It also passed the unchecked Gmail box, cancel, the admin block, a popup closed on our page, and the redirect to Google's account chooser with the right scopes.
+Decisions D42 to D52 are in `docs/DECISIONS.md`.
+
+Not verified: the last step of real Google consent (pick an account, then Allow).
+QA stayed read-only on Google. Zhiyuan should run it once with a test user.
+
+## Milestone 4: next
+
+Graduation into a real first task: read the full email behind a finding, and draft the outward action (a cancellation email, a reply to a landlord), which waits for the user's yes.
