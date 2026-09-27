@@ -1,7 +1,7 @@
 // Grades the scripted voice runs from the event log and writes
 // docs/voice-results.md: what each call did, and how long the caller waited.
 //
-//   pnpm voice:report [--since-min=180]
+//   pnpm voice:report [--since-min=180] [--since=<epoch ms>]
 
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -10,9 +10,10 @@ import type { LogEntry } from "../runtime/store.ts";
 import { Store } from "../runtime/store.ts";
 
 const root = resolve(import.meta.dirname, "../..");
-const sinceMin = Number(
-  process.argv.find((a) => a.startsWith("--since-min="))?.split("=")[1] ?? 180,
-);
+const arg = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
+const sinceMs = arg("since")
+  ? Number(arg("since"))
+  : Date.now() - Number(arg("since-min") ?? 180) * 60_000;
 const store = new Store(process.env.DATABASE_PATH ?? join(root, "data/persona.db"));
 
 interface Run {
@@ -26,10 +27,17 @@ interface Run {
 
 const SPANISH = /\b(hola|claro|puedo|ayudar|gracias|nombre|cómo|qué|está|usted|tú)\b|[¿¡ñ]/i;
 
-function transcripts(log: LogEntry[], role: "agent" | "user"): Array<{ ts: number; text: string }> {
+/** `ts` is when the utterance ended, `start` when it began. A final can arrive after the reply to it. */
+function transcripts(
+  log: LogEntry[],
+  role: "agent" | "user",
+): Array<{ ts: number; start: number; text: string }> {
   return log
     .filter((e) => e.type === "transcript_final")
-    .map((e) => ({ ts: e.ts, ...(e.payload as { role: string; text: string }) }))
+    .map((e) => {
+      const p = e.payload as { role: string; text: string; startedAgoMs?: number };
+      return { ts: e.ts, start: e.ts - (p.startedAgoMs ?? 0), role: p.role, text: p.text };
+    })
     .filter((t) => t.role === role);
 }
 
@@ -47,7 +55,7 @@ function grade(scenario: string, log: LogEntry[], sessionId: string): Run["check
     : false;
   const agentEnded = log.some((e) => e.dir === "out" && e.type === "end_call");
   const said = (re: RegExp, after = 0) => agent.some((t) => t.ts >= after && re.test(t.text));
-  const userSaid = (re: RegExp) => user.find((t) => re.test(t.text))?.ts ?? null;
+  const userSaid = (re: RegExp) => user.find((t) => re.test(t.text))?.start ?? null;
   const checks: Run["checks"] = [];
   const check = (name: string, pass: boolean) => checks.push({ name, pass });
 
@@ -133,7 +141,7 @@ function pct(xs: number[], p: number): string {
 }
 
 const runs: Run[] = [];
-for (const sessionId of store.sessionsWithEvent("voice_run", Date.now() - sinceMin * 60_000)) {
+for (const sessionId of store.sessionsWithEvent("voice_run", sinceMs)) {
   const log = store.events(sessionId);
   const start = log.find(
     (e) => e.type === "voice_run" && (e.payload as { status: string }).status === "start",
@@ -162,10 +170,28 @@ for (const sessionId of store.sessionsWithEvent("voice_run", Date.now() - sinceM
 const all = (kind: string) => runs.flatMap((r) => r.metrics[kind] ?? []);
 const passed = runs.reduce((a, r) => a + r.checks.filter((c) => c.pass).length, 0);
 const total = runs.reduce((a, r) => a + r.checks.length, 0);
+const scenarios = [...new Set(runs.map((r) => r.scenario))];
+const since = new Date(sinceMs).toISOString().slice(0, 16).replace("T", " ");
+
+function scenarioRow(scenario: string): string {
+  const mine = runs.filter((r) => r.scenario === scenario);
+  const names = [...new Set(mine.flatMap((r) => r.checks.map((c) => c.name)))];
+  const checks = names
+    .map((name) => {
+      const results = mine.flatMap((r) => r.checks.filter((c) => c.name === name));
+      const ok = results.filter((c) => c.pass).length;
+      return `${ok === results.length ? "pass" : "FAIL"} ${ok}/${results.length}: ${name}`;
+    })
+    .join("<br>");
+  const firstAudio = mine.flatMap((r) => r.metrics.first_audio ?? []);
+  return `| ${scenario} | ${mine.length} | ${mine.filter((r) => r.finished).length} | ${checks || "-"} | ${firstAudio.length ? `${pct(firstAudio, 50)} ms` : "-"} |`;
+}
+
+const failed = runs.filter((r) => !r.finished || r.checks.some((c) => !c.pass));
 const lines = [
   "# Voice run results",
   "",
-  `Generated ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC by \`pnpm voice:report\`, from ${runs.length} scripted calls in the last ${sinceMin} minutes.`,
+  `Generated ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC by \`pnpm voice:report\`, from ${runs.length} scripted calls since ${since} UTC.`,
   "Each call is a real GPT-Live session. The caller is prerecorded clips played through the test voice, so the end of each clip is exact.",
   "Timings are measured in the browser on the agent's audio.",
   "",
@@ -178,17 +204,25 @@ const lines = [
   `| End of caller's speech to agent reply | ${pct(all("turn_latency"), 50)} ms | ${pct(all("turn_latency"), 95)} ms | ${all("turn_latency").length} |`,
   `| Caller talks over agent to agent quiet | ${pct(all("barge_in_stop"), 50)} ms | ${pct(all("barge_in_stop"), 95)} ms | ${all("barge_in_stop").length} |`,
   "",
-  "## Runs",
+  "## Scenarios",
   "",
   `${passed} of ${total} checks passed.`,
   "",
-  "| Scenario | Ran to the end | Checks | First audio | Reply gaps |",
+  "| Scenario | Runs | Ran to the end | Checks | First audio p50 |",
   "| --- | --- | --- | --- | --- |",
-  ...runs.map((r) => {
-    const checks = r.checks.map((c) => `${c.pass ? "pass" : "FAIL"}: ${c.name}`).join("<br>");
-    const gaps = (r.metrics.turn_latency ?? []).map((ms) => `${ms}`).join(", ") || "-";
-    return `| ${r.scenario} | ${r.finished ? "yes" : `no (${r.detail ?? "no end mark"})`} | ${checks || "-"} | ${r.metrics.first_audio?.[0] ?? "-"} ms | ${gaps} |`;
-  }),
+  ...scenarios.map(scenarioRow),
+  "",
+  "## Runs with a problem",
+  "",
+  ...(failed.length === 0
+    ? ["None."]
+    : failed.map((r) => {
+        const why = [
+          r.finished ? null : `stopped at: ${r.detail ?? "no end mark"}`,
+          ...r.checks.filter((c) => !c.pass).map((c) => `failed: ${c.name}`),
+        ].filter(Boolean);
+        return `- ${r.scenario}, session \`${r.sessionId.slice(0, 8)}\`: ${why.join("; ")}.`;
+      })),
   "",
 ];
 const out = join(root, "docs/voice-results.md");

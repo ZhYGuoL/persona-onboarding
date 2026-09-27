@@ -33,6 +33,9 @@ export interface VoiceRunDeps {
 
 class Stopped extends Error {}
 
+/** Quiet time, on top of the meter's own 450 ms, that ends the agent's reply. */
+const REPLY_END_QUIET_MS = 1000;
+
 /** One scripted run. Throws with the step that timed out. */
 interface Script {
   id: string;
@@ -86,10 +89,25 @@ class Driver {
     await this.until("the call connects", () => this.deps.call().call.phase === "active", 30_000);
   }
 
-  /** Wait for the agent to start talking, then to finish. */
+  /**
+   * Wait for the agent to start talking, then to finish. A reply ends after 1 s
+   * of quiet: the agent often pauses 800 ms between two sentences of one reply.
+   */
   async reply(what = "the agent's reply"): Promise<void> {
     await this.until(`${what} starts`, () => this.deps.call().agentSpeaking(), 20_000);
-    await this.until(`${what} ends`, () => !this.deps.call().agentSpeaking(), 30_000);
+    let quietSince: number | null = null;
+    await this.until(
+      `${what} ends`,
+      () => {
+        if (this.deps.call().agentSpeaking()) {
+          quietSince = null;
+          return false;
+        }
+        quietSince ??= performance.now();
+        return performance.now() - quietSince >= REPLY_END_QUIET_MS;
+      },
+      30_000,
+    );
   }
 
   async say(clip: keyof typeof CLIP): Promise<void> {
