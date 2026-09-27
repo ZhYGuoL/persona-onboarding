@@ -67,9 +67,12 @@ export function useElapsed(startedAt: number | null): string {
 export function ActiveCall({
   controls,
   onMinimize,
+  hideMinimize = false,
 }: {
   controls: CallControls;
   onMinimize(): void;
+  /** A banner sits where this control is, and tapping the banner does the same job. */
+  hideMinimize?: boolean;
 }) {
   const c = controls.call;
   const startedAt = c.phase === "active" ? c.startedAt : null;
@@ -96,7 +99,7 @@ export function ActiveCall({
       role="dialog"
       aria-label={`Call with ${c.callerName}`}
     >
-      <button type="button" className="call-minimize" onClick={onMinimize}>
+      <button type="button" className="call-minimize" onClick={onMinimize} hidden={hideMinimize}>
         <svg aria-hidden="true" width="9" height="15" viewBox="0 0 9 15">
           <path
             d="M7.5 1.5L1.5 7.5l6 6"

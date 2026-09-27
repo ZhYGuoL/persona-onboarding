@@ -80,7 +80,13 @@ export function Phone({
             onDecline={call.decline}
           />
         )}
-        {showCall && <ActiveCall controls={call} onMinimize={() => setMinimized(true)} />}
+        {showCall && (
+          <ActiveCall
+            controls={call}
+            onMinimize={() => setMinimized(true)}
+            hideMinimize={banner.item !== null}
+          />
+        )}
         {banner.item && (
           <Banner
             item={banner.item}
