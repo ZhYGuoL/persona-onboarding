@@ -53,6 +53,7 @@ export function newSession(id: string, now: number, caps: Capabilities): Session
       silenceStage: 0,
       wrapNudged: false,
       userLeaving: false,
+      wrapAfterAgentLine: false,
     },
     caps: { ...caps },
     awaiting: null,
@@ -68,6 +69,7 @@ export function newSession(id: string, now: number, caps: Capabilities): Session
     nudges: 0,
     askedWhatsFirst: false,
     turnsInMain: 0,
+    inbox: { source: null, scanning: false, scannedAt: null, findings: [] },
   };
 }
 

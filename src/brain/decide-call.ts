@@ -191,6 +191,7 @@ export function decideCall(
   ) {
     recordAsk(s.slots.gmail);
     s.call.linkSentOnCall = true;
+    scheduleTimer(s, actions, "call_gmail_wait", now + cfg.callGmailWaitMs);
     const lead =
       s.slots.gmail.attempts > 1
         ? "Here's that Gmail link again."
@@ -213,12 +214,22 @@ export function decideCall(
     });
   }
 
-  // Wrap up when the user is leaving, or when nothing is left to learn and no link just went out.
+  // Wrap up when the user is leaving, or when nothing is left to learn. While the
+  // Gmail link is out, or the inbox scan is running, the call stays up: the
+  // finding is the best part.
+  const gmailPending =
+    s.call.linkSentOnCall &&
+    (s.slots.gmail.status === "unknown" || s.slots.gmail.status === "tentative");
   if (live && s.call.wrapUpAt === null) {
     if (leaving) {
       s.call.userLeaving = userLeaving;
       startWrapUp(s, plan, actions, cfg, now, "leaving");
-    } else if (goals.length === 0 && plan.texts.length === 0) {
+    } else if (
+      goals.length === 0 &&
+      !gmailPending &&
+      !s.inbox.scanning &&
+      !s.call.wrapAfterAgentLine
+    ) {
       startWrapUp(s, plan, actions, cfg, now, "done");
     }
   }

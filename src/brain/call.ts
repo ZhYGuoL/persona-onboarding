@@ -117,9 +117,11 @@ export function openingPushes(
 }
 
 export function wrapUpInstruction(
-  reason: "done" | "leaving" | "silence" | "time" | "underage",
+  reason: "done" | "leaving" | "silence" | "time" | "underage" | "gmail_later",
 ): string {
   switch (reason) {
+    case "gmail_later":
+      return "No rush on Gmail. Say in one sentence that the link is in their texts whenever they want it, then say goodbye.";
     case "done":
       return "Finish your current sentence. Then say in one sentence that you will text a quick recap, and say goodbye. Do not ask anything else.";
     case "leaving":

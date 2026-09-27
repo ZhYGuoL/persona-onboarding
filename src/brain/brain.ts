@@ -133,7 +133,28 @@ export class Brain {
         this.onTranscript(step, ev.callId, ev.role, ev.text, ev.startedAgoMs ?? 0, now);
         break;
       case "oauth_done":
-        this.onOAuthDone(step, ev.scopes, ev.email, ev.name, now);
+        this.onOAuthDone(step, ev.scopes, ev.email, ev.name, ev.demo === true, now);
+        break;
+      case "scan_done":
+        this.onScanDone(step, ev.findings, now);
+        break;
+      case "scan_failed":
+        s.inbox.scanning = false;
+        if (ev.reason === "auth") {
+          // The token is gone (expired, revoked, or lost in a restart). Gmail needs a new link.
+          s.slots.gmail.status = "unknown";
+          s.slots.gmail.value = null;
+        }
+        if (s.call.status === "active") {
+          this.pushToCall(
+            step,
+            "commentary",
+            "Say the inbox did not load just now, and that you will follow up by text.",
+          );
+          s.call.wrapAfterAgentLine = true;
+        } else {
+          this.addNotice(step, { kind: "scan_failed", reason: ev.reason }, now);
+        }
         break;
       case "oauth_failed":
         if (s.call.status === "active" && s.call.callId) {
@@ -255,10 +276,25 @@ export class Brain {
       case "call_end_fallback":
         if (live) this.endCall(step);
         break;
+      case "call_gmail_wait":
+        // They did not connect Gmail during the call. No pressure: the link stays in their texts.
+        if (
+          live &&
+          s.call.wrapUpAt === null &&
+          s.slots.gmail.status !== "confirmed" &&
+          !s.inbox.scanning
+        ) {
+          this.wrapUp(step, now, "gmail_later");
+        }
+        break;
     }
   }
 
-  private wrapUp(step: Step, now: number, reason: "silence" | "time"): void {
+  private wrapUp(
+    step: Step,
+    now: number,
+    reason: "silence" | "time" | "gmail_later" | "done",
+  ): void {
     const plan: CallPlan = { pushes: [], texts: [], wrapUp: false, end: false };
     startWrapUp(step.state, plan, step.actions, this.cfg, now, reason);
     for (const p of plan.pushes) this.pushToCall(step, p.kind, p.text);
@@ -443,6 +479,12 @@ export class Brain {
       s.lastAgentAt = now;
       if (!live) return;
       if (s.call.wrapUpAt === null) {
+        if (s.call.wrapAfterAgentLine) {
+          // The agent just shared what the inbox scan found. That was the point of the call.
+          s.call.wrapAfterAgentLine = false;
+          this.wrapUp(step, now, "done");
+          return;
+        }
         scheduleTimer(s, step.actions, "call_silence", now + this.cfg.callSilenceNudgeMs);
         return;
       }
@@ -585,6 +627,7 @@ export class Brain {
     s.call.silenceStage = 0;
     s.call.wrapNudged = false;
     s.call.userLeaving = false;
+    s.call.wrapAfterAgentLine = false;
     s.awaiting = null;
     cancelTimer(s, step.actions, "ring_timeout");
     cancelTimer(s, step.actions, "idle_nudge");
@@ -601,8 +644,15 @@ export class Brain {
     const wasRinging = s.call.status === "ringing";
     s.call.status = "idle";
     s.call.lastEnd = { reason, at: now };
-    for (const t of ["ring_timeout", "call_silence", "call_max", "call_end_fallback"])
+    for (const t of [
+      "ring_timeout",
+      "call_silence",
+      "call_max",
+      "call_end_fallback",
+      "call_gmail_wait",
+    ]) {
       cancelTimer(s, step.actions, t);
+    }
     if (reason === "mic_denied") s.caps.voice = false;
     if (wasRinging && reason !== "mic_denied") {
       s.call.missed += 1;
@@ -631,39 +681,90 @@ export class Brain {
     scopes: string[],
     email: string,
     name: string | null,
+    demo: boolean,
     now: number,
   ): void {
     const s = step.state;
     const hasGmail = scopes.includes(GMAIL_SCOPE);
+    const live = s.call.status === "active" && s.call.callId !== null;
     if (hasGmail) {
-      setSlot(s.slots.gmail, email, "confirmed", "google_profile", now);
+      setSlot(
+        s.slots.gmail,
+        demo ? "sample inbox" : email,
+        "confirmed",
+        demo ? "sample_inbox" : "google_profile",
+        now,
+      );
       for (const t of s.tasks) if (t.status === "waiting_gmail") t.status = "open";
-      if (s.call.status === "active" && !s.call.captured.includes("gmail"))
-        s.call.captured.push("gmail");
+      if (live && !s.call.captured.includes("gmail")) s.call.captured.push("gmail");
+      cancelTimer(s, step.actions, "call_gmail_wait");
+      // Look through the inbox right away. The agent keeps talking meanwhile.
+      s.inbox = { source: demo ? "demo" : "gmail", scanning: true, scannedAt: null, findings: [] };
+      step.actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
     }
-    if (name) crossCheckName(s, name, now, this.cfg);
-    if (s.call.status === "active" && s.call.callId) {
+    if (name && !demo) crossCheckName(s, name, now, this.cfg);
+    if (live) {
       this.pushToCall(
         step,
         "thinking",
         hasGmail
-          ? `Gmail is now connected (${email}).`
+          ? `${demo ? "The sample inbox" : `Their Gmail (${email})`} is now connected, read-only. The app is scanning it and will tell you what it finds in a moment.`
           : "Google sign-in finished, but the user unchecked Gmail access. Gmail is NOT connected.",
       );
       this.pushToCall(
         step,
         "commentary",
         hasGmail
-          ? "Tell them Gmail is connected."
+          ? "Tell them it's connected and you're taking a quick look, in a few words. Do not guess what you will find."
           : "Tell them plainly the Gmail box was unchecked, so you still cannot read email.",
       );
       return;
     }
     this.addNotice(
       step,
-      hasGmail ? { kind: "gmail_connected", email } : { kind: "gmail_scope_denied" },
+      hasGmail ? { kind: "gmail_connected", email, demo } : { kind: "gmail_scope_denied" },
       now,
     );
+  }
+
+  private onScanDone(
+    step: Step,
+    findings: Array<{ fact: string; related: boolean }>,
+    now: number,
+  ): void {
+    const s = step.state;
+    s.inbox.scanning = false;
+    s.inbox.scannedAt = now;
+    s.inbox.findings = findings
+      .slice(0, 3)
+      .map((f) => ({ fact: sanitize(f.fact).slice(0, 200), related: f.related }));
+    const top = s.inbox.findings[0];
+    if (s.call.status === "active" && s.call.callId) {
+      if (top) {
+        const rest = s.inbox.findings.slice(1).map((f) => f.fact);
+        this.pushToCall(
+          step,
+          "commentary",
+          `The inbox scan found this. Tell them in one sentence, in your own words, keeping the numbers and dates exact: "${top.fact}"`,
+        );
+        if (rest.length) {
+          this.pushToCall(
+            step,
+            "thinking",
+            `Other things the scan found, only if they ask: ${rest.join(" ")}`,
+          );
+        }
+      } else {
+        this.pushToCall(
+          step,
+          "commentary",
+          "The inbox scan found nothing urgent. Say so in one sentence, and say you'll keep an eye on it.",
+        );
+      }
+      s.call.wrapAfterAgentLine = true;
+      return;
+    }
+    this.addNotice(step, { kind: "inbox_findings" }, now);
   }
 }
 

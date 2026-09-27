@@ -204,10 +204,20 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         if (captured.some((slot) => s.slots[slot].status === "tentative")) {
           s.call.recapPending = true;
         }
+        // The finding said on the call comes back in writing: receipts, not just talk.
+        if (captured.includes("gmail") && s.inbox.findings[0] && n.reason !== "mic_denied") {
+          acks.push({ kind: "inbox_findings", facts: s.inbox.findings.map((f) => f.fact) });
+        }
         break;
       }
       case "gmail_connected":
-        acks.push({ kind: "gmail_connected", email: n.email });
+        acks.push({ kind: "gmail_connected", email: n.email, demo: n.demo });
+        break;
+      case "inbox_findings":
+        acks.push({ kind: "inbox_findings", facts: s.inbox.findings.map((f) => f.fact) });
+        break;
+      case "scan_failed":
+        acks.push({ kind: "scan_failed", reason: n.reason });
         break;
       case "gmail_scope_denied":
         acks.push({ kind: "gmail_scope_denied" });
@@ -502,6 +512,8 @@ function pickQuestion(s: SessionState, cfg: BrainConfig, ctx: PickContext): Ques
     return { kind: "offer_callback" };
   }
 
+  if (s.inbox.scanning) return null;
+
   if (s.phase === "main") {
     // Collect a missing slot only when a task needs it.
     const needsGmail = s.tasks.some((t) => t.status === "waiting_gmail");
@@ -670,6 +682,8 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     gmail: slot("gmail"),
     openTask: s.tasks.find((t) => t.status !== "done")?.summary ?? null,
     canRunTasks: cfg.tasksEnabled,
+    inboxFindings: s.inbox.findings.map((f) => f.fact),
+    sampleInbox: s.inbox.source === "demo",
     voice: s.caps.voice,
     gmailAvailable: s.caps.gmail,
     language: s.language,

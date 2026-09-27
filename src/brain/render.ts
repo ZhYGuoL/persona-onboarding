@@ -139,7 +139,17 @@ export function ackText(a: Ack, f: PlanFacts): string {
     case "mic_denied":
       return "No mic, no problem. We can do this here.";
     case "gmail_connected":
-      return `Gmail's connected (${v(a.email)}).`;
+      return a.demo
+        ? "The sample inbox is connected. Taking a quick look."
+        : `Gmail's connected (${v(a.email)}). Taking a quick look.`;
+    case "inbox_findings":
+      return a.facts[0]
+        ? `Took a look. ${v(a.facts[0])}`
+        : "Took a look. Nothing urgent jumped out.";
+    case "scan_failed":
+      return a.reason === "auth"
+        ? "I lost access to your inbox, so I couldn't look. You'd need to connect it again."
+        : "Your inbox didn't load just now. I'll try again later.";
     case "gmail_scope_denied":
       return "Google connected, but the Gmail box was unchecked, so I still can't read your email.";
     case "gmail_failed":
@@ -223,6 +233,7 @@ export function questionText(q: Question, f: PlanFacts, ideas: string[]): string
     case "offer_callback":
       return "Want me to call back, or keep going here?";
     case "whats_first":
+      if (f.inboxFindings[0]) return "Want me to start there?";
       return f.helpNeed
         ? `Want me to start on ${v(f.helpNeed)}?`
         : "What should I take off your plate first?";
@@ -405,6 +416,7 @@ export function briefFor(plan: Plan, ideas: string[], history: HistoryItem[] = [
     `user needs help with: ${f.helpNeed ?? "unknown"}`,
     `gmail: ${f.gmail ?? "not connected"}`,
     `open task: ${f.openTask ?? "none"}`,
+    `inbox findings: ${f.inboxFindings.length ? f.inboxFindings.join(" / ") : "none"}`,
   ].join("; ");
   return [
     `Language: ${languageName(f.language)} (${f.language}). Write only in this language. Casing: ${f.casing}.`,
@@ -428,18 +440,28 @@ function languageName(code: string): string {
 function abilities(f: PlanFacts): string {
   const can = ["text"];
   if (f.voice) can.push("a quick voice call");
-  if (f.gmailAvailable)
-    can.push(f.canRunTasks ? "reading Gmail (read-only) once connected" : "connecting Gmail");
+  if (f.gmail) {
+    can.push(
+      f.sampleInbox
+        ? "reading the sample inbox the user chose (not their real email)"
+        : "reading their connected Gmail (read-only); you already scanned it and can talk about what you found",
+    );
+  } else if (f.gmailAvailable) {
+    can.push("connecting Gmail");
+  }
   if (f.canRunTasks) can.push("drafting messages that wait for the user's yes");
   const cannot = f.canRunTasks
     ? "You cannot place real calls to businesses, browse the web, or buy things yet."
-    : "You cannot read email, search, draft, call businesses, browse, or buy things yet, and nothing runs in the background. If the user asks for real work, say plainly you cannot do that from here yet.";
+    : `You cannot ${f.gmail ? "take actions in their email, " : "read email, "}draft, call businesses, browse, or buy things yet, and nothing runs in the background. If the user asks for real work, say plainly you cannot do that from here yet.`;
   return `${can.join(", ")}. ${cannot}`;
 }
 
 /** Acks that already tell the user what comes next. */
 function hasOwnNextStep(plan: Plan): boolean {
-  return plan.acks.some((a) => a.kind === "leaving" || a.kind === "call_recap");
+  // "Taking a quick look" promises the findings text that follows a moment later.
+  return plan.acks.some(
+    (a) => a.kind === "leaving" || a.kind === "call_recap" || a.kind === "gmail_connected",
+  );
 }
 
 /** Does the brief require a closing line that tells the user what to text next? */
@@ -519,6 +541,12 @@ function ackGuide(a: Ack, f: PlanFacts): string {
     case "gmail_scope_denied":
     case "gmail_failed":
       return "Say plainly what happened with Google and that nothing is connected.";
+    case "gmail_connected":
+      return a.demo
+        ? "They connected the sample inbox, not their real email. Say so plainly, and say you're taking a quick look."
+        : "Gmail just connected. Say you're taking a quick look. Do not guess what you will find.";
+    case "inbox_findings":
+      return "You just scanned their inbox. Share the single most useful finding in one short text, in your own words, keeping numbers, dates, and names exact. Do not list more than one.";
     default:
       return "";
   }
@@ -560,7 +588,7 @@ function questionGuide(q: Question): string {
     case "confirm_name":
       return "Check the name you got from their Google account.";
     case "whats_first":
-      return "Ask what to do first, or offer to start on what they already said.";
+      return "Ask what to do first, or offer to start on what they already said or on the inbox finding you just shared.";
   }
 }
 

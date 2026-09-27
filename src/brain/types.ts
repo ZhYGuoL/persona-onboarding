@@ -6,7 +6,7 @@ export const SLOT_NAMES = ["agent_name", "user_name", "gmail", "help_need"] as c
 export type SlotName = (typeof SLOT_NAMES)[number];
 
 export type SlotStatus = "unknown" | "tentative" | "confirmed" | "declined" | "deferred";
-export type SlotSource = "text" | "voice" | "google_profile" | "inferred";
+export type SlotSource = "text" | "voice" | "google_profile" | "inferred" | "sample_inbox";
 
 export interface Slot {
   status: SlotStatus;
@@ -54,6 +54,8 @@ export interface CallState {
   wrapNudged: boolean;
   /** The user said they have to go, so the recap does not chase. */
   userLeaving: boolean;
+  /** An inbox finding went to the agent. Wrap up after the agent's next line. */
+  wrapAfterAgentLine: boolean;
 }
 
 export type AskableSlot = "agent_name" | "user_name" | "help_need";
@@ -92,7 +94,8 @@ export type TimerKind =
   | "idle_nudge"
   | "call_silence"
   | "call_max"
-  | "call_end_fallback";
+  | "call_end_fallback"
+  | "call_gmail_wait";
 
 export interface TimerEntry {
   kind: TimerKind;
@@ -104,9 +107,11 @@ export type Notice =
   | { kind: "call_declined" }
   | { kind: "call_missed" }
   | { kind: "call_ended"; reason: CallEndReason; captured: SlotName[] }
-  | { kind: "gmail_connected"; email: string }
+  | { kind: "gmail_connected"; email: string; demo: boolean }
   | { kind: "gmail_scope_denied" }
   | { kind: "gmail_failed"; reason: OAuthFailure }
+  | { kind: "inbox_findings" }
+  | { kind: "scan_failed"; reason: "auth" | "error" }
   | { kind: "nudge" };
 
 export type OAuthFailure =
@@ -161,6 +166,20 @@ export interface SessionState {
   askedWhatsFirst: boolean;
   /** Turns committed since graduation. Used to time the casual retry for a deferred agent name. */
   turnsInMain: number;
+  /** What the last inbox scan found. Only facts, never credentials. */
+  inbox: InboxState;
+}
+
+export interface InboxFinding {
+  fact: string;
+  related: boolean;
+}
+
+export interface InboxState {
+  source: "gmail" | "demo" | null;
+  scanning: boolean;
+  scannedAt: number | null;
+  findings: InboxFinding[];
 }
 
 export type BrainEvent =
@@ -180,7 +199,9 @@ export type BrainEvent =
       /** How long ago the utterance started, so the brain can tell a goodbye from speech already in progress. */
       startedAgoMs?: number;
     }
-  | { type: "oauth_done"; scopes: string[]; email: string; name: string | null }
+  | { type: "oauth_done"; scopes: string[]; email: string; name: string | null; demo?: boolean }
+  | { type: "scan_done"; findings: InboxFinding[]; source: "gmail" | "demo"; ms: number }
+  | { type: "scan_failed"; reason: "auth" | "error" }
   | { type: "oauth_failed"; reason: OAuthFailure }
   | { type: "timer_fired"; timerId: string; kind: TimerKind }
   | { type: "turn_ready"; turnId: number; result: TurnResult };
@@ -197,6 +218,8 @@ export type Action =
   | { type: "call_accepted"; callId: string }
   | { type: "push_to_call"; callId: string; kind: PushKind; text: string }
   | { type: "end_call"; callId: string }
+  /** Look through the connected inbox for what matters to this user. */
+  | { type: "scan_inbox"; need: string | null }
   | { type: "schedule_timer"; timerId: string; kind: TimerKind; fireAt: number }
   | { type: "cancel_timer"; timerId: string };
 
@@ -254,7 +277,9 @@ export type Ack =
   | { kind: "call_recap"; captured: SlotName[] }
   | { kind: "call_cut"; captured: SlotName[] }
   | { kind: "mic_denied" }
-  | { kind: "gmail_connected"; email: string }
+  | { kind: "gmail_connected"; email: string; demo: boolean }
+  | { kind: "inbox_findings"; facts: string[] }
+  | { kind: "scan_failed"; reason: "auth" | "error" }
   | { kind: "gmail_scope_denied" }
   | { kind: "gmail_failed"; reason: OAuthFailure }
   | { kind: "resume"; agentName: string | null; userName: string | null; topic: string | null }
@@ -294,6 +319,10 @@ export interface PlanFacts {
   /** Channels that work in this session right now. */
   voice: boolean;
   gmailAvailable: boolean;
+  /** Findings from the last inbox scan, most useful first. */
+  inboxFindings: string[];
+  /** The connected inbox is the sample inbox, not the user's real email. */
+  sampleInbox: boolean;
   language: string;
   casing: "lower" | "normal";
 }
