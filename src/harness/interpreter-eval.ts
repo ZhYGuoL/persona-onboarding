@@ -181,6 +181,21 @@ const CASES: Case[] = [
     expect: (i) => !i.wants_call,
   },
   {
+    label: "asking for the link again is a link request",
+    text: "wait, i thought i already connected it? can you send the link again?",
+    expect: (i) => i.wants_gmail_link,
+  },
+  {
+    label: "asking how to connect is a link request",
+    text: "ok how do i connect my gmail so you can find the subscriptions?",
+    expect: (i) => i.wants_gmail_link,
+  },
+  {
+    label: "saying they will use the link is not a request",
+    text: "yeah i'll connect it in a sec",
+    expect: (i) => !i.wants_gmail_link,
+  },
+  {
     label: "unprompted spelling confirms the name",
     text: "Hi, my name is David, D, A, V, I, D",
     awaiting: askUser,

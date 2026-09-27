@@ -65,7 +65,7 @@ export type AskableSlot = "agent_name" | "user_name" | "help_need";
 
 export type Question =
   | { kind: "ask_slot"; slot: AskableSlot; variant: "first" | "again" | "ideas" | "retry" }
-  | { kind: "gmail_link"; variant: "first" | "again" | "retry" }
+  | { kind: "gmail_link"; variant: "first" | "again" | "retry" | "requested" }
   | { kind: "confirm_name"; slot: "user_name"; value: string }
   | { kind: "offer_call"; variant: "first" | "again" }
   | { kind: "offer_callback" }
@@ -237,6 +237,7 @@ export interface Interpretation {
   reply_to_pending: "yes" | "no" | "none";
   refusals: Array<{ slot: SlotName | "call"; hard: boolean }>;
   wants_call: boolean;
+  wants_gmail_link: boolean;
   skip_setup: boolean;
   let_agent_pick_name: boolean;
   opt_out: boolean;
