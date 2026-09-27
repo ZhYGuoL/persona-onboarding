@@ -111,7 +111,7 @@ const JUDGE_SCHEMA = {
 
 const JUDGE_INSTRUCTIONS = `You grade a text conversation between a user and an AI assistant named by the user. Agent turns are marked [A<n>].
 
-For every agent turn, say what information its question asks the user for. A recap that restates what the user said and invites corrections ("reply to fix anything") asks for nothing: label it none.
+For every agent turn, say what information its question asks the user for. A recap that restates what the user said and invites corrections ("reply to fix anything") asks for nothing: label it none. A link sent because the user asked for it ("here's the link") asks for nothing: label it none.
 - agent_name: a name for the assistant itself ("what do you want to call me?")
 - user_name: the user's own name ("what should I call you?")
 - help_need: what the user needs help with
@@ -212,12 +212,13 @@ export function grade(conv: Conversation, verdict: JudgeOut | null): Grade {
   }
 
   // 3. Ask budget: at most maxAsks direct asks plus one retry per slot.
+  //    A link the user asked for is an answer, not an ask.
   {
     const limit = cfg.maxAsks + 1;
     const counts: Record<string, number> = {};
     for (const n of notes) {
       const q = n.plan.question;
-      if (!q) continue;
+      if (!q || (q.kind === "gmail_link" && q.variant === "requested")) continue;
       const slot =
         q.kind === "ask_slot"
           ? q.slot
