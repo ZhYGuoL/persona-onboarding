@@ -363,6 +363,38 @@ describe("other task results", () => {
   });
 });
 
+describe("two requests in one message", () => {
+  // Stress run: "draft a reply to adobe, and check my bank stuff too" lost the draft request.
+  it("both run, one at a time, and the next waits for the answer to a draft", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("draft adobe a note about downgrades, and check my bank statement too", {
+      task: { summary: "drafting a note to Adobe about downgrades", needs_gmail: false },
+      extra_tasks: [{ summary: "checking the bank statement", needs_gmail: false }],
+    });
+    expect(w.state.tasks.map((t) => t.status)).toEqual(["working", "open"]);
+    expect(w.of("run_task")).toHaveLength(1);
+
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: draftResult({ ...NYT_DRAFT, to: "support@adobe.com" }),
+      threadId: "adobe-renewal",
+      ms: 800,
+    });
+    await w.advance(1000);
+    // "Send it?" is waiting, so the second task holds.
+    expect(w.awaiting()).toBe("confirm_send");
+    expect(w.of("run_task")).toHaveLength(1);
+
+    const t = await w.say("yes", { reply_to_pending: "yes" });
+    expect(w.of("simulated_send")).toHaveLength(1);
+    expect(w.of("run_task")).toHaveLength(2);
+    expect(w.of("run_task").at(-1)?.job.summary).toBe("checking the bank statement");
+    expect(t?.texts.join(" ")).toMatch(/marked as sent.*looking into it\./i);
+  });
+});
+
 describe("tasks and calls", () => {
   it("a task asked for on a call runs after the call, by text", async () => {
     const w = new World({ caps: { voice: true, tasks: true } });

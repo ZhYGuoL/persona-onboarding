@@ -256,7 +256,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   // 5. A reply to a draft ("send it?") or to a task's question. It is about
   // that task, so it never starts a new one.
   const taskReply = hasTexts && applyTaskReply(s, awaiting, i, acks, actions, now, cfg);
-  if (taskReply && i) i = { ...i, task: null, help_need: null };
+  if (taskReply && i) i = { ...i, task: null, extra_tasks: [], help_need: null };
 
   // A yes or no to the question we asked last.
   let wantCall = false;
@@ -389,6 +389,9 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
     acks.push({ kind: "skip_setup" });
   }
   if (hasTexts && i?.task) addTask(s, i.task.summary, i.task.needs_gmail, now, cfg, acks);
+  for (const t of hasTexts ? (i?.extra_tasks ?? []) : []) {
+    addTask(s, t.summary, t.needs_gmail, now, cfg, acks);
+  }
 
   // 9. Direct questions get honest answers.
   if (hasTexts && i) {
@@ -453,8 +456,9 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   // even past the ask budget or after an earlier no.
   const wantGmailLink =
     hasTexts && i?.wants_gmail_link === true && s.slots.gmail.status !== "confirmed";
-  // A task starts when nothing else is running. Its result comes by text.
-  if (!ringing) startNextTask(s, acks, actions);
+  // A task starts when nothing else is running. Its result comes by text. A turn
+  // that asks about a result ("Send it?") waits for the answer before the next one.
+  if (!ringing && !taskQuestion) startNextTask(s, acks, actions);
   const working = s.tasks.some((t) => t.status === "working");
   if (taskQuestion) {
     plan.question = taskQuestion;

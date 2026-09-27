@@ -342,6 +342,8 @@ export interface Interpretation {
   user_name: NameClaim | null;
   help_need: string | null;
   task: { summary: string; needs_gmail: boolean } | null;
+  /** More tasks in the same message ("draft the reply, and check my bank stuff too"). */
+  extra_tasks: Array<{ summary: string; needs_gmail: boolean }>;
   reply_to_pending: "yes" | "no" | "none";
   refusals: Array<{ slot: SlotName | "call"; hard: boolean }>;
   wants_call: boolean;

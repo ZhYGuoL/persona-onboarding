@@ -236,6 +236,11 @@ const CASES: Case[] = [
     expect: (i) => (i.task_detail ?? "").toLowerCase().includes("staying") && !i.task,
   },
   {
+    label: "two requests are two tasks",
+    text: "could you draft a reply to adobe asking about cheaper plans? and check my bank stuff too",
+    expect: (i) => i.task !== null && i.extra_tasks.length >= 1,
+  },
+  {
     label: "unprompted spelling confirms the name",
     text: "Hi, my name is David, D, A, V, I, D",
     awaiting: askUser,

@@ -7,6 +7,7 @@ import { callGoals, wrapUpCue, wrapUpInstruction } from "./call.ts";
 import type { BrainConfig } from "./config.ts";
 import { cancelTimer, isStopKeyword, scheduleTimer } from "./decide.ts";
 import { applyRefusal, canAsk, newTask, recordAsk, setSlot } from "./ledger.ts";
+import { isActive } from "./tasks.ts";
 import type {
   Action,
   CallPlan,
@@ -140,10 +141,12 @@ export function decideCall(
         saved.push(`they want help with: ${value}`);
       }
     }
-    if (i.task) {
-      const summary = cleanHelpNeed(i.task.summary, cfg.helpNeedMaxLength);
-      if (summary && !s.tasks.some((t) => t.summary.toLowerCase() === summary.toLowerCase())) {
-        s.tasks.push(newTask(s, summary, i.task.needs_gmail, now));
+    for (const task of [...(i.task ? [i.task] : []), ...i.extra_tasks]) {
+      const summary = cleanHelpNeed(task.summary, cfg.helpNeedMaxLength);
+      if (!summary) continue;
+      const same = (t: { summary: string }) => t.summary.toLowerCase() === summary.toLowerCase();
+      if (!s.tasks.some((t) => same(t) && isActive(t))) {
+        s.tasks.push(newTask(s, summary, task.needs_gmail, now));
         if (s.slots.help_need.status !== "confirmed") {
           setSlot(s.slots.help_need, summary, "confirmed", source, now);
           capture("help_need");
