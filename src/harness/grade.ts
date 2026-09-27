@@ -111,7 +111,7 @@ const JUDGE_SCHEMA = {
 
 const JUDGE_INSTRUCTIONS = `You grade a text conversation between a user and an AI assistant named by the user. Agent turns are marked [A<n>].
 
-For every agent turn, say what information its question asks the user for. A recap that restates what the user said and invites corrections ("reply to fix anything") asks for nothing: label it none. A link sent because the user asked for it ("here's the link") asks for nothing: label it none.
+For every agent turn, say what information its question asks the user for. A recap that restates what the user said and invites corrections ("reply to fix anything") asks for nothing: label it none. A link sent because the user asked for it ("here's the link") asks for nothing: label it none. Asking for the details of a task the user already named ("which classes?", "what dates?") is other, not help_need.
 - agent_name: a name for the assistant itself ("what do you want to call me?")
 - user_name: the user's own name ("what should I call you?")
 - help_need: what the user needs help with
