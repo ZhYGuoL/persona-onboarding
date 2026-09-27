@@ -56,6 +56,8 @@ class LiveCall {
   private readonly grouper: UtteranceGrouper;
   private seq = 0;
   seconds = 0;
+  /** When the live session was created. Billing runs from here. */
+  private openedAt: number | null = null;
 
   private readonly mgr: VoiceManager;
 
@@ -85,6 +87,7 @@ class LiveCall {
 
   attach(liveSessionId: string): void {
     this.liveSessionId = liveSessionId;
+    this.openedAt = this.mgr.opts.clock.now();
     const ws = new WebSocket(`wss://api.openai.com/v1/live/sessions/${liveSessionId}/attach`, {
       headers: { Authorization: `Bearer ${this.mgr.opts.apiKey}` },
     });
@@ -197,8 +200,13 @@ class LiveCall {
       callId: this.callId,
       reason,
     });
-    this.mgr.opts.log.info({ callId: this.callId, reason, seconds: this.seconds }, "call ended");
-    this.mgr.opts.onUsage?.(this.seconds);
+    // A hangup finishes the call before GPT-Live reports its final usage, and a
+    // short call may never get a usage event. So the spend cap counts the longer of
+    // the reported seconds and the time since the session opened.
+    const wall = this.openedAt === null ? 0 : (this.mgr.opts.clock.now() - this.openedAt) / 1000;
+    const billed = Math.max(this.seconds, wall);
+    this.mgr.opts.log.info({ callId: this.callId, reason, seconds: billed }, "call ended");
+    this.mgr.opts.onUsage?.(billed);
     this.mgr.forget(this);
     this.mgr.opts.clock.setTimeout(() => this.socket?.close(), 2000);
   }
