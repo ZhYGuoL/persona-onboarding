@@ -1,0 +1,52 @@
+// Tunable constants. All times are milliseconds of session time, so the fake
+// clock and the reviewer panel can fast-forward them.
+
+export interface BrainConfig {
+  /** Wait this long after the last user text before replying, so a burst of texts gets one reply. */
+  replyDebounceMs: number;
+  /** Delay before a reply to a non-text event (call ended, OAuth done). */
+  noticeDelayMs: number;
+  ringTimeoutMs: number;
+  /** One gentle follow-up when the user goes quiet on an open question. */
+  idleNudgeMs: number;
+  maxNudges: number;
+  /** A user text after a gap this long opens with a one-line summary. */
+  resumeGapMs: number;
+  /** Direct asks per slot before it is deferred. A deferred slot gets one more try later. */
+  maxAsks: number;
+  /** Calls the brain offers on its own. The user can always ask for a call. */
+  maxAutoCallOffers: number;
+  /** After this many declines the brain never offers a call on its own again. */
+  maxCallDeclines: number;
+  /** Committed turns in the main experience before the casual retry for a deferred agent name. */
+  agentNameRetryAfterTurns: number;
+  historyLimit: number;
+  agentNameMaxLength: number;
+  userNameMaxLength: number;
+  helpNeedMaxLength: number;
+  /** Name the agent goes by until the user names it. */
+  defaultAgentName: string;
+  nameIdeas: string[];
+  /** The task engine (milestone 4). Off means the agent never promises to do work. */
+  tasksEnabled: boolean;
+}
+
+export const DEFAULT_CONFIG: BrainConfig = {
+  replyDebounceMs: 700,
+  noticeDelayMs: 300,
+  ringTimeoutMs: 25_000,
+  idleNudgeMs: 10 * 60_000,
+  maxNudges: 2,
+  resumeGapMs: 60 * 60_000,
+  maxAsks: 2,
+  maxAutoCallOffers: 2,
+  maxCallDeclines: 2,
+  agentNameRetryAfterTurns: 2,
+  historyLimit: 40,
+  agentNameMaxLength: 32,
+  userNameMaxLength: 40,
+  helpNeedMaxLength: 200,
+  defaultAgentName: "Persona",
+  nameIdeas: ["Nova", "Juno", "Milo"],
+  tasksEnabled: false,
+};
