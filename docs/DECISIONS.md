@@ -485,6 +485,7 @@ A retry that runs on the user's next text is honest, because the agent keeps no 
 - **Choice.** Until tasks run (M4), a new task gets "I can't take care of X from here yet."
 The render guard rejects a model draft for that turn if it leaves out "can't" or sounds like it took the task on ("got it:", "on it", "I'll remind").
 - **Why.** "Got it: reminding you before the bill is due" reads as a promise.
-The model used to add its own disclaimer, but it stopped after D54's abilities change, and honesty fell to 80% of stress runs.
-A rule in code does not depend on the model's mood.
-It went back to 98%.
+The model used to add its own disclaimer.
+It stopped when the abilities text changed to not list limits before the Gmail ask, and honesty fell to 80% of stress runs.
+A rule in code does not depend on the model.
+With the rule, honesty went back to 98%.
