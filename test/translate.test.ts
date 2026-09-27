@@ -112,3 +112,24 @@ describe("template turns in another language", () => {
     expect(t.calls).toHaveLength(0);
   });
 });
+
+describe("texts sent during a call", () => {
+  it("the Gmail link line follows a Spanish caller's language", async () => {
+    const t = fakeTranslator();
+    const renderer: Renderer = {
+      render: async () => ({ intro: [], body: [] }),
+      translate: t.translate,
+    };
+    const w = new World({ caps: { voice: true, gmail: true }, renderer });
+    await w.say("hola");
+    await w.say("juno", { agent_name: { value: "juno", correction: false } });
+    await w.say("sí", { reply_to_pending: "yes" });
+    await w.event({ type: "call_answered", callId: w.of("ring_phone").at(-1)?.callId ?? "" });
+    await w.hear("quiero ayuda con mis facturas", {
+      language: "es",
+      help_need: "pagar las facturas",
+    });
+    const link = w.turns().find((x) => x.links.some((l) => l.includes("/connect/gmail")));
+    expect(link?.texts[0]).toMatch(/^\[es\] /);
+  });
+});

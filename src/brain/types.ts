@@ -490,7 +490,14 @@ export interface CallPlan {
 
 export type TurnResult =
   | { kind: "text"; interp: Interpretation | null; bubbles: Bubble[]; plan: Plan; meta: TurnMeta }
-  | { kind: "call"; interp: Interpretation; callPlan: CallPlan; meta: TurnMeta };
+  | {
+      kind: "call";
+      interp: Interpretation;
+      callPlan: CallPlan;
+      meta: TurnMeta;
+      /** Texts sent during the call, translated for a non-English caller: English line to translation. */
+      translations?: Record<string, string>;
+    };
 
 export interface TurnMeta {
   interpretMs: number | null;

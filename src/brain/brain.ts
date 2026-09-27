@@ -600,6 +600,7 @@ export class Brain {
       this.cfg,
       this.deps.links(snapshot.id),
     );
+    const translations = await this.translateCallTexts(plan, r.interp.language, guardFailures);
     return {
       type: "turn_ready",
       turnId,
@@ -607,6 +608,7 @@ export class Brain {
         kind: "call",
         interp: r.interp,
         callPlan: plan,
+        translations,
         meta: {
           interpretMs: r.ms,
           renderMs: 0,
@@ -619,6 +621,25 @@ export class Brain {
         },
       },
     };
+  }
+
+  /** A text a call sends (the Gmail link line) follows the caller's language. */
+  private async translateCallTexts(
+    plan: CallPlan,
+    language: string,
+    failures: string[],
+  ): Promise<Record<string, string> | undefined> {
+    const lines = plan.texts.flatMap((b) => (b.kind === "text" ? [b.text] : []));
+    const translate = this.deps.renderer?.translate?.bind(this.deps.renderer);
+    if (lines.length === 0 || language === "en" || !translate) return undefined;
+    try {
+      const out = await translate(lines, language);
+      if (out.length !== lines.length) return undefined;
+      return Object.fromEntries(lines.map((line, i) => [line, out[i] ?? line]));
+    } catch (err) {
+      failures.push(`translate: ${err instanceof Error ? err.message : String(err)}`);
+      return undefined;
+    }
   }
 
   private onCallTurnReady(
@@ -647,7 +668,12 @@ export class Brain {
       type: "call_turn",
       data: { turnId, interp: result.interp, plan: d.plan, meta: result.meta },
     });
-    if (d.plan.texts.length > 0) this.sendTexts(step, turnId, d.plan.texts, now);
+    const texts = d.plan.texts.map((b) =>
+      b.kind === "text" && result.translations?.[b.text]
+        ? { ...b, text: result.translations[b.text] as string }
+        : b,
+    );
+    if (texts.length > 0) this.sendTexts(step, turnId, texts, now);
     const next = step.state;
     if (next.pending.utterances.length > 0) {
       this.startCallTurn(step, now);

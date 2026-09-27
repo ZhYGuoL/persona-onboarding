@@ -8,7 +8,7 @@ import {
   type Interpreter,
   type InterpretInput,
 } from "../src/brain/interpret.ts";
-import { TemplateRenderer } from "../src/brain/render.ts";
+import { type Renderer, TemplateRenderer } from "../src/brain/render.ts";
 import type { Capabilities, Interpretation } from "../src/brain/types.ts";
 import { type SentTurn, SimWorld } from "../src/harness/world.ts";
 import type { Store } from "../src/runtime/store.ts";
@@ -41,6 +41,8 @@ export class World extends SimWorld {
       store?: Store;
       sid?: string;
       start?: number;
+      /** A model renderer stand-in. Tests use it for translation. */
+      renderer?: Renderer;
     } = {},
   ) {
     const cfg = { ...DEFAULT_CONFIG, ...opts.cfg };
@@ -48,7 +50,7 @@ export class World extends SimWorld {
     const brain = new Brain({
       cfg,
       interpreter: interp,
-      renderer: null,
+      renderer: opts.renderer ?? null,
       template: new TemplateRenderer(cfg.nameIdeas),
       links: (id) => ({ legal: "http://test/legal", gmail: `http://test/connect/gmail?s=${id}` }),
     });
