@@ -48,6 +48,9 @@ import type {
 } from "./types.ts";
 import { checkName, sanitize } from "./validate.ts";
 
+/** English template lines kept for variant rotation. About ten turns' worth. */
+const SENT_TEMPLATES_KEPT = 40;
+
 export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const MAX_TEXT_LENGTH = 2000;
 
@@ -434,15 +437,22 @@ export class Brain {
 
     const { plan, state: after } = decide(snapshot, { texts, notices, interp, now }, this.cfg);
     let bubbles: Bubble[] = [];
+    let templateLines: string[] = [];
     let renderer: "llm" | "template" = "template";
     let renderMs = 0;
     if (!isEmptyPlan(plan)) {
       const out = await renderTurn(
-        { plan, history: after.history, links: this.deps.links(snapshot.id) },
+        {
+          plan,
+          history: after.history,
+          links: this.deps.links(snapshot.id),
+          sentTemplates: after.sentTemplates,
+        },
         this.deps.renderer,
         this.deps.template,
       );
       bubbles = out.bubbles;
+      templateLines = out.templateLines;
       renderer = out.renderer;
       renderMs = out.ms;
       guardFailures.push(...out.guardFailures);
@@ -455,6 +465,7 @@ export class Brain {
         interp,
         plan,
         bubbles,
+        templateLines,
         meta: {
           interpretMs,
           renderMs,
@@ -494,7 +505,9 @@ export class Brain {
     const notices = s.pending.notices.slice(0, meta.noticesSeen);
     const d = decide(s, { texts, notices, interp: result.interp, now }, this.cfg);
     let bubbles = result.bubbles;
+    let templateLines = result.templateLines;
     if (JSON.stringify(d.plan) !== JSON.stringify(result.plan)) {
+      templateLines = [];
       step.notes.push({ type: "plan_changed_at_commit", data: { turnId } });
       bubbles = isEmptyPlan(d.plan)
         ? []
@@ -502,10 +515,16 @@ export class Brain {
             plan: d.plan,
             history: d.state.history,
             links: this.deps.links(s.id),
+            sentTemplates: d.state.sentTemplates,
           });
     }
 
     step.state = d.state;
+    if (bubbles.length > 0 && templateLines.length > 0) {
+      const sent = step.state.sentTemplates;
+      sent.push(...templateLines);
+      sent.splice(0, Math.max(0, sent.length - SENT_TEMPLATES_KEPT));
+    }
     step.actions.push({ type: "typing", on: false });
     step.actions.push(...d.actions);
     step.notes.push({ type: "turn", data: { turnId, interp: result.interp, plan: d.plan, meta } });

@@ -285,6 +285,8 @@ export interface SessionState {
   inbox: InboxState;
   /** Drafts the user said yes to. Sending is simulated, so nothing left their account. */
   outbox: SentItem[];
+  /** English template lines sent lately, so variants rotate for users in any language. */
+  sentTemplates: string[];
   reminders: Reminder[];
   /** The user's IANA time zone, from their browser. Reminders use it. */
   timeZone: string;
@@ -512,7 +514,15 @@ export interface CallPlan {
 }
 
 export type TurnResult =
-  | { kind: "text"; interp: Interpretation | null; bubbles: Bubble[]; plan: Plan; meta: TurnMeta }
+  | {
+      kind: "text";
+      interp: Interpretation | null;
+      bubbles: Bubble[];
+      plan: Plan;
+      meta: TurnMeta;
+      /** English template lines behind the bubbles, if templates wrote them. */
+      templateLines: string[];
+    }
   | {
       kind: "call";
       interp: Interpretation;

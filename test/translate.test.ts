@@ -133,3 +133,39 @@ describe("texts sent during a call", () => {
     expect(link?.texts[0]).toMatch(/^\[es\] /);
   });
 });
+
+// Stress run: every Spanish closing was "Escríbeme cuando te caiga algo.". The
+// English variants were checked against a Spanish history, so none ever matched.
+describe("template variants in another language", () => {
+  it("rotate by the English lines already sent, not by the translated history", async () => {
+    const t = fakeTranslator();
+    const renderer: Renderer = {
+      render: async () => ({ intro: [], body: [] }),
+      translate: t.translate,
+    };
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hola");
+    const plan = emptyPlan(w.state, w.cfg);
+    plan.facts = { ...plan.facts, language: "es", casing: "normal", anyTask: true };
+    plan.acks = [{ kind: "task_canceled", reminder: false }];
+    const links = { legal: "l", gmail: "g" };
+    const first = await renderTurn(
+      { plan, history: [], links },
+      renderer,
+      new TemplateRenderer(["Nova"]),
+    );
+    const history = first.bubbles.flatMap((b) =>
+      b.kind === "text"
+        ? [{ from: "agent" as const, channel: "text" as const, text: b.text, ts: 1 }]
+        : [],
+    );
+    const second = await renderTurn(
+      { plan, history, links, sentTemplates: first.templateLines },
+      renderer,
+      new TemplateRenderer(["Nova"]),
+    );
+    const closing = (lines: string[]) => lines.at(-1);
+    expect(first.templateLines.length).toBeGreaterThan(0);
+    expect(closing(second.templateLines)).not.toBe(closing(first.templateLines));
+  });
+});

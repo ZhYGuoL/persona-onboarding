@@ -83,6 +83,7 @@ export function newSession(id: string, now: number, caps: Capabilities): Session
       offersStopped: false,
     },
     outbox: [],
+    sentTemplates: [],
     reminders: [],
     timeZone: DEFAULT_TIME_ZONE,
   };

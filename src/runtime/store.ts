@@ -67,6 +67,7 @@ export class Store {
       ...(state.inbox as Partial<InboxState> | undefined),
     };
     state.outbox ??= [];
+    state.sentTemplates ??= [];
     state.reminders ??= [];
     state.timeZone ??= DEFAULT_TIME_ZONE;
     state.call.agentSpeaking ??= false;

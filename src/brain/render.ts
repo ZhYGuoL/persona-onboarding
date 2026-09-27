@@ -23,6 +23,12 @@ export interface RenderInput {
   history: HistoryItem[];
   /** Absolute links the app appends after the texts. */
   links: { legal: string; gmail: string };
+  /**
+   * English template lines already sent. For a user in another language, the
+   * history holds the translations, so these tell a template which variants
+   * were used.
+   */
+  sentTemplates?: string[];
 }
 
 export interface Rendered {
@@ -975,6 +981,24 @@ export interface RenderOutcome {
   renderer: "llm" | "template";
   guardFailures: string[];
   ms: number;
+  /** The English template lines of this turn, before any translation. */
+  templateLines: string[];
+}
+
+/**
+ * The history a template sees: the thread, plus the English lines already sent.
+ * Stress runs: every Spanish closing was "Escríbeme cuando te caiga algo.",
+ * because the English variants never matched the Spanish history.
+ */
+function templateView(input: RenderInput): RenderInput {
+  const sent = (input.sentTemplates ?? []).map(
+    (text): HistoryItem => ({ from: "agent", channel: "text", text, ts: 0 }),
+  );
+  return sent.length ? { ...input, history: [...sent, ...input.history] } : input;
+}
+
+function linesOf(r: Rendered): string[] {
+  return [...r.intro, ...r.body].map(stripMarks);
 }
 
 /** Try the LLM twice with guard feedback, then fall back to templates. */
@@ -997,6 +1021,7 @@ export async function renderTurn(
           return {
             bubbles: toBubbles(cased, input),
             renderer: "llm",
+            templateLines: [],
             guardFailures: failures,
             ms: performance.now() - started,
           };
@@ -1009,7 +1034,7 @@ export async function renderTurn(
       }
     }
   }
-  const marked = template.renderMarked(input);
+  const marked = template.renderMarked(templateView(input));
   const f = input.plan.facts;
   let draft = applyCasing(marked, f.casing);
   // The templates are English. Anyone texting in another language gets them translated.
@@ -1026,13 +1051,14 @@ export async function renderTurn(
   return {
     bubbles: toBubbles(draft, input),
     renderer: "template",
+    templateLines: linesOf(marked),
     guardFailures: failures,
     ms: performance.now() - started,
   };
 }
 
 export function templateBubbles(template: TemplateRenderer, input: RenderInput): Bubble[] {
-  return toBubbles(template.renderSync(input), input);
+  return toBubbles(template.renderSync(templateView(input)), input);
 }
 
 function draftOf(plan: Plan): Draft | null {
