@@ -71,12 +71,23 @@ function grade(scenario: string, log: LogEntry[], sessionId: string): Run["check
       check("spelled name kept exactly", state?.slots.user_name.value === "Xiomara");
       check("recap text within 8 s", textAfterEnd);
       break;
-    case "interrupt": {
+    case "interrupt":
+    case "interrupt_greeting": {
       const stop = (log.filter((e) => e.type === "voice_metric") as LogEntry[])
         .map((e) => e.payload as { kind: string; ms: number })
         .find((m) => m.kind === "barge_in_stop");
       check("went quiet within 1.5 s of the interruption", stop !== undefined && stop.ms <= 1500);
-      check("answered the question", said(/free|cost|charge|price|pay/i));
+      if (scenario === "interrupt_greeting") {
+        check("still said it is an AI", said(/\bAI\b/));
+      }
+      // Price is not in the facts about Persona, so the honest answer is "not sure".
+      const at = userSaid(/free/i) ?? 0;
+      check(
+        "did not guess the price",
+        at > 0 &&
+          said(/not sure|don't know|do not know|no idea/i, at) &&
+          !said(/paid|\$|dollar/i, at),
+      );
       break;
     }
     case "silence":

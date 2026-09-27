@@ -97,10 +97,24 @@ class Driver {
     await this.deps.call().sayClip(CLIP[clip]);
   }
 
-  /** Talk over the agent a moment after it starts speaking. */
+  /**
+   * Talk over the agent once it has spoken for `afterMs` without a break, so a
+   * short "mm" is not taken for the reply.
+   */
   async interrupt(clip: keyof typeof CLIP, afterMs: number): Promise<void> {
-    await this.until("the agent starts talking", () => this.deps.call().agentSpeaking(), 20_000);
-    await this.pause(afterMs);
+    let since: number | null = null;
+    await this.until(
+      "the agent is mid-reply",
+      () => {
+        if (!this.deps.call().agentSpeaking()) {
+          since = null;
+          return false;
+        }
+        since ??= performance.now();
+        return performance.now() - since >= afterMs;
+      },
+      20_000,
+    );
     await this.say(clip);
   }
 
@@ -154,6 +168,18 @@ export const VOICE_SCRIPTS: Script[] = [
   {
     id: "interrupt",
     label: "Interruption",
+    async run(x) {
+      await x.reply("greeting");
+      await x.say("name");
+      await x.interrupt("interrupt", 1200);
+      await x.reply();
+      await x.say("bye");
+      await x.callEnds(30_000);
+    },
+  },
+  {
+    id: "interrupt_greeting",
+    label: "Talks over the greeting",
     async run(x) {
       await x.interrupt("interrupt", 1500);
       await x.reply();
