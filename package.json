@@ -17,7 +17,8 @@
     "format": "biome check --write .",
     "stress": "node --env-file-if-exists=.env src/harness/run.ts",
     "eval:interpreter": "node --env-file-if-exists=.env src/harness/interpreter-eval.ts",
-    "eval:tasks": "node --env-file-if-exists=.env src/harness/task-eval.ts"
+    "eval:tasks": "node --env-file-if-exists=.env src/harness/task-eval.ts",
+    "voice:report": "node --env-file-if-exists=.env src/harness/voice-report.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

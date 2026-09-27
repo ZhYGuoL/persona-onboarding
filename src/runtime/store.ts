@@ -126,6 +126,16 @@ export class Store {
     return rows.map((r) => r.id);
   }
 
+  /** Sessions that logged an event of this type since a time, oldest first. */
+  sessionsWithEvent(type: string, sinceTs: number): string[] {
+    const rows = this.db
+      .prepare(
+        "select session_id, min(ts) as first from events where type = ? and ts >= ? group by session_id order by first",
+      )
+      .all(type, sinceTs) as Array<{ session_id: string }>;
+    return rows.map((r) => r.session_id);
+  }
+
   close(): void {
     this.db.close();
   }
