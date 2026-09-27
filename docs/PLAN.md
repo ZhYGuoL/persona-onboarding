@@ -91,7 +91,15 @@ On a call, the agent says the finding in its own words, then wraps up and hangs 
 
 Browser QA passed the sample inbox by text and during a call, where the link arrives as a Messages banner.
 It also passed the unchecked Gmail box, cancel, the admin block, a popup closed on our page, and the redirect to Google's account chooser with the right scopes.
-Decisions D42 to D52 are in `docs/DECISIONS.md`.
+Decisions D42 to D56 are in `docs/DECISIONS.md`.
+
+The last M3 stress run passed every invariant at 97% or higher over 49 conversations.
+The stress runs found these bugs, and each one is fixed with a regression test:
+- "Call the NYT" and "I can take a call" read as call requests, so the agent rang four times (D53).
+- The agent said it could not send the Gmail link that the user asked for (D54).
+- A failed scan promised "I'll try again later", and later claimed it found nothing (D55).
+- "Got it: reminding you before the bill is due" read as a promise (D56).
+- A typed name that matched the call got "Fixed", and the confused answer said "I'm Persona" to a user who named the agent.
 
 Not verified: the last step of real Google consent (pick an account, then Allow).
 QA stayed read-only on Google. Zhiyuan should run it once with a test user.
