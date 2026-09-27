@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import type { ThreadItem } from "../shared/protocol.ts";
-import { ActiveCall, Banner, IncomingCall, PhoneGlyph } from "./CallScreens.tsx";
+import { ActiveCall, Banner, IncomingCall, PhoneGlyph, useElapsed } from "./CallScreens.tsx";
 import type { CallControls } from "./useCall.ts";
 
 const REVEAL_GAP_MS = 650;
@@ -43,7 +43,14 @@ export function Phone({
   const phase = call.call.phase;
   const onCall =
     phase === "connecting" || phase === "active" || phase === "outgoing" || phase === "ended";
-  const banner = useCallBanner(thread, fresh, onCall);
+  // Like iOS, the call can shrink to a green pill so the user can text during it.
+  const [minimized, setMinimized] = useState(false);
+  useEffect(() => {
+    if (!onCall) setMinimized(false);
+  }, [onCall]);
+  const showCall = onCall && !minimized;
+  const callStart = call.call.phase === "active" ? call.call.startedAt : null;
+  const banner = useCallBanner(thread, fresh, showCall);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll to the bottom whenever the thread grows or typing starts
   useLayoutEffect(() => {
@@ -57,7 +64,12 @@ export function Phone({
   return (
     <section className="phone" aria-label="Phone simulator">
       <div className="phone-screen">
-        <StatusBar now={now} dark={phase !== "idle"} />
+        <StatusBar
+          now={now}
+          dark={phase === "ringing" || showCall}
+          callStart={onCall && minimized ? (callStart ?? 0) : null}
+          onPill={() => setMinimized(false)}
+        />
         {phase === "ringing" && call.call.phase === "ringing" && (
           <IncomingCall
             name={call.call.callerName}
@@ -65,7 +77,7 @@ export function Phone({
             onDecline={call.decline}
           />
         )}
-        {onCall && <ActiveCall controls={call} />}
+        {showCall && <ActiveCall controls={call} onMinimize={() => setMinimized(true)} />}
         {banner.item && <Banner item={banner.item} sender={contactName} onDone={banner.dismiss} />}
         <header className="thread-header">
           <button
@@ -233,13 +245,32 @@ function useCallBanner(thread: ThreadItem[], fresh: Set<string>, onCall: boolean
   return { item: onCall ? item : null, dismiss };
 }
 
-function StatusBar({ now, dark = false }: { now: number | null; dark?: boolean }) {
+function StatusBar({
+  now,
+  dark = false,
+  callStart = null,
+  onPill,
+}: {
+  now: number | null;
+  dark?: boolean;
+  /** When set, a call is running in the background: show the green pill with its timer. */
+  callStart?: number | null;
+  onPill?: () => void;
+}) {
   const time = new Date(now ?? Date.now())
     .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     .replace(/\s?[AP]M$/i, "");
+  const elapsed = useElapsed(callStart || null);
   return (
     <div className={`status-bar${dark ? " on-dark" : ""}`}>
-      <span className="status-time">{time}</span>
+      {callStart !== null ? (
+        <button type="button" className="call-pill" onClick={onPill} aria-label="Return to call">
+          <PhoneGlyph size={12} />
+          {elapsed || time}
+        </button>
+      ) : (
+        <span className="status-time">{time}</span>
+      )}
       <div className="island" aria-hidden="true" />
       <span className="status-icons" aria-hidden="true">
         <svg aria-hidden="true" width="18" height="12" viewBox="0 0 18 12">

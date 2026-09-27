@@ -52,7 +52,7 @@ export function IncomingCall({
   );
 }
 
-function useElapsed(startedAt: number | null): string {
+export function useElapsed(startedAt: number | null): string {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!startedAt) return;
@@ -64,7 +64,13 @@ function useElapsed(startedAt: number | null): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function ActiveCall({ controls }: { controls: CallControls }) {
+export function ActiveCall({
+  controls,
+  onMinimize,
+}: {
+  controls: CallControls;
+  onMinimize(): void;
+}) {
   const c = controls.call;
   const startedAt = c.phase === "active" ? c.startedAt : null;
   const elapsed = useElapsed(startedAt);
@@ -90,6 +96,18 @@ export function ActiveCall({ controls }: { controls: CallControls }) {
       role="dialog"
       aria-label={`Call with ${c.callerName}`}
     >
+      <button type="button" className="call-minimize" onClick={onMinimize}>
+        <svg aria-hidden="true" width="9" height="15" viewBox="0 0 9 15">
+          <path
+            d="M7.5 1.5L1.5 7.5l6 6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+        Messages
+      </button>
       <div className="call-top">
         <div className="call-avatar" aria-hidden="true">
           {initial(c.callerName)}
