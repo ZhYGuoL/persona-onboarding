@@ -88,6 +88,11 @@ export function Reviewer({
             {now ? new Date(now).toLocaleString() : "…"}
           </p>
         </div>
+        <div className="rv-buttons">
+          <button type="button" className="danger" onClick={onReset}>
+            Reset session
+          </button>
+        </div>
       </div>
 
       <section className="rv-card">
@@ -98,10 +103,6 @@ export function Reviewer({
               {label}
             </button>
           ))}
-          <span className="rv-spacer" />
-          <button type="button" className="danger" onClick={onReset}>
-            Reset session
-          </button>
         </div>
       </section>
 

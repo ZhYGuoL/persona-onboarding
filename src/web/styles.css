@@ -769,6 +769,13 @@ button {
   font-size: 13px;
 }
 
+.rv-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
 .rv-head h1 {
   margin: 0;
   font-size: 20px;
@@ -841,10 +848,6 @@ button {
 
 .rv-buttons button.danger {
   color: var(--bad);
-}
-
-.rv-spacer {
-  flex: 1;
 }
 
 .rv-buttons button:disabled {
