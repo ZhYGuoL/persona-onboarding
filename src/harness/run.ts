@@ -11,6 +11,7 @@ import { Brain, GMAIL_SCOPE } from "../brain/brain.ts";
 import { DEFAULT_CONFIG } from "../brain/config.ts";
 import { LlmInterpreter } from "../brain/interpret.ts";
 import { LlmRenderer, TemplateRenderer } from "../brain/render.ts";
+import { InboxService } from "../inbox/service.ts";
 import { CostMeter, modelsFromEnv, OpenAiClient } from "../llm/openai.ts";
 import {
   type Conversation,
@@ -66,6 +67,17 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
     brain: makeBrain(),
     caps: { voice: true, gmail: true },
     sid: `${persona.id}-${run}`,
+  });
+  // Every simulated user who connects Gmail gets the sample inbox and a real scan.
+  const inbox = new InboxService({
+    hub: w.hub,
+    llm,
+    model: models.fast,
+    log: { info: () => {}, warn: () => {} },
+  });
+  inbox.connectDemo(w.sid);
+  w.hub.subscribeAll((msg) => {
+    if (msg.type === "action") inbox.onAction(msg.sessionId, msg.action);
   });
   const sim = new SimUser(llm, models.fast, persona);
   const timeline: TimelineLine[] = [];
@@ -141,9 +153,16 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
             "Nice to meet you. What's the most annoying thing on your plate this week?",
           );
           await said("user", `Honestly, ${persona.facts.need}.`);
+          // The Gmail link arrives by text during the call. People who would connect it do so right away.
+          if (w.state.call.linkSentOnCall && persona.gmail !== "never") {
+            note("During the call, you tapped the Connect Gmail link that came in by text.");
+            await handleGmail(true);
+            const top = w.state.inbox.findings[0];
+            if (top) await said("agent", `I'm in. ${top.fact}`, 0);
+          }
           // The brain wraps up once it has what it needs. The agent says goodbye, and the brain hangs up.
           await said("agent", "Got it. I'll text you a quick recap. Talk soon, bye!", 0);
-          if (!ended()) await w.advance(cfg.callEndFallbackMs + 1000);
+          if (!ended()) await w.advance(cfg.callGmailWaitMs + cfg.callEndFallbackMs + 1000);
         }
         const summary =
           reason === "close_requested"
@@ -161,7 +180,7 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
     }
   };
 
-  const handleGmail = async () => {
+  const handleGmail = async (inCall = false) => {
     oauthTries += 1;
     const email = `${persona.facts.name.toLowerCase()}@gmail.com`;
     const g = persona.gmail === "uncheck_gmail" && oauthTries > 1 ? "connect" : persona.gmail;
@@ -188,6 +207,9 @@ async function runConversation(persona: Persona, run: number): Promise<Conversat
       note("You tapped the link, then closed the Google window.");
       await w.event({ type: "oauth_failed", reason: "cancelled" });
     }
+    await inbox.idle();
+    await w.settle();
+    if (inCall) return;
     await w.advance(2000);
     collect();
   };
