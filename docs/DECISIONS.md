@@ -575,3 +575,11 @@ When nothing matches, the model is told it searched and found nothing.
 
 - **Choice.** A task starts with "Looking into it." The result says what can and cannot be done.
 - **Why.** "On it: calling Adobe" read as a promise to call, and the next text said it could not.
+
+### D68. An answer ends with one follow-up the agent can do
+
+- **Choice.** An answer names one follow-up, like "canceling the New York Times trial", tied to the email it is about.
+After an empty search, the follow-up is the note it could draft instead, with no email.
+The brain offers it the same way as an inbox finding, once, as a plain yes/no question.
+- **Why.** Stress runs and browser QA showed answers that ended in "text me whenever something lands on your plate", which leaves the user with nothing to do.
+A yes to a concrete offer keeps the user moving from finding to action.
