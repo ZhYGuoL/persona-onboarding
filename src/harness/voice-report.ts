@@ -98,17 +98,24 @@ function grade(scenario: string, log: LogEntry[], sessionId: string): Run["check
       );
       break;
     }
-    case "silence":
+    case "silence": {
+      // The agent must say something between the check-in push and the wrap-up.
+      const pushAt = log.find(
+        (e) =>
+          e.type === "push_to_call" && JSON.stringify(e.payload).includes(CHECK_IN_INSTRUCTION),
+      )?.ts;
+      const wrapAt =
+        log.find(
+          (e) => e.type === "push_to_call" && JSON.stringify(e.payload).includes("Wrap up now"),
+        )?.ts ?? Number.POSITIVE_INFINITY;
       check(
         "checked in after the silence",
-        log.some(
-          (e) =>
-            e.type === "push_to_call" && JSON.stringify(e.payload).includes(CHECK_IN_INSTRUCTION),
-        ),
+        pushAt !== undefined && agent.some((t) => t.start >= pushAt && t.start < wrapAt),
       );
       check("the call ended", ended !== undefined);
       check("carried on by text", textAfterEnd);
       break;
+    }
     case "spanish": {
       const at = userSaid(SPANISH) ?? 0;
       check("replied in Spanish", at > 0 && said(SPANISH, at));
@@ -116,7 +123,8 @@ function grade(scenario: string, log: LogEntry[], sessionId: string): Run["check
     }
     case "bot": {
       const at = userSaid(/bot|robot|real person|human|ai\b/i) ?? 0;
-      check("said it is an AI", said(/\b(AI|artificial|assistant)\b/i, at));
+      // "I am." is a plain yes. "Yeah." alone is often a backchannel, so it does not count.
+      check("said it is an AI", said(/\b(AI|artificial|bot)\b|^(yes|yep|i am)\b/i, at));
       break;
     }
     case "gotta_go": {
