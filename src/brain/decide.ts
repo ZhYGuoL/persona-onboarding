@@ -21,6 +21,7 @@ import {
   isActive,
   offerKey,
   restatesOffer,
+  reviseLastDraft,
   startNextTask,
 } from "./tasks.ts";
 import { cancelTimer, scheduleTimer } from "./timers.ts";
@@ -273,7 +274,10 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
 
   // 5. A reply to a draft ("send it?") or to a task's question. It is about
   // that task, so it never starts a new one.
-  const taskReply = hasTexts && applyTaskReply(s, awaiting, i, acks, actions, now, cfg);
+  let taskReply = hasTexts && applyTaskReply(s, awaiting, i, acks, actions, now, cfg);
+  if (!taskReply && hasTexts && i?.draft_edit && s.caps.tasks) {
+    taskReply = reviseLastDraft(s, i.draft_edit, acks, now);
+  }
   if (taskReply && i) {
     i = { ...i, task: null, extra_tasks: [], help_need: null, cancels_task: false };
   }

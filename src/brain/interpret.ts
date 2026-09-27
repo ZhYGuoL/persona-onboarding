@@ -247,7 +247,7 @@ Signal kinds:
 - typing_fatigue: the user complains about typing or says they would rather talk.
 - confused: the user does not understand what is happening.
 - leaving: the user says they have to go now ("gotta go", "brb", "ttyl").
-- draft_edit (value): the assistant just showed a draft email, and the user wants something changed in it ("make it shorter", "say I'm moving out", "sign it Dan"). Value = the change, in the user's words.
+- draft_edit (value): the assistant showed a draft email recently, even one already marked sent or dropped, and the user wants something changed in it ("make it shorter", "make that email shorter", "say I'm moving out", "sign it Dan"). Value = the change, in the user's words.
 - task_detail (value): the assistant just asked the user a question for a task, and the user answers it ("I'm staying", "the one on Bedford Ave", "9am works"). Also the details a user adds when saying yes to an offer ("yes, remind me the day before"). Value = the answer, in the user's words. A plain yes or no goes in reply_to_pending instead.
 - wrong_target (value): the assistant just showed a draft about the wrong email, company, or person, and the user says so ("that's for my dentist, I meant Planet Fitness", "wrong email"). Value = what they meant, like "Planet Fitness", or "unknown" if they do not say. A change they also want goes in draft_edit.
 - cancels_task: the user takes back something they asked the assistant to do ("never mind", "forget it", "cancel that reminder", "don't remind me after all"). Asking the assistant to cancel a service ("cancel my gym membership") is a task, not this.

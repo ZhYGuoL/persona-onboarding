@@ -276,6 +276,19 @@ const CASES: Case[] = [
     expect: (i) => /planet fitness/i.test(i.task?.summary ?? ""),
   },
   {
+    label: "an edit after the draft was sent is still a draft edit",
+    text: "wait, can you make that email shorter?",
+    prior: [
+      ...draftShown,
+      { from: "user", text: "yeah" },
+      {
+        from: "agent",
+        text: "Marked as sent to mark@gmail.com. Sending is simulated here, so nothing left your account.",
+      },
+    ],
+    expect: (i) => /short/i.test(i.draft_edit ?? "") && !i.task,
+  },
+  {
     label: "a question that needs the inbox is a task",
     text: "any other subscriptions i should know about?",
     expect: (i) => i.task?.needs_gmail === true,

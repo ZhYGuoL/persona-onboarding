@@ -131,6 +131,8 @@ export interface Task {
   asked: string[];
   /** Emails the user said are the wrong ones. The work step never picks them. */
   avoid: string[];
+  /** A draft this task revises: one already sent or dropped, which the user wants changed. */
+  base: Draft | null;
 }
 
 /** The email behind a result, so the user can check the work. */

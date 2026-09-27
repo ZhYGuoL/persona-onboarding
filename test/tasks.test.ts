@@ -189,6 +189,26 @@ describe("a task from an inbox finding", () => {
     expect(w.of("simulated_send")).toHaveLength(0);
   });
 
+  // Stress run: "make that email shorter" right after "Marked as sent" got "i don't
+  // have the email draft here", then an edit in plain texts and "i can't send it".
+  it("an edit right after a send starts a new draft from the old one", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toDraft(w);
+    await w.say("yes", { reply_to_pending: "yes" });
+    const reply = await w.say("wait, can you make that email shorter?", {
+      draft_edit: "make it shorter",
+    });
+    expect(reply?.texts.join(" ")).toMatch(/^on it\. updating the draft\.$/i);
+    expect(w.of("run_task").at(-1)).toMatchObject({
+      taskId: 2,
+      job: {
+        threadId: "nyt-trial",
+        previous: NYT_DRAFT,
+        notes: ["Change the draft: make it shorter"],
+      },
+    });
+  });
+
   it("a later task knows the emails earlier results quoted", async () => {
     const w = new World({ caps: { gmail: true, tasks: true } });
     await toDraft(w);

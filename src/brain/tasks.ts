@@ -93,7 +93,9 @@ export function startNextTask(s: SessionState, acks: Ack[], actions: Action[]): 
   if (s.tasks.some((t) => t.status === "working")) return;
   const task = s.tasks.find((t) => t.status === "open");
   if (!task) return;
-  run(s, task, actions, null);
+  run(s, task, actions, task.base);
+  // A revision already said "Updating the draft."
+  if (task.base) return;
   const next = acks.some((a) => a.kind === "task_result" || a.kind === "draft_sent");
   acks.push({ kind: "task_started", summary: task.summary, needsGmail: task.needsGmail, next });
 }
@@ -345,4 +347,22 @@ export function findingFor(
 export function restatesOffer(summary: string, offer: OfferedFinding): boolean {
   if (keyWords(summary, ACTIONS).size === 0) return true;
   return overlap(summary, `${offer.next} ${offer.fact ?? ""}`, ACTIONS) >= 0.5;
+}
+
+/**
+ * "Make that email shorter" after the draft was sent or dropped: a new draft from
+ * the old one. Stress run: the model answered "i don't have the email draft here",
+ * then rewrote it in plain texts and said "i can't send it from here".
+ */
+export function reviseLastDraft(s: SessionState, edit: string, acks: Ack[], now: number): boolean {
+  const last = [...s.tasks].reverse().find((t) => t.result?.kind === "draft");
+  if (!last || (last.status !== "done" && last.status !== "dropped")) return false;
+  if (last.result?.kind !== "draft") return false;
+  const task = newTask(s, last.summary, last.needsGmail, now, last.threadId, last.search);
+  task.notes.push(...last.notes, `Change the draft: ${edit}`);
+  task.avoid.push(...last.avoid);
+  task.base = last.result.draft;
+  s.tasks.push(task);
+  acks.push({ kind: "task_redraft" });
+  return true;
 }
