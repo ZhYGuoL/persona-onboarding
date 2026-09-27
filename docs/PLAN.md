@@ -174,6 +174,29 @@ The agent refuses them today, but it can do them right in the thread.
 
 Budget: at most $2.50 of the remaining OpenAI credit.
 
+### Status (2026-09-27)
+
+Done. Spend was about $2.50, at the cap: $1.24 of GPT-Live (69 calls, 1487 s), $1.01 for three stress runs, and about $0.25 for evals and the text model on calls.
+
+Voice, from `docs/voice-results.md` (nine scripted GPT-Live calls after all fixes, 20 of 20 checks):
+- Tap to live session: p50 672 ms, p95 940 ms.
+- Tap to first agent audio: p50 1886 ms, p95 1956 ms.
+- End of caller speech to agent reply: p50 1125 ms, p95 1253 ms.
+- Caller talks over the agent: the agent finishes its sentence, then yields (0.8 to 1.8 s).
+
+Text, from `docs/stress-results.md` (76 conversations, 13 personas): every invariant at 93% or higher.
+Across the three runs, `no_duplicates` went from 88% to 97% and `same_language` from 96% to 100%.
+Text turn model time: p50 2.5 s, p95 6.3 s. Task work time: p50 1.8 s, p95 4.0 s.
+
+Fixes from the voice runs (D70 to D76): whole caller phrases, one goodbye, shared facts about Persona, a dead-call guard, a spoken check-in, and a Gmail link push that lets the agent finish its sentence.
+Fixes from the stress runs (D77 to D87): offers keep their email, stated tasks match findings, no repeated questions, "wrong email" restarts, template variants rotate in any language, reminders quote themselves, edits after a send, and guards against "nothing" needs and prompt talk.
+
+Known gaps:
+- About 1 in 20 GPT-Live calls never started its audio clock. The guard ends it at 10 s and texts the user. The cause is not known.
+- GPT-Live finishes its current sentence before it yields to an interruption. Only the prompt steers this.
+- `honesty` is judged by a model, so its score moves between runs (91% to 99%). The flagged turns were read by hand. Real ones were fixed. The rest are judge noise or adversarial personas.
+- The last fix ("No rush" after a repeated question) is covered by unit tests but came after the final stress run.
+
 ### Plan
 
 Text:
