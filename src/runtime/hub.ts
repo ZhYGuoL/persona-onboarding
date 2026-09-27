@@ -23,6 +23,9 @@ export interface HubOptions {
   onError?: (err: unknown, sessionId: string) => void;
 }
 
+/** A timer that keeps rescheduling itself inside one jump cannot loop forever. */
+const MAX_FAST_FORWARD_STEPS = 200;
+
 export class Hub {
   private readonly opts: HubOptions;
   private readonly rows = new Map<string, SessionRow>();
@@ -83,16 +86,43 @@ export class Hub {
   }
 
   /** Move this session's clock forward. Due timers fire in order. */
-  fastForward(sessionId: string, ms: number): Promise<void> {
-    return this.enqueue(sessionId, () => {
+  /**
+   * Move a session's clock forward, as if the time passed. Timers that come
+   * due in the jump fire in order, each at its own time, and their replies
+   * land before the clock moves on. A reminder set for 9:00 AM says 9:00 AM.
+   */
+  async fastForward(sessionId: string, ms: number): Promise<void> {
+    const end = this.now(sessionId) + ms;
+    await this.enqueue(sessionId, () => {
+      this.record(sessionId, this.now(sessionId), "note", "fast_forward", { ms });
+    });
+    for (let i = 0; i < MAX_FAST_FORWARD_STEPS; i++) {
+      const due = Object.entries(this.row(sessionId).state.timers)
+        .filter(([, t]) => t.fireAt <= end)
+        .sort((a, b) => a[1].fireAt - b[1].fireAt)[0];
+      if (!due) break;
+      const [timerId, t] = due;
+      await this.enqueue(sessionId, () => {
+        this.jumpTo(sessionId, t.fireAt);
+        this.disarm(sessionId, timerId);
+      });
+      await this.dispatch(sessionId, { type: "timer_fired", timerId, kind: t.kind });
+      await this.settle();
+    }
+    await this.enqueue(sessionId, () => {
+      this.jumpTo(sessionId, end);
       const row = this.row(sessionId);
-      row.clockOffsetMs += ms;
       const now = this.now(sessionId);
       this.opts.store.save(row.state, row.clockOffsetMs, now);
-      this.record(sessionId, now, "note", "fast_forward", { ms });
       this.armAll(sessionId);
       this.emit(sessionId, { type: "state", sessionId, state: row.state, now });
     });
+  }
+
+  /** Set the session clock to at least `at`. It never runs backward. */
+  private jumpTo(sessionId: string, at: number): void {
+    const gap = at - this.now(sessionId);
+    if (gap > 0) this.row(sessionId).clockOffsetMs += gap;
   }
 
   /** Re-arm timers for persisted sessions after a restart. */

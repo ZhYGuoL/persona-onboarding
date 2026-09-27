@@ -277,6 +277,26 @@ describe("other task results", () => {
     expect(w.state.reminders[0]?.sent).toBe(true);
   });
 
+  it("a fast-forward past a reminder sends it stamped at its own time", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await started(w);
+    const at = w.hub.now(w.sid) + 2 * DAY;
+    await w.event({
+      type: "task_done",
+      taskId: 1,
+      result: { kind: "remind", text: "Your bill is due tomorrow.", at, receipt: null },
+      threadId: null,
+      ms: 700,
+    });
+    await w.advance(1000);
+    await w.hub.fastForward(w.sid, 3 * DAY);
+    await w.settle();
+    const reminder = w.turns().find((t) => /reminder:/i.test(t.texts.join(" ")));
+    expect(reminder).toBeDefined();
+    expect((reminder?.at ?? 0) - at).toBeLessThan(5000);
+    expect(w.hub.now(w.sid)).toBeGreaterThanOrEqual(at + DAY);
+  });
+
   it("a question waits for the answer, then runs again with it", async () => {
     const w = new World({ caps: { tasks: true } });
     await started(w);

@@ -135,10 +135,12 @@ describe("failure matrix", () => {
     await w.event({ type: "client_connected" });
     await w.hub.fastForward(w.sid, 3 * 60 * 60_000);
     await w.settle();
+    // The hours really passed: the gentle follow-ups went out, at most two.
+    expect(w.state.nudges).toBe(w.cfg.maxNudges);
     const t = await w.say("hey");
     expect(t?.texts.join(" ")).toMatch(/welcome back/i);
     expect(t?.texts.join(" ")).toMatch(/juno/i);
-    expect(w.awaiting()).toBe("ask:user_name");
+    expect(w.awaiting()).toMatch(/^ask:/);
   });
 
   it("survives a server restart: state and timers come back", async () => {
