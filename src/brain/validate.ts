@@ -33,9 +33,17 @@ export function checkName(raw: string, maxLength: number): NameCheck {
   return { ok: true, value };
 }
 
+/**
+ * A "need" that means there is none. Stress run: "nothing really lol" became the
+ * need "nothing", then "Want me to start with nothing?" and a task named "nothing".
+ */
+const NO_NEED =
+  /^(nothing|none|nada|nothing really|nothing much|not much|no idea|idk|n\/?a|nothing in particular|nothing right now|ninguna|nada en particular|rien)$/i;
+
 export function cleanHelpNeed(raw: string, maxLength: number): string | null {
   const value = sanitize(raw);
   if (value.length === 0) return null;
+  if (NO_NEED.test(value.replace(/[.!?,\s]+$/u, "").trim())) return null;
   if (graphemeLength(value) <= maxLength) return value;
   return `${[...segmenter.segment(value)]
     .slice(0, maxLength - 1)

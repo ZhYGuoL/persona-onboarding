@@ -56,6 +56,18 @@ describe("stress-harness findings", () => {
     expect(w.state.tasks.map((t) => t.summary)).toEqual(["keeping up with bills"]);
   });
 
+  // "nothing really lol" became the need "nothing", then "Want me to start with nothing?".
+  it("a need that means nothing is never saved, and never becomes a task", async () => {
+    const w = new World({ caps: { tasks: true } });
+    await w.say("hi");
+    await w.say("juno", { agent_name: { value: "juno", correction: false } });
+    await w.say("david", { user_name: { value: "david", correction: false } });
+    await w.say("nothing really lol", { help_need: "nothing" });
+    expect(w.state.slots.help_need.value).toBeNull();
+    await w.say("start with nothing", { task: { summary: "nothing", needs_gmail: false } });
+    expect(w.state.tasks).toHaveLength(0);
+  });
+
   it("without a task engine the agent never says it is on it", async () => {
     const w = new World({ caps: { gmail: true } });
     await w.say("hi");
