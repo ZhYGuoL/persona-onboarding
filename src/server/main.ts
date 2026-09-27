@@ -13,6 +13,7 @@ import { InboxService } from "../inbox/service.ts";
 import { RealClock } from "../runtime/clock.ts";
 import { Hub } from "../runtime/hub.ts";
 import { Store } from "../runtime/store.ts";
+import { TaskService } from "../tasks/service.ts";
 import { CallNotActiveError, VoiceManager } from "../voice/live.ts";
 import { buildBrain } from "./deps.ts";
 import { registerOAuth } from "./oauth.ts";
@@ -38,7 +39,7 @@ const app = Fastify({
 
 const store = new Store(env.DATABASE_PATH ?? join(root, "data/persona.db"));
 const clock = new RealClock();
-const { brain, llm, fastModel, summary } = buildBrain(env, baseUrl, secret);
+const { brain, llm, fastModel, replyModel, summary } = buildBrain(env, baseUrl, secret);
 const hub = new Hub({
   store,
   clock,
@@ -64,10 +65,15 @@ const voice = env.OPENAI_API_KEY
     })
   : null;
 const inbox = llm ? new InboxService({ hub, llm, model: fastModel, log: app.log }) : null;
+const tasks =
+  llm && inbox
+    ? new TaskService({ hub, inbox, llm, model: replyModel, fastModel, log: app.log })
+    : null;
 hub.subscribeAll((msg) => {
   if (msg.type !== "action") return;
   voice?.onAction(msg.sessionId, msg.action);
   inbox?.onAction(msg.sessionId, msg.action);
+  tasks?.onAction(msg.sessionId, msg.action);
 });
 
 await app.register(fastifyCookie, { secret });

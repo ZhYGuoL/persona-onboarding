@@ -12,6 +12,8 @@ export interface BuiltBrain {
   /** Null without an API key. Inbox scans need it. */
   llm: LlmClient | null;
   fastModel: string;
+  /** Writes replies, task results, and drafts. */
+  replyModel: string;
   summary: string;
 }
 
@@ -28,6 +30,7 @@ export function buildBrain(env: NodeJS.ProcessEnv, baseUrl: string, secret: stri
       brain: new Brain({ cfg, interpreter: null, renderer: null, template, links }),
       llm: null,
       fastModel: models.fast,
+      replyModel: models.reply,
       summary: "none (keyword interpreter, template replies)",
     };
   }
@@ -42,6 +45,7 @@ export function buildBrain(env: NodeJS.ProcessEnv, baseUrl: string, secret: stri
     }),
     llm,
     fastModel: models.fast,
+    replyModel: models.reply,
     summary: `interpreter ${models.fast}, replies ${models.reply}`,
   };
 }
