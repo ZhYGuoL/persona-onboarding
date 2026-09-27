@@ -72,7 +72,7 @@ describe("render guard", () => {
     const { emptyPlan } = await import("../src/brain/decide.ts");
     const { newSession } = await import("../src/brain/ledger.ts");
     const { DEFAULT_CONFIG } = await import("../src/brain/config.ts");
-    const s = newSession("x", 0, { voice: false, gmail: false });
+    const s = newSession("x", 0, { voice: false, gmail: false, tasks: false });
     const plan = { ...emptyPlan(s, DEFAULT_CONFIG), intro: true };
     const history = [
       {

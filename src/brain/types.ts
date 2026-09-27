@@ -155,6 +155,8 @@ export interface HistoryItem {
 
 export interface Capabilities {
   voice: boolean;
+  /** The task service is running (it needs the model key). */
+  tasks: boolean;
   gmail: boolean;
 }
 
@@ -374,6 +376,7 @@ export type Ack =
   | { kind: "task_started"; summary: string; needsGmail: boolean }
   | { kind: "task_result"; taskId: number; result: TaskResult }
   | { kind: "task_redraft" }
+  | { kind: "task_limit" }
   | { kind: "task_failed"; summary: string; reason: "auth" | "error" }
   | { kind: "draft_sent"; to: string }
   | { kind: "draft_dropped" }
@@ -387,7 +390,8 @@ export type Ack =
   | { kind: "call_recap"; captured: SlotName[] }
   | { kind: "call_cut"; captured: SlotName[] }
   | { kind: "mic_denied" }
-  | { kind: "gmail_connected"; email: string; demo: boolean }
+  /** `looking` is true while the quick scan runs. Otherwise a task is about to run. */
+  | { kind: "gmail_connected"; email: string; demo: boolean; looking: boolean }
   | { kind: "inbox_findings"; facts: string[] }
   | { kind: "scan_failed"; reason: "auth" | "error"; retry: boolean }
   | { kind: "rescanning" }

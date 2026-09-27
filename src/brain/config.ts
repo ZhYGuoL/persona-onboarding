@@ -45,8 +45,8 @@ export interface BrainConfig {
   /** Name the agent goes by until the user names it. */
   defaultAgentName: string;
   nameIdeas: string[];
-  /** The task engine (milestone 4). Off means the agent never promises to do work. */
-  tasksEnabled: boolean;
+  /** Work runs per task: the first run plus answers and draft edits. Stops an edit loop. */
+  maxTaskRuns: number;
 }
 
 export const DEFAULT_CONFIG: BrainConfig = {
@@ -75,5 +75,5 @@ export const DEFAULT_CONFIG: BrainConfig = {
   helpNeedMaxLength: 200,
   defaultAgentName: "Persona",
   nameIdeas: ["Nova", "Juno", "Milo"],
-  tasksEnabled: false,
+  maxTaskRuns: 6,
 };

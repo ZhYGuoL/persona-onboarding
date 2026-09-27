@@ -151,7 +151,9 @@ export function decideCall(
         s.graduated = true;
         if (s.phase === "onboarding") s.phase = "main";
         saved.push(
-          `they asked for: ${summary}. You cannot do it during the call. Say you will follow up by text`,
+          s.caps.tasks
+            ? `they asked for: ${summary}. You work on it right after the call and text them the result. Say so in one short sentence`
+            : `they asked for: ${summary}. You cannot do it during the call. Say you will follow up by text`,
         );
       }
     }

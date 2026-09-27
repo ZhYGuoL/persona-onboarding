@@ -11,6 +11,9 @@ export interface SentTurn {
   turnId: number;
   texts: string[];
   links: string[];
+  drafts: Array<Extract<Bubble, { kind: "draft" }>>;
+  /** Every bubble in order, for checks on layout. */
+  bubbles: Bubble[];
   at: number;
 }
 
@@ -39,7 +42,7 @@ export class SimWorld {
       store: this.store,
       clock: this.clock,
       brain: this.brain,
-      defaultCaps: { voice: false, gmail: false, ...opts.caps },
+      defaultCaps: { voice: false, gmail: false, tasks: false, ...opts.caps },
       onError: (err) => this.errors.push(err),
     });
     this.sid = opts.sid ?? "s1";
@@ -90,6 +93,10 @@ export class SimWorld {
         links: action.bubbles
           .filter((b): b is Extract<Bubble, { kind: "link" }> => b.kind === "link")
           .map((b) => b.url),
+        drafts: action.bubbles.filter(
+          (b): b is Extract<Bubble, { kind: "draft" }> => b.kind === "draft",
+        ),
+        bubbles: action.bubbles,
         at,
       });
     }

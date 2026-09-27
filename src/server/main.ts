@@ -45,7 +45,11 @@ const hub = new Hub({
   brain,
   // Voice and inbox scans need the API key. The page also reports whether the
   // browser can do WebRTC. Without Google credentials, the sample inbox still works.
-  defaultCaps: { voice: Boolean(env.OPENAI_API_KEY), gmail: Boolean(env.OPENAI_API_KEY) },
+  defaultCaps: {
+    voice: Boolean(env.OPENAI_API_KEY),
+    gmail: Boolean(env.OPENAI_API_KEY),
+    tasks: Boolean(env.OPENAI_API_KEY),
+  },
   onError: (err, sessionId) => app.log.error({ err, sessionId }, "hub error"),
 });
 

@@ -132,7 +132,10 @@ export class Hub {
   private row(sessionId: string): SessionRow {
     let row = this.rows.get(sessionId);
     if (!row) {
-      row = this.opts.store.load(sessionId) ?? {
+      const saved = this.opts.store.load(sessionId);
+      // The server owns the task capability: a saved session follows this build's setting.
+      if (saved) saved.state.caps.tasks = this.opts.defaultCaps.tasks;
+      row = saved ?? {
         state: newSession(sessionId, this.opts.clock.now(), this.opts.defaultCaps),
         clockOffsetMs: 0,
       };

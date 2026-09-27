@@ -30,6 +30,8 @@ import { decideCall, startWrapUp } from "./decide-call.ts";
 import { type Interpreter, KeywordInterpreter } from "./interpret.ts";
 import { setSlot } from "./ledger.ts";
 import { type Renderer, renderTurn, type TemplateRenderer, templateBubbles } from "./render.ts";
+import { taskIdOfReminder } from "./tasks.ts";
+import { safeTimeZone } from "./time.ts";
 import type {
   Action,
   BrainEvent,
@@ -145,6 +147,28 @@ export class Brain {
         break;
       case "scan_done":
         this.onScanDone(step, ev.findings, now);
+        break;
+      case "task_done": {
+        const task = s.tasks.find((t) => t.id === ev.taskId);
+        if (task?.status !== "working") {
+          step.notes.push({ type: "ignored_stale_task", data: { taskId: ev.taskId } });
+          break;
+        }
+        task.result = ev.result;
+        task.threadId = ev.threadId ?? task.threadId;
+        this.addNotice(step, { kind: "task_result", taskId: task.id }, now);
+        break;
+      }
+      case "task_failed":
+        if (ev.reason === "auth") {
+          // The token is gone (expired, revoked, or lost in a restart). Gmail needs a new link.
+          s.slots.gmail.status = "unknown";
+          s.slots.gmail.value = null;
+        }
+        this.addNotice(step, { kind: "task_failed", taskId: ev.taskId, reason: ev.reason }, now);
+        break;
+      case "client_info":
+        s.timeZone = safeTimeZone(ev.timeZone);
         break;
       case "scan_failed":
         s.inbox.scanning = false;
@@ -284,6 +308,11 @@ export class Brain {
       case "call_max":
         if (live && s.call.wrapUpAt === null) this.wrapUp(step, now, "time");
         break;
+      case "reminder": {
+        const taskId = taskIdOfReminder(timerId);
+        if (taskId !== null) this.addNotice(step, { kind: "reminder_due", taskId }, now);
+        break;
+      }
       case "call_end_fallback":
         if (live) this.endCall(step);
         break;
@@ -734,18 +763,21 @@ export class Brain {
         demo ? "sample_inbox" : "google_profile",
         now,
       );
-      for (const t of s.tasks) if (t.status === "waiting_gmail") t.status = "open";
+      const waiting = s.tasks.filter((t) => t.status === "waiting_gmail");
+      for (const t of waiting) t.status = "open";
       if (live && !s.call.captured.includes("gmail")) s.call.captured.push("gmail");
       cancelTimer(s, step.actions, "call_gmail_wait");
-      // Look through the inbox right away. The agent keeps talking meanwhile.
+      // By text, a task that waited for Gmail is the look: it runs next. On a
+      // call, the quick scan gives the agent something to say right away.
+      const scan = live || waiting.length === 0 || !s.caps.tasks;
       s.inbox = {
         source: demo ? "demo" : "gmail",
-        scanning: true,
+        scanning: scan,
         scannedAt: null,
         findings: [],
         failures: 0,
       };
-      step.actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
+      if (scan) step.actions.push({ type: "scan_inbox", need: s.slots.help_need.value });
     }
     if (name && !demo) crossCheckName(s, name, now, this.cfg);
     if (live) {

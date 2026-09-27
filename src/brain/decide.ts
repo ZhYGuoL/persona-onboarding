@@ -13,6 +13,7 @@ import {
   setSlot,
   settleExhausted,
 } from "./ledger.ts";
+import { applyTaskNotice, applyTaskReply, isActive, startNextTask } from "./tasks.ts";
 import { cancelTimer, scheduleTimer } from "./timers.ts";
 import type {
   Ack,
@@ -163,6 +164,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   }
 
   // 4. Things that happened outside the text thread.
+  let taskQuestion: Question | null = null;
   let wantCallback = false;
   let noChase = false;
   let nudge = false;
@@ -215,7 +217,12 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         break;
       }
       case "gmail_connected":
-        acks.push({ kind: "gmail_connected", email: n.email, demo: n.demo });
+        acks.push({
+          kind: "gmail_connected",
+          email: n.email,
+          demo: n.demo,
+          looking: s.inbox.scanning,
+        });
         break;
       case "inbox_findings":
         acks.push({ kind: "inbox_findings", facts: s.inbox.findings.map((f) => f.fact) });
@@ -237,10 +244,20 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         // A nudge is moot once the user has texted.
         if (!hasTexts) nudge = true;
         break;
+      case "task_result":
+      case "task_failed":
+      case "reminder_due":
+        taskQuestion = applyTaskNotice(s, n, acks, actions) ?? taskQuestion;
+        break;
     }
   }
 
-  // 5. A yes or no to the question we asked last.
+  // 5. A reply to a draft ("send it?") or to a task's question. It is about
+  // that task, so it never starts a new one.
+  const taskReply = hasTexts && applyTaskReply(s, awaiting, i, acks, actions, now, cfg);
+  if (taskReply && i) i = { ...i, task: null, help_need: null };
+
+  // A yes or no to the question we asked last.
   let wantCall = false;
   let callDeclinedNow = false;
   if (hasTexts && i) {
@@ -264,10 +281,15 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
       }
     }
     if (refusesCall && s.call.status === "ringing") callDeclinedNow = true;
-    // "Yes" to "want me to start on X?" turns the need into the first task.
-    const need = s.slots.help_need.value;
-    if (awaiting?.kind === "whats_first" && i.reply_to_pending === "yes" && need && !i.task) {
-      i = { ...i, task: { summary: need, needs_gmail: false } };
+    // "Yes" to "want me to start on X?" turns the finding (or the need) into the first task.
+    if (awaiting?.kind === "whats_first" && i.reply_to_pending === "yes" && !i.task) {
+      const top = s.inbox.findings[0];
+      const need = s.slots.help_need.value;
+      if (top?.next && s.caps.tasks) {
+        addTask(s, top.next, true, now, cfg, acks, top.threadId || null);
+      } else if (need) {
+        i = { ...i, task: { summary: need, needs_gmail: s.slots.gmail.status === "confirmed" } };
+      }
     }
   }
 
@@ -342,6 +364,10 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
       acks.push({ kind: "refusal", slot: r.slot, hard: r.hard });
     }
   }
+  // No Gmail for now: a task that waited for it runs with what it has.
+  if (s.slots.gmail.status === "declined" || s.slots.gmail.status === "deferred") {
+    for (const t of s.tasks) if (t.status === "waiting_gmail") t.status = "open";
+  }
   if (callDeclinedNow) {
     s.call.declines += 1;
     stopCall(s, actions);
@@ -357,22 +383,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
     }
     acks.push({ kind: "skip_setup" });
   }
-  if (hasTexts && i?.task) {
-    const summary = cleanHelpNeed(i.task.summary, cfg.helpNeedMaxLength);
-    if (summary && !s.tasks.some((t) => t.summary.toLowerCase() === summary.toLowerCase())) {
-      s.tasks.push(newTask(s, summary, i.task.needs_gmail, now));
-      if (s.slots.help_need.status !== "confirmed") {
-        setSlot(s.slots.help_need, summary, "confirmed", "text", now);
-      }
-      graduate(s);
-      // The task says the same thing as a help need set from it, so say it once.
-      const same = acks.findIndex(
-        (a) => a.kind === "help_need_set" && a.value.toLowerCase() === summary.toLowerCase(),
-      );
-      if (same >= 0) acks.splice(same, 1);
-      acks.push({ kind: "task_started", summary, needsGmail: i.task.needs_gmail });
-    }
-  }
+  if (hasTexts && i?.task) addTask(s, i.task.summary, i.task.needs_gmail, now, cfg, acks);
 
   // 9. Direct questions get honest answers.
   if (hasTexts && i) {
@@ -433,7 +444,18 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
   // even past the ask budget or after an earlier no.
   const wantGmailLink =
     hasTexts && i?.wants_gmail_link === true && s.slots.gmail.status !== "confirmed";
-  if (!ringing && (!noChase || wantGmailLink) && s.call.status === "idle") {
+  // A task starts when nothing else is running. Its result comes by text.
+  if (!ringing) startNextTask(s, acks, actions);
+  const working = s.tasks.some((t) => t.status === "working");
+  if (taskQuestion) {
+    plan.question = taskQuestion;
+    recordQuestion(s, taskQuestion, now);
+  } else if (
+    !ringing &&
+    !(working && !wantGmailLink) &&
+    (!noChase || wantGmailLink) &&
+    s.call.status === "idle"
+  ) {
     const question = pickQuestion(s, cfg, {
       wantCallback,
       wantGmailLink,
@@ -515,6 +537,35 @@ function applyNameClaim(
 function graduate(s: SessionState): void {
   s.graduated = true;
   if (s.phase === "onboarding") s.phase = "main";
+}
+
+/**
+ * A concrete task graduates the user. With the task service, it runs when
+ * nothing else is running. Without it, the agent says plainly it cannot.
+ */
+function addTask(
+  s: SessionState,
+  rawSummary: string,
+  needsGmail: boolean,
+  now: number,
+  cfg: BrainConfig,
+  acks: Ack[],
+  threadId: string | null = null,
+): void {
+  const summary = cleanHelpNeed(rawSummary, cfg.helpNeedMaxLength);
+  if (!summary) return;
+  const same = (t: { summary: string }) => t.summary.toLowerCase() === summary.toLowerCase();
+  if (s.tasks.some((t) => same(t) && isActive(t))) return;
+  s.tasks.push(newTask(s, summary, needsGmail, now, threadId));
+  if (s.slots.help_need.status !== "confirmed") {
+    setSlot(s.slots.help_need, summary, "confirmed", "text", now);
+  }
+  graduate(s);
+  // The task says the same thing as a help need set from it, so say it once.
+  const dup = acks.findIndex((a) => a.kind === "help_need_set" && same({ summary: a.value }));
+  if (dup >= 0) acks.splice(dup, 1);
+  // With the task service, "On it" comes when the task starts running.
+  if (!s.caps.tasks) acks.push({ kind: "task_started", summary, needsGmail });
 }
 
 export function onboardingComplete(s: SessionState): boolean {
@@ -654,6 +705,8 @@ function recordQuestion(s: SessionState, q: Question, now: number): void {
       s.askedWhatsFirst = true;
       break;
     case "offer_callback":
+    case "confirm_send":
+    case "task_info":
       break;
   }
   s.awaiting = { question: q, at: now };
@@ -698,7 +751,7 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     helpNeed: slot("help_need"),
     gmail: slot("gmail"),
     openTask: s.tasks.find((t) => t.status !== "done")?.summary ?? null,
-    canRunTasks: cfg.tasksEnabled,
+    canRunTasks: s.caps.tasks === true,
     inboxFindings: s.inbox.findings.map((f) => f.fact),
     inboxNext: s.inbox.findings[0]?.next || null,
     sampleInbox: s.inbox.source === "demo",

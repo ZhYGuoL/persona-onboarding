@@ -210,7 +210,7 @@ const CASES: Case[] = [
 ];
 
 function stateFor(c: Case): SessionState {
-  const s = newSession("eval", 0, { voice: true, gmail: true });
+  const s = newSession("eval", 0, { voice: true, gmail: true, tasks: true });
   s.introduced = true;
   for (const h of c.prior ?? [])
     s.history.push({ from: h.from, channel: "text", text: h.text, ts: 0 });

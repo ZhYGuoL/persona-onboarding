@@ -125,6 +125,8 @@ export function ackText(a: Ack, f: PlanFacts): string {
       return `Marked as sent to ${v(a.to)}. Sending is simulated here, so nothing left your account.`;
     case "draft_dropped":
       return "Okay, I won't send it.";
+    case "task_limit":
+      return "That's a lot of changes, so I'll stop here. Tell me what you want from scratch and I'll start fresh.";
     case "reminder":
       return `Reminder: ${a.text}`;
     case "call_declined":
@@ -153,10 +155,12 @@ export function ackText(a: Ack, f: PlanFacts): string {
     }
     case "mic_denied":
       return "No mic, no problem. We can do this here.";
-    case "gmail_connected":
-      return a.demo
-        ? "The sample inbox is connected. Taking a quick look."
-        : `Gmail's connected (${v(a.email)}). Taking a quick look.`;
+    case "gmail_connected": {
+      const connected = a.demo
+        ? "The sample inbox is connected."
+        : `Gmail's connected (${v(a.email)}).`;
+      return a.looking ? `${connected} Taking a quick look.` : connected;
+    }
     case "inbox_findings":
       return a.facts[0]
         ? `Took a look. ${v(a.facts[0])}`
@@ -660,10 +664,14 @@ function ackGuide(a: Ack, f: PlanFacts): string {
       if (a.reason === "cancelled")
         return "The Google sign-in did not finish. Say so plainly and that nothing is connected.";
       return "Say plainly what happened with Google and that nothing is connected.";
-    case "gmail_connected":
-      return a.demo
-        ? "They connected the sample inbox, not their real email. Say so plainly, and say you're taking a quick look."
-        : "Gmail just connected. Say you're taking a quick look. Do not guess what you will find.";
+    case "gmail_connected": {
+      const which = a.demo
+        ? "They connected the sample inbox, not their real email. Say so plainly."
+        : "Gmail just connected. Say so.";
+      return a.looking
+        ? `${which} Say you're taking a quick look. Do not guess what you will find.`
+        : which;
+    }
     case "scan_failed":
       return a.reason === "auth"
         ? "You lost access to their inbox. Say so plainly, and that they would need to connect Gmail again."
