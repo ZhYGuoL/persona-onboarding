@@ -160,3 +160,39 @@ describe("gmail provider", () => {
     ).rejects.toBeInstanceOf(InboxAuthError);
   });
 });
+
+describe("inbox service", () => {
+  it("scans the sample inbox on request and reports findings to the brain", async () => {
+    const { InboxService } = await import("../src/inbox/service.ts");
+    const { World } = await import("./world.ts");
+    const w = new World({ caps: { gmail: true } });
+    const quiet = { info: () => {}, warn: () => {} };
+    const llm = fakeLlm({
+      findings: [{ index: 0, fact: "Something concrete from the inbox.", related: true }],
+    });
+    const inbox = new InboxService({ hub: w.hub, llm, model: "m", log: quiet });
+    inbox.connectDemo(w.sid);
+    inbox.onAction(w.sid, { type: "scan_inbox", need: "bills" });
+    await inbox.idle();
+    await w.settle();
+    expect(w.state.inbox.findings).toEqual([
+      { fact: "Something concrete from the inbox.", related: true },
+    ]);
+  });
+
+  it("with no connection, the scan fails as an auth problem", async () => {
+    const { InboxService } = await import("../src/inbox/service.ts");
+    const { World } = await import("./world.ts");
+    const w = new World({ caps: { gmail: true } });
+    const inbox = new InboxService({
+      hub: w.hub,
+      llm: fakeLlm({ findings: [] }),
+      model: "m",
+      log: { info: () => {}, warn: () => {} },
+    });
+    inbox.onAction(w.sid, { type: "scan_inbox", need: null });
+    await inbox.idle();
+    await w.settle();
+    expect(w.store.events(w.sid).map((e) => e.type)).toContain("scan_failed");
+  });
+});

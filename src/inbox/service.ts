@@ -22,6 +22,7 @@ export interface InboxServiceOptions {
 export class InboxService {
   private readonly opts: InboxServiceOptions;
   private readonly connections = new Map<string, Connection>();
+  private readonly running = new Set<Promise<void>>();
 
   constructor(opts: InboxServiceOptions) {
     this.opts = opts;
@@ -44,7 +45,14 @@ export class InboxService {
   }
 
   onAction(sessionId: string, action: Action): void {
-    if (action.type === "scan_inbox") void this.scan(sessionId, action.need);
+    if (action.type !== "scan_inbox") return;
+    const job = this.scan(sessionId, action.need).finally(() => this.running.delete(job));
+    this.running.add(job);
+  }
+
+  /** Resolves when no scan is running. Tests and the stress harness wait on it. */
+  async idle(): Promise<void> {
+    while (this.running.size > 0) await Promise.allSettled([...this.running]);
   }
 
   private provider(sessionId: string): InboxProvider | null {
