@@ -180,6 +180,37 @@ describe("inbox service", () => {
     ]);
   });
 
+  it("retries a failed scan once before it tells the brain", async () => {
+    const { InboxService } = await import("../src/inbox/service.ts");
+    const { World } = await import("./world.ts");
+    const w = new World({ caps: { gmail: true } });
+    let calls = 0;
+    const flaky: LlmClient = {
+      async json<T>() {
+        calls += 1;
+        if (calls === 1) throw new Error("deadline exceeded");
+        return {
+          data: { findings: [{ index: 0, fact: "A bill is due.", related: true }] } as T,
+          latencyMs: 1,
+          usage: { inputTokens: 0, cachedTokens: 0, outputTokens: 0, usd: 0 },
+        };
+      },
+    };
+    const inbox = new InboxService({
+      hub: w.hub,
+      llm: flaky,
+      model: "m",
+      log: { info: () => {}, warn: () => {} },
+    });
+    inbox.connectDemo(w.sid);
+    inbox.onAction(w.sid, { type: "scan_inbox", need: "bills" });
+    await inbox.idle();
+    await w.settle();
+    expect(calls).toBe(2);
+    expect(w.store.events(w.sid).map((e) => e.type)).not.toContain("scan_failed");
+    expect(w.state.inbox.findings[0]?.fact).toBe("A bill is due.");
+  });
+
   it("with no connection, the scan fails as an auth problem", async () => {
     const { InboxService } = await import("../src/inbox/service.ts");
     const { World } = await import("./world.ts");

@@ -10,6 +10,8 @@ import { GmailProvider } from "./gmail.ts";
 import { scanInbox } from "./scan.ts";
 import { InboxAuthError, type InboxProvider } from "./types.ts";
 
+const RETRY_DELAY_MS = 1000;
+
 type Connection = { kind: "gmail"; accessToken: string; expiresAt: number } | { kind: "demo" };
 
 export interface InboxServiceOptions {
@@ -72,12 +74,23 @@ export class InboxService {
       return;
     }
     try {
-      const result = await scanInbox({
-        provider,
-        need,
-        llm: this.opts.llm,
-        model: this.opts.model,
-        now: hub.now(sessionId),
+      const run = () =>
+        scanInbox({
+          provider,
+          need,
+          llm: this.opts.llm,
+          model: this.opts.model,
+          now: hub.now(sessionId),
+        });
+      // One quiet retry covers a slow model or a Gmail hiccup. A lost token does not get better.
+      const result = await run().catch(async (err: unknown) => {
+        if (err instanceof InboxAuthError) throw err;
+        this.opts.log.warn(
+          { sessionId, err: err instanceof Error ? err.message : String(err) },
+          "inbox scan failed, retrying once",
+        );
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        return run();
       });
       this.opts.log.info(
         {
