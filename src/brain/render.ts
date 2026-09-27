@@ -544,7 +544,8 @@ function ackGuide(a: Ack, f: PlanFacts): string {
       if (a.reason === "admin_blocked") {
         return "Their organization's Google Workspace admin blocks this app. Say that plainly, and that a personal Gmail account works.";
       }
-      if (a.reason === "cancelled") return "The Google sign-in did not finish. Say so plainly and that nothing is connected.";
+      if (a.reason === "cancelled")
+        return "The Google sign-in did not finish. Say so plainly and that nothing is connected.";
       return "Say plainly what happened with Google and that nothing is connected.";
     case "gmail_connected":
       return a.demo
