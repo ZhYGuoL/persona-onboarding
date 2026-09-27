@@ -135,7 +135,7 @@ export function wrapUpInstruction(
 
 /** Words that close a call, in the languages the agent is likely to speak. */
 const GOODBYE =
-  /\b(bye|goodbye|good-bye|talk (to you )?soon|take care|see you|have a (good|great|nice)|adi[oó]s|hasta (luego|pronto|mañana)|chao|ciao|au revoir|tsch[uü]ss|tchau)\b/i;
+  /(?<!\p{L})(bye|goodbye|good-bye|talk (to you )?soon|take care|see you|have a (good|great|nice)|adi[oó]s|hasta (luego|pronto|mañana)|cu[ií]date|nos vemos|hablamos (luego|pronto)|chao|ciao|au revoir|[aà] bient[oô]t|tsch[uü]ss|tchau|at[eé] logo)(?!\p{L})/iu;
 
 export function soundsLikeGoodbye(text: string): boolean {
   return GOODBYE.test(text);
