@@ -766,3 +766,9 @@ Railway calls this format deprecated from 2026-12-01. Its replacement imports a 
 - **Choice.** A light titanium frame with a thin black bezel, a white page with a soft glow behind the phone, pill buttons, a back chevron, an "iMessage" label over the first timestamp, and a mic in the empty field.
 - **Why.** The brief asks to match yourpersona.com. The fonts and colors already matched. The phone itself was a generic black mockup.
 - **Also.** A first visit showed an empty phone with no hint to start. The hint sits in the reviewer panel, because the product UI must not narrate.
+
+### D92. One nudge per quiet spell, and silence is never a no
+
+- **Choice.** A nudge turn never schedules another nudge. The next one can come only after the user texts again and then goes quiet on a new question. The session cap of two stays.
+- **Why.** On the live site, a user said "hi" and walked away. The first nudge re-asked for the agent's name. Ten minutes later a second nudge counted that as the second ask, dropped the name question, and asked a new one: "No rush. I'll go by Persona for now. No rush. What should I call you?".
+The ask budget is for a user who is there and does not answer. An absent user should not have their questions used up, or get new ones piled on.

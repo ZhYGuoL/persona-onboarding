@@ -540,8 +540,12 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
     plan.chat = true;
   }
 
-  // 15. One gentle follow-up if the user goes quiet on an open ask.
+  // 15. One gentle follow-up if the user goes quiet on an open ask. A nudge turn
+  // never schedules another: the next one waits until the user has texted again.
+  // Live QA: a second nudge 10 minutes later took the silence as a second no,
+  // dropped the name question, and asked a new one of someone who was away.
   const nudgeable =
+    !nudge &&
     plan.question !== null &&
     (plan.question.kind === "ask_slot" || plan.question.kind === "gmail_link") &&
     s.nudges < cfg.maxNudges;

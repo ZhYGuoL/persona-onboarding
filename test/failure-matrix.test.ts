@@ -135,8 +135,8 @@ describe("failure matrix", () => {
     await w.event({ type: "client_connected" });
     await w.hub.fastForward(w.sid, 3 * 60 * 60_000);
     await w.settle();
-    // The hours really passed: the gentle follow-ups went out, at most two.
-    expect(w.state.nudges).toBe(w.cfg.maxNudges);
+    // The hours really passed: one gentle follow-up went out, and only one.
+    expect(w.state.nudges).toBe(1);
     const t = await w.say("hey");
     expect(t?.texts.join(" ")).toMatch(/welcome back/i);
     expect(t?.texts.join(" ")).toMatch(/juno/i);
@@ -262,10 +262,21 @@ describe("failure matrix", () => {
     await w.advance(10 * 60_000 + 1000);
     expect(w.turns()).toHaveLength(sent + 1);
     expect(w.last()?.texts.join(" ")).toMatch(/no rush/i);
-    await w.advance(30 * 60_000);
-    // Second nudge would exceed the ask budget for the agent name, so the slot defers quietly.
-    expect(w.turns().length).toBeLessThanOrEqual(sent + 2);
-    expect(w.state.nudges).toBeLessThanOrEqual(2);
+    // Silence is not a no. No second nudge, no deferral, no new question.
+    await w.advance(60 * 60_000);
+    expect(w.turns()).toHaveLength(sent + 1);
+    expect(w.state.slots.agent_name.status).toBe("unknown");
+    expect(w.awaiting()).toBe("ask:agent_name");
+    // A later quiet spell, after the user texted again, gets its own nudge. Two in all.
+    await w.say("juno", { agent_name: { value: "juno", correction: false } });
+    const back = w.turns().length;
+    await w.advance(10 * 60_000 + 1000);
+    expect(w.turns()).toHaveLength(back + 1);
+    await w.say("hm", {});
+    const again = w.turns().length;
+    await w.advance(60 * 60_000);
+    expect(w.turns()).toHaveLength(again);
+    expect(w.state.nudges).toBe(2);
   });
 
   it("jailbreak: stays in role, no slot changes, no leak", async () => {
