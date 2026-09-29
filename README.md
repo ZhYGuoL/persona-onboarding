@@ -31,7 +31,7 @@ That split is why the rules below hold in every test and not just most of them: 
 
 ## The flow
 
-![The flow: hi, its name, the call, Gmail, a finding, the recap, the first task. Each step has an exit, and naming a real task at any point skips ahead to it.](docs/images/flow.svg)
+![The flow: hi, its name, the call, Gmail, a finding, the recap, the first task. Beside the steps are their exits, and naming a real task at any point skips ahead to it.](docs/images/flow.svg)
 
 1. You text first. It greets you in Persona's voice, shows what it can do, and asks what to call it.
 2. It asks if it can call ("faster than typing"). Say no and it keeps texting, no guilt.
