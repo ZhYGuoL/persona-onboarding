@@ -111,6 +111,24 @@ function newSession(reply: FastifyReply): string {
   return id;
 }
 
+// One canonical address. A page opened on the old Railway hostname moves to
+// APP_BASE_URL, so the session cookie and Google sign-in stay on one host.
+// Health checks and the WebSocket are left alone.
+const canonicalHost = new URL(baseUrl).host;
+app.addHook("onRequest", async (req, reply) => {
+  const host = req.headers.host ?? "";
+  if (
+    isProd &&
+    req.method === "GET" &&
+    host.endsWith(".up.railway.app") &&
+    host !== canonicalHost &&
+    !req.url.startsWith("/healthz") &&
+    !req.url.startsWith("/ws")
+  ) {
+    return reply.redirect(`${baseUrl}${req.url}`, 308);
+  }
+});
+
 app.get("/healthz", async () => ({ ok: true }));
 
 app.get("/api/session", async (req, reply) => {
