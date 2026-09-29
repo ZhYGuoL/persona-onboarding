@@ -18,6 +18,7 @@
     "stress": "node --env-file-if-exists=.env src/harness/run.ts",
     "eval:interpreter": "node --env-file-if-exists=.env src/harness/interpreter-eval.ts",
     "eval:tasks": "node --env-file-if-exists=.env src/harness/task-eval.ts",
+    "eval:scan": "node --env-file-if-exists=.env src/harness/scan-eval.ts",
     "voice:report": "node --env-file-if-exists=.env src/harness/voice-report.ts"
   },
   "dependencies": {

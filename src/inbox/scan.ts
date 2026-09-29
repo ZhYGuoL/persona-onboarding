@@ -72,7 +72,7 @@ Return up to 3 findings, most useful first:
 - index: the email's number.
 - fact: one short sentence the assistant can say out loud. Use the concrete numbers, dates, and names from the email, and nothing that is not in it. No links. Example: "Your Planet Fitness membership renews Oct 3 for $24.99."
 - next: one concrete action the assistant can take about it by email or reminder, as a short phrase starting with a verb ending in -ing, at most 8 words, with no pronouns. Examples: "canceling the Planet Fitness membership", "replying to Mark about the lease", "setting a reminder before the Con Edison bill is due". Only actions the assistant can do: cancel, confirm, or reply by email, set a reminder, or answer a question about it. It cannot use a calendar, pay, book, or call. For an event or a due date, offer a reminder. Never a decision for the user, like "deciding whether to keep X" or "reviewing X". When there is nothing useful to do about it, like a plain receipt or a newsletter, write "".
-- related: true if it relates to what the user needs.
+- related: true only when it directly helps with the need as the user said it. The same broad area is not enough: a personal trip or a dentist visit is not the work calendar, and a gym renewal is not car insurance. When unsure, false.
 
 Prefer findings related to the need. If nothing relates, return the one or two most useful other findings (something due soon, a renewal about to charge, a person waiting on a reply), with related false. If the list is empty, return no findings.`;
 
