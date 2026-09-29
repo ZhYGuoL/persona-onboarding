@@ -26,6 +26,14 @@ describe("live call", () => {
     expect(w.pushes("commentary")[0]).toMatch(/^Greet the caller now: Hey, it's juno/);
   });
 
+  it("an unnamed agent does not say Persona twice", async () => {
+    const w = new World({ caps: { voice: true } });
+    await w.say("hi");
+    await w.say("call me", { wants_call: true });
+    await w.event({ type: "call_answered", callId: w.of("ring_phone").at(-1)?.callId ?? "" });
+    expect(w.pushes("instructions")[0]).toContain(`"Hey, it's your AI assistant from Persona."`);
+  });
+
   it("does not try to say an emoji name out loud", async () => {
     const w = new World({ caps: { voice: true } });
     await onCall(w, "🦊");

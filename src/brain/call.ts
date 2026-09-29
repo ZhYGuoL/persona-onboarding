@@ -10,6 +10,9 @@ import type { HistoryItem, SessionState, WrapUpReason } from "./types.ts";
 /** The spoken name. A name with no letters (an emoji) cannot be said aloud. */
 export function spokenAgentName(s: SessionState, cfg: BrainConfig): string | null {
   const name = agentDisplayName(s, cfg);
+  // An unnamed agent goes by "Persona". Live QA: "Hey, it's Persona, your AI
+  // assistant from Persona." says the brand twice.
+  if (name.toLowerCase() === "persona") return null;
   return /\p{L}/u.test(name) ? name : null;
 }
 
