@@ -43,7 +43,7 @@ export function privacyPage(): string {
   return page(
     "Privacy policy",
     `<h1>Privacy policy</h1>
-<p class="date">Updated September 26, 2026</p>
+<p class="date">Updated September 28, 2026</p>
 <p>This is an independent onboarding prototype built by Zhiyuan Guo for a Persona take-home project. It is not a Persona product.</p>
 <h2>What we keep</h2>
 <p>We keep the text thread, the call transcript, and the four setup answers (the name you give the assistant, your name, what you want help with, and your Gmail address). We keep them in a database on our server so the conversation can resume. We do not keep call audio.</p>
@@ -52,7 +52,7 @@ export function privacyPage(): string {
 <h2>How long we keep it</h2>
 <p>We keep the Gmail access token in server memory for your session only. We do not write it to disk. We delete stored conversations when the prototype review ends.</p>
 <h2>Who we share it with</h2>
-<p>We send message text and call audio to OpenAI to understand and answer you. We do not sell data or share it with anyone else. Use of information from Google APIs follows the Google API Services User Data Policy, including the Limited Use requirements.</p>
+<p>We send message text, call audio, and the parts of your email we read (the subjects and snippets a scan looks at, and the few messages a task needs) to OpenAI to understand and answer you. We do not sell data or share it with anyone else. Use of information from Google APIs follows the Google API Services User Data Policy, including the Limited Use requirements.</p>
 <h2>How to revoke access</h2>
 <p>Go to <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a> and remove "Persona Onboarding Demo". Access stops at once. To delete your conversation, email <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
 <h2>Age</h2>
