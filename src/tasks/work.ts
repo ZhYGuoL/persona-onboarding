@@ -318,9 +318,14 @@ export function checkResult(raw: RawWork, input: WorkInput, details: ThreadDetai
     case "draft": {
       const draft = checkDraft(raw, input, details, detail);
       if (!draft) {
+        // Named by its subject, so two tasks that both need an address do not ask
+        // the same words (stress run). One task never asks twice (D79).
+        const subject = cleanText(raw.draft_subject, 80, false);
         return {
           kind: "question",
-          text: "Who should it go to? I need their email address.",
+          text: subject
+            ? `Who should the email about “${subject}” go to? I need their email address.`
+            : "Who should it go to? I need their email address.",
           receipt,
         };
       }

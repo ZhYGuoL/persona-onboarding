@@ -97,7 +97,12 @@ describe("task work", () => {
     expect(a.result.kind === "draft" && a.result.draft.to).toBe("help@nytimes.com");
 
     const noEmail = scripted({
-      task_result: work({ kind: "draft", draft_to: "boss@work.example", draft_body: "I'm sick." }),
+      task_result: work({
+        kind: "draft",
+        draft_to: "boss@work.example",
+        draft_subject: "Out sick today",
+        draft_body: "I'm sick.",
+      }),
     });
     const b = await runWork(input({ summary: "emailing my boss", threadId: null }), {
       provider: null,
@@ -105,7 +110,11 @@ describe("task work", () => {
       model: "m",
       fastModel: "f",
     });
-    expect(b.result).toMatchObject({ kind: "question", text: expect.stringMatching(/address/) });
+    // It names the email, so two tasks that both need an address ask different words.
+    expect(b.result).toMatchObject({
+      kind: "question",
+      text: "Who should the email about “Out sick today” go to? I need their email address.",
+    });
 
     // An address the user typed is fine.
     const c = await runWork(

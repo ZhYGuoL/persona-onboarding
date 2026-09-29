@@ -166,7 +166,10 @@ export function ackText(a: Ack, f: PlanFacts): string {
     }
     case "call_recap": {
       const got = capturedLine(a.captured, f);
-      return got ? `Here's what I got: ${got}. Reply to fix anything.` : "Thanks for the call.";
+      // Stress run: a bare "Thanks for the call." left the user with no next step.
+      return got
+        ? `Here's what I got: ${got}. Reply to fix anything.`
+        : "Thanks for the call. Text me whenever you're ready.";
     }
     case "call_cut": {
       const got = capturedLine(a.captured, f);
@@ -774,7 +777,7 @@ function ackGuide(a: Ack, f: PlanFacts): string {
       const got = capturedLine(a.captured, f);
       return got
         ? `The call ended. Recap exactly this and invite corrections: ${stripMarks(got)}.`
-        : "The call ended, and you caught nothing on it. Thank them in a few words. Do not mention names or details.";
+        : "The call ended, and you caught nothing on it. Thank them in a few words and say they can text you whenever they are ready. Do not mention names or details.";
     }
     case "name_blocked":
       return "The proposed name is a slur. Decline it playfully in a few words. Do not repeat it.";

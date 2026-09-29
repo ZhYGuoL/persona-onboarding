@@ -259,6 +259,18 @@ describe("call recap brief", () => {
     expect(brief).toMatch(/you caught nothing on it/);
     expect(brief).not.toMatch(/\bunknown\b/);
   });
+
+  // Stress run: a bare "Gracias por la llamada." ended the thread with no next step.
+  it("an empty recap still says what the user can do next", async () => {
+    const { ackLines } = await import("../src/brain/render.ts");
+    const { emptyPlan } = await import("../src/brain/decide.ts");
+    const w = new World();
+    await w.say("hi");
+    const f = emptyPlan(w.state, w.cfg).facts;
+    expect(ackLines({ kind: "call_recap", captured: [] }, f)).toEqual([
+      "Thanks for the call. Text me whenever you're ready.",
+    ]);
+  });
 });
 
 describe("lowercase mirroring", () => {
