@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="372" viewBox="0 0 1300 372" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Helvetica, Arial, sans-serif" role="img" aria-label="How one message becomes a reply: a model reads, code decides, a model writes">
+<title>How one message becomes a reply: a model reads, code decides, a model writes</title>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9 z" fill="#8e8e93"/></marker>
+  <marker id="arrow-start" viewBox="0 0 10 10" refX="1.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M9 1 L1 5 L9 9 z" fill="#8e8e93"/></marker>
+  <marker id="arrow-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9 z" fill="#0a84ff"/></marker>
+  <marker id="arrow-start-blue" viewBox="0 0 10 10" refX="1.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M9 1 L1 5 L9 9 z" fill="#0a84ff"/></marker>
+</defs>
+<rect x="0.5" y="0.5" width="1299" height="371" rx="24" fill="#ffffff" stroke="#e3e3e8"/>
+<text x="40" y="50" font-size="19" fill="#1d1d1f" font-weight="600" text-anchor="start">How one message becomes a reply</text>
+<rect x="40" y="143.0" width="170" height="96" rx="16" fill="#ffffff" stroke="#e3e3e8" stroke-width="1"/>
+<text x="58" y="173.0" font-size="16" fill="#1d1d1f" font-weight="600" text-anchor="start">A message</text>
+<text x="58" y="197.0" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">A text, or a line</text>
+<text x="58" y="217.0" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">heard on the call</text>
+<rect x="246" y="84" width="232" height="214" rx="16" fill="#ffffff" stroke="#0a84ff" stroke-width="1.6"/>
+<rect x="262" y="100" width="150" height="26" rx="13.0" fill="#e8f2ff"/>
+<text x="276" y="117.5" font-size="12.5" fill="#0a5bd6" font-weight="500" text-anchor="start">interpret · model</text>
+<text x="264" y="154" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">Turns the words into</text>
+<text x="264" y="174" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">signals: a name, a need,</text>
+<text x="264" y="194" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">a yes, a task, a refusal,</text>
+<text x="264" y="214" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">a jailbreak attempt.</text>
+<rect x="514" y="84" width="272" height="214" rx="16" fill="#ffffff" stroke="#30a45b" stroke-width="1.6"/>
+<rect x="530" y="100" width="130" height="26" rx="13.0" fill="#e7f6ec"/>
+<text x="544" y="117.5" font-size="12.5" fill="#1f7a45" font-weight="500" text-anchor="start">decide · code</text>
+<text x="532" y="154" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">Applies the rules and picks</text>
+<text x="532" y="174" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">the next step:</text>
+<text x="536" y="194" font-size="13" fill="#1d1d1f" font-weight="400" text-anchor="start">• One question per turn</text>
+<text x="536" y="214" font-size="13" fill="#1d1d1f" font-weight="400" text-anchor="start">• Never re-ask a confirmed field</text>
+<text x="536" y="234" font-size="13" fill="#1d1d1f" font-weight="400" text-anchor="start">• At most two asks per field</text>
+<text x="536" y="254" font-size="13" fill="#1d1d1f" font-weight="400" text-anchor="start">• Nothing sent without a yes</text>
+<text x="536" y="274" font-size="13" fill="#1d1d1f" font-weight="400" text-anchor="start">• Starts tasks, timers, calls</text>
+<rect x="822" y="84" width="232" height="214" rx="16" fill="#ffffff" stroke="#0a84ff" stroke-width="1.6"/>
+<rect x="838" y="100" width="142" height="26" rx="13.0" fill="#e8f2ff"/>
+<text x="852" y="117.5" font-size="12.5" fill="#0a5bd6" font-weight="500" text-anchor="start">render · model</text>
+<text x="840" y="154" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">Writes it in Persona's voice.</text>
+<text x="840" y="174" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">A guard checks it: no</text>
+<text x="840" y="194" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">promises, no links, one</text>
+<text x="840" y="214" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">question, no repeats.</text>
+<text x="840" y="234" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">Rejected twice: templates.</text>
+<rect x="1090" y="143.0" width="170" height="96" rx="16" fill="#ffffff" stroke="#e3e3e8" stroke-width="1"/>
+<text x="1108" y="173.0" font-size="16" fill="#1d1d1f" font-weight="600" text-anchor="start">Sent</text>
+<text x="1108" y="197.0" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">By text, or pushed</text>
+<text x="1108" y="217.0" font-size="13" fill="#6e6e73" font-weight="400" text-anchor="start">into the live call</text>
+<path d="M210 191.0 H246" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M478 191.0 H514" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M786 191.0 H822" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1054 191.0 H1090" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="40" y="338" font-size="13.5" fill="#6e6e73" font-weight="400" text-anchor="start">The model reads and writes. Code decides, so the rules hold in every test, not just most of them.</text>
+</svg>
+

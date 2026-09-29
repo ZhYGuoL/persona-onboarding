@@ -27,7 +27,11 @@ The main design call: the model reads and writes, but code decides.
 A model turns each message into signals, plain code decides what happens next, and a model writes the words, with templates as the fallback.
 That split is why the rules below hold in every test and not just most of them: one question per turn, never re-ask a confirmed field, at most two asks per field, and nothing sent without a yes.
 
+![How one message becomes a reply: a model interprets the words into signals, code decides the next step by the rules, and a model writes the reply, with a guard and templates as the fallback.](docs/images/turn.svg)
+
 ## The flow
+
+![The flow: hi, its name, the call, Gmail, a finding, the recap, the first task. Each step has an exit, and naming a real task at any point skips ahead to it.](docs/images/flow.svg)
 
 1. You text first. It greets you in Persona's voice, shows what it can do, and asks what to call it.
 2. It asks if it can call ("faster than typing"). Say no and it keeps texting, no guilt.
@@ -42,27 +46,7 @@ Decline the call, hang up, go silent, switch to Spanish, say "stop", or just ask
 
 ## Architecture
 
-```
- phone UI (React)          reviewer panel
-   |  text, call controls        |  chaos, time jumps
-   v                             v
- server (Fastify, WebSocket) ---------------------------+
-   |                                                    |
-   v                                                    |
- hub: one queue per session, SQLite state + event log,  |
-      an injectable clock for every timer               |
-   |                                                    |
-   v                                                    |
- brain                                                  |
-   interpret (model: signals)                           |
-   decide    (code: slots, asks, timers, tasks)         |
-   render    (model + guard, templates as fallback)     |
-   |  actions: send_text, ring_phone, push_to_call, ... |
-   v                                                    v
- voice adapter: GPT-Live over WebRTC, plus a server   task service: read-only Gmail or
- sideband that pushes what the brain learns into      the sample inbox, one model call
- the live call                                        per task, results checked in code
-```
+![Architecture: the phone and reviewer panel talk to one server over a WebSocket. On the server, a hub queues each session's events for the brain (interpret, decide, render), and adapters carry out its actions: the voice adapter, the model client, the task service, and Google sign-in. Call audio goes straight from the browser to OpenAI GPT-Live over WebRTC.](docs/images/architecture.svg)
 
 - **One brain per session.** Text and voice are adapters that feed it events (`text_in`, `call_ended{reason}`, `transcript_final`, `oauth_done`, `timer_fired`) and carry out its actions. The brain doesn't know which channel a message came from beyond a flag.
 - **Slots are written when they're heard,** not when the call ends. A hangup mid-sentence loses nothing.

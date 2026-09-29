@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="456" viewBox="0 0 1300 456" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Helvetica, Arial, sans-serif" role="img" aria-label="The onboarding flow, and the exit at every step">
+<title>The onboarding flow, and the exit at every step</title>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9 z" fill="#8e8e93"/></marker>
+  <marker id="arrow-start" viewBox="0 0 10 10" refX="1.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M9 1 L1 5 L9 9 z" fill="#8e8e93"/></marker>
+  <marker id="arrow-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9 z" fill="#0a84ff"/></marker>
+  <marker id="arrow-start-blue" viewBox="0 0 10 10" refX="1.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M9 1 L1 5 L9 9 z" fill="#0a84ff"/></marker>
+</defs>
+<rect x="0.5" y="0.5" width="1299" height="455" rx="24" fill="#ffffff" stroke="#e3e3e8"/>
+<text x="40" y="48" font-size="19" fill="#1d1d1f" font-weight="600" text-anchor="start">The flow, and its exits</text>
+<rect x="40.0" y="118" width="157" height="104" rx="14" fill="#ffffff" stroke="#e3e3e8" stroke-width="1"/>
+<text x="56.0" y="144" font-size="15" fill="#1d1d1f" font-weight="600" text-anchor="start">Hi</text>
+<text x="56.0" y="165" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">You text first. It</text>
+<text x="56.0" y="183" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">shows what it can do.</text>
+<rect x="217.5" y="118" width="157" height="104" rx="14" fill="#ffffff" stroke="#e3e3e8" stroke-width="1"/>
+<text x="233.5" y="144" font-size="15" fill="#1d1d1f" font-weight="600" text-anchor="start">Its name</text>
+<text x="233.5" y="165" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">It asks what you</text>
+<text x="233.5" y="183" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">want to call it.</text>
+<path d="M197.0 170.0 H217.5" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="395.0" y="118" width="157" height="104" rx="14" fill="#ffffff" stroke="#0a84ff" stroke-width="1.6"/>
+<text x="411.0" y="144" font-size="15" fill="#1d1d1f" font-weight="600" text-anchor="start">The call</text>
+<text x="411.0" y="165" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">Your name and the</text>
+<text x="411.0" y="183" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">most annoying thing</text>
+<text x="411.0" y="201" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">this week.</text>
+<path d="M374.5 170.0 H395.0" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="572.5" y="118" width="157" height="104" rx="14" fill="#ffffff" stroke="#e3e3e8" stroke-width="1"/>
+<text x="588.5" y="144" font-size="15" fill="#1d1d1f" font-weight="600" text-anchor="start">Gmail</text>
+<text x="588.5" y="165" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">The link lands as a</text>
+<text x="588.5" y="183" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">banner mid-call.</text>
+<path d="M552.0 170.0 H572.5" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="750.0" y="118" width="157" height="104" rx="14" fill="#ffffff" stroke="#0a84ff" stroke-width="1.6"/>
+<text x="766.0" y="144" font-size="15" fill="#1d1d1f" font-weight="600" text-anchor="start">A finding</text>
+<text x="766.0" y="165" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">It says one real</text>
+<text x="766.0" y="183" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">thing from your inbox.</text>
+<path d="M729.5 170.0 H750.0" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="927.5" y="118" width="157" height="104" rx="14" fill="#ffffff" stroke="#e3e3e8" stroke-width="1"/>
+<text x="943.5" y="144" font-size="15" fill="#1d1d1f" font-weight="600" text-anchor="start">Recap</text>
+<text x="943.5" y="165" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">A text of what it</text>
+<text x="943.5" y="183" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">caught. Reply to fix.</text>
+<path d="M907.0 170.0 H927.5" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1105.0" y="118" width="157" height="104" rx="14" fill="#ffffff" stroke="#e3e3e8" stroke-width="1"/>
+<text x="1121.0" y="144" font-size="15" fill="#1d1d1f" font-weight="600" text-anchor="start">First task</text>
+<text x="1121.0" y="165" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">A draft with a</text>
+<text x="1121.0" y="183" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">receipt. Sent only</text>
+<text x="1121.0" y="201" font-size="12.5" fill="#6e6e73" font-weight="400" text-anchor="start">on your yes.</text>
+<path d="M1084.5 170.0 H1105.0" fill="none" stroke="#8e8e93" stroke-width="1.5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M118.5 118 V96 Q118.5 86 128.5 86 H1173.5 Q1183.5 86 1183.5 96 V118" fill="none" stroke="#30a45b" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="459.2" y="76.0" width="381.6" height="20.0" rx="6" fill="#ffffff"/>
+<text x="650" y="90" font-size="12" fill="#1f7a45" font-weight="500" text-anchor="middle">Name a real task at any point, and it skips ahead to it</text>
+<rect x="40" y="290" width="224" height="100" rx="14" fill="#fff4dc"/>
+<text x="56" y="316" font-size="14.5" fill="#8a5a00" font-weight="600" text-anchor="start">No name yet</text>
+<text x="56" y="338" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">It goes by Persona and</text>
+<text x="56" y="357" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">asks once more, later.</text>
+<path d="M296.0 222 V252 H152.0 V290" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="289" y="290" width="224" height="100" rx="14" fill="#fff4dc"/>
+<text x="305" y="316" font-size="14.5" fill="#8a5a00" font-weight="600" text-anchor="start">The call goes sideways</text>
+<text x="305" y="338" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">Declined: keeps texting.</text>
+<text x="305" y="357" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">Dropped: texts in seconds.</text>
+<text x="305" y="376" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">“Gotta go”: one goodbye.</text>
+<path d="M473.5 222 V252 H401.0 V290" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="538" y="290" width="224" height="100" rx="14" fill="#fff4dc"/>
+<text x="554" y="316" font-size="14.5" fill="#8a5a00" font-weight="600" text-anchor="start">No Gmail</text>
+<text x="554" y="338" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">Asks at most twice,</text>
+<text x="554" y="357" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">then lets you in anyway.</text>
+<path d="M651.0 222 V290" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="787" y="290" width="224" height="100" rx="14" fill="#fff4dc"/>
+<text x="803" y="316" font-size="14.5" fill="#8a5a00" font-weight="600" text-anchor="start">Nothing matches</text>
+<text x="803" y="338" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">Says so first, then shares</text>
+<text x="803" y="357" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">the most useful other find.</text>
+<path d="M828.5 222 V252 H899.0 V290" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1036" y="290" width="224" height="100" rx="14" fill="#fff4dc"/>
+<text x="1052" y="316" font-size="14.5" fill="#8a5a00" font-weight="600" text-anchor="start">Wrong or changed</text>
+<text x="1052" y="338" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">“Wrong email”: starts over.</text>
+<text x="1052" y="357" font-size="12.5" fill="#1d1d1f" font-weight="400" text-anchor="start">“Never mind”: drops it.</text>
+<path d="M1183.5 222 V252 H1148.0 V290" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#arrow)" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="40" y="424" font-size="13.5" fill="#6e6e73" font-weight="400" text-anchor="start">Every exit is a row in the failure matrix, with a test.</text>
+</svg>
+
