@@ -772,3 +772,13 @@ Railway calls this format deprecated from 2026-12-01. Its replacement imports a 
 - **Choice.** A nudge turn never schedules another nudge. The next one can come only after the user texts again and then goes quiet on a new question. The session cap of two stays.
 - **Why.** On the live site, a user said "hi" and walked away. The first nudge re-asked for the agent's name. Ten minutes later a second nudge counted that as the second ask, dropped the name question, and asked a new one: "No rush. I'll go by Persona for now. No rush. What should I call you?".
 The ask budget is for a user who is there and does not answer. An absent user should not have their questions used up, or get new ones piled on.
+
+### D93. A find that does not match the need is never passed off as the answer
+
+- **Choice.** The scan marks a find as related only when it helps with the need as the user said it. The same broad area is not enough, and when unsure it says no.
+Related finds go first. When the top find is not related, the agent says so first: "Nothing about organizing the work calendar in your inbox. I did spot this: …", on the call and by text.
+When the scan finds nothing at all, it names the need instead of "Nothing urgent jumped out."
+`pnpm eval:scan` checks the labels on the real model, with needs the sample inbox can and cannot help with.
+- **Why.** Zhiyuan asked whether the emails it pulled up were always about what he said he needed. They were not.
+For "organizing the work calendar", the scan marked a personal flight, a hotel stay, and a dentist visit as related.
+Worse, the brain stored the related flag and never used it, so even a correctly flagged unrelated find was said as if it answered the user.
