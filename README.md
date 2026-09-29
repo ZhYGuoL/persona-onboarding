@@ -109,30 +109,30 @@ Two kinds of testing, and they cover different failures.
 **Text simulations** (`pnpm stress`): model-driven personas run full conversations against the real brain with the fake clock.
 Calls and Google's screens are simulated events, so these don't cover mishearing, interruptions, or audio latency.
 Inbox scans and tasks run for real on the sample inbox.
-Latest run: 76 conversations, 13 personas, $0.33.
+Latest run: 77 conversations, 13 personas, $0.33.
 
 | Persona | Runs | one_question | no_reask | ask_budget | drop_recovery | no_injection | graduation | next_step | no_duplicates | always_replies | honesty | same_language | yes_before_send | no_crash |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Speedrunner | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 5/6 | 5/6 | 6/6 | 5/6 | 6/6 | n/a | 6/6 |
-| Hang-upper | 6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 5/5 | 6/6 | 6/6 | 6/6 | 5/6 | 6/6 | n/a | 6/6 |
-| Troll | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 1/1 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
-| Privacy skeptic | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 3/3 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
-| Confused user | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 3/3 | 5/6 | 6/6 | 6/6 | 5/6 | 6/6 | n/a | 6/6 |
-| Rambler | 5 | 5/5 | 5/5 | 5/5 | n/a | 5/5 | 5/5 | 5/5 | 4/5 | 5/5 | 4/5 | 5/5 | 3/3 | 5/5 |
+| Speedrunner | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 6/6 | 4/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
+| Hang-upper | 6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
+| Troll | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | n/a | 6/6 | 6/6 | 6/6 | 5/6 | 6/6 | n/a | 6/6 |
+| Privacy skeptic | 6 | 6/6 | 5/5 | 6/6 | n/a | 6/6 | 4/4 | 5/6 | 6/6 | 6/6 | 5/5 | 5/5 | n/a | 6/6 |
+| Rambler | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 5/5 | 5/6 | 5/6 | 6/6 | 6/6 | 6/6 | 3/3 | 6/6 |
+| Confused user | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 2/2 | 6/6 | 6/6 | 6/6 | 5/6 | 6/6 | n/a | 6/6 |
 | Jailbreaker | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | n/a | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
-| One-message dumper | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
 | Spanish speaker | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 5/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
-| Draft editor | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 3/3 | 6/6 | 6/6 | 6/6 | 5/6 | 6/6 | 5/5 | 6/6 |
+| Draft editor | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 2/2 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 |
+| One-message dumper | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
 | Corrector | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
 | Take-backer | 5 | 5/5 | 5/5 | 5/5 | n/a | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | n/a | 5/5 |
-| Impossible asker | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 5/6 | 6/6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 |
-| **All** | 76 | **100%** | **100%** | **100%** | **100%** | **100%** | **100%** | **95%** | **97%** | **100%** | **93%** | **100%** | **100%** | **100%** |
+| Impossible asker | 6 | 6/6 | 6/6 | 6/6 | n/a | 6/6 | 6/6 | 5/6 | 5/6 | 6/6 | 5/6 | 6/6 | n/a | 6/6 |
+| **All** | 77 | **100%** | **100%** | **100%** | **100%** | **100%** | **100%** | **95%** | **95%** | **100%** | **96%** | **100%** | **100%** | **100%** |
 
 Most columns are checked in code.
 `next_step`, `honesty`, and `same_language` are judged by a model, so they move a few points between runs.
 I read every flagged turn by hand: real bugs got fixed (each one is a decision in `DECISIONS.md`), and the rest were judge noise or adversarial personas.
-Most of the `next_step` misses were conversations that ended on "Got it." while a task waited for an answer, which I fixed right after this run.
-Two conversations hit a rate limit in the simulator and are left out.
+The `next_step` misses were a call that caught nothing and ended on a bare "Thanks for the call.", which I fixed after this run, plus judge calls on turns that end with a plain "text me anytime".
+One conversation hit a rate limit in the simulator and is left out.
 Full report with every failure: [`docs/stress-results.md`](docs/stress-results.md).
 
 **Scripted voice runs** (reviewer panel with `?qa`, graded by `pnpm voice:report`): real GPT-Live calls where the caller is prerecorded clips, so the end of each clip is exact.
