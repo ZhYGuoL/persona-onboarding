@@ -461,7 +461,8 @@ export type Ack =
   | { kind: "mic_denied" }
   /** `looking` is true while the quick scan runs. Otherwise a task is about to run. */
   | { kind: "gmail_connected"; email: string; demo: boolean; looking: boolean }
-  | { kind: "inbox_findings"; facts: string[] }
+  /** `related` is false when nothing matched the user's need and these are other finds. */
+  | { kind: "inbox_findings"; facts: string[]; related: boolean; need: string | null }
   | { kind: "scan_failed"; reason: "auth" | "error"; retry: boolean }
   | { kind: "rescanning" }
   | { kind: "gmail_scope_denied" }

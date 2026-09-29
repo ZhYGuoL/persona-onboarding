@@ -185,8 +185,14 @@ export function ackText(a: Ack, f: PlanFacts): string {
         : `Gmail's connected (${v(a.email)}).`;
       return a.looking ? `${connected} Taking a quick look.` : connected;
     }
-    case "inbox_findings":
-      return a.facts[0] ? `Took a look. ${a.facts[0]}` : "Took a look. Nothing urgent jumped out.";
+    case "inbox_findings": {
+      const fact = a.facts[0];
+      if (!a.need) return fact ? `Took a look. ${fact}` : "Took a look. Nothing urgent jumped out.";
+      if (!fact) return `Took a look. Nothing about ${v(a.need)} in there.`;
+      return a.related
+        ? `Took a look. ${fact}`
+        : `Nothing about ${v(a.need)} in your inbox. I did spot this: ${fact}`;
+    }
     case "scan_failed":
       if (a.reason === "auth")
         return "I lost access to your inbox, so I couldn't look. You'd need to connect it again.";
@@ -819,6 +825,9 @@ function ackGuide(a: Ack, f: PlanFacts): string {
     case "rescanning":
       return "Say you are taking another look at their inbox, in a few words. Do not guess what you will find.";
     case "inbox_findings":
+      if (a.need && !a.related) {
+        return `You just scanned their inbox and found nothing about "${a.need}". Say that plainly first. Then share the single most useful other finding in one short text, keeping numbers, dates, and names exact.`;
+      }
       return "You just scanned their inbox. Share the single most useful finding in one short text, in your own words, keeping numbers, dates, and names exact. Do not list more than one.";
     default:
       return "";

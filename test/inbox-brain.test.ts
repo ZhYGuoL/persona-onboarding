@@ -152,8 +152,56 @@ describe("the magic moment on a call", () => {
     await onCallWithNeed(w);
     await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
     await w.event({ type: "scan_done", findings: [], source: "gmail", ms: 900 });
-    expect(w.pushes("commentary").at(-1)).toMatch(/nothing that needs attention/);
+    expect(w.pushes("commentary").at(-1)).toMatch(
+      /nothing about "canceling the gym membership" and nothing else that needs attention/,
+    );
     expect(w.pushes("commentary").at(-1)).toMatch(/do not promise to watch it/i);
+  });
+
+  // Live QA: for "organizing the work calendar" the agent said a personal flight as if
+  // it were the answer. A find that does not match the need is framed as another find.
+  it("says plainly when nothing matched the need, then shares the other find", async () => {
+    const w = new World({ caps: { voice: true, gmail: true } });
+    await onCallWithNeed(w);
+    await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
+    await w.event({
+      type: "scan_done",
+      findings: [
+        {
+          fact: "Your Delta flight to Denver is Sunday, Oct 4 at 7:05 AM.",
+          next: "setting a reminder for the flight",
+          threadId: "delta",
+          related: false,
+        },
+      ],
+      source: "gmail",
+      ms: 900,
+    });
+    const said = w.pushes("commentary").at(-1) ?? "";
+    expect(said).toMatch(/found nothing about "canceling the gym membership"/);
+    expect(said).toMatch(/Your Delta flight to Denver is Sunday, Oct 4 at 7:05 AM\./);
+  });
+
+  it("a find that matches the need goes first, whatever order the scan returned", async () => {
+    const w = new World({ caps: { voice: true, gmail: true } });
+    await onCallWithNeed(w);
+    await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: null });
+    await w.event({
+      type: "scan_done",
+      findings: [
+        { fact: "Your Delta flight is Oct 4.", next: "", threadId: "delta", related: false },
+        {
+          fact: "Your Planet Fitness membership renews Oct 3 for $24.99.",
+          next: "canceling the Planet Fitness membership",
+          threadId: "pf",
+          related: true,
+        },
+      ],
+      source: "gmail",
+      ms: 900,
+    });
+    expect(w.state.inbox.findings[0]?.threadId).toBe("pf");
+    expect(w.pushes("commentary").at(-1)).toMatch(/^The inbox scan found this\..*Planet Fitness/);
   });
 });
 
@@ -192,6 +240,30 @@ describe("inbox by text", () => {
     expect(found).toMatch(/your con edison bill of \$86\.42 is due oct 6\./i);
     expect(found).toMatch(
       /want me to start on setting a reminder before the con edison bill is due\?/i,
+    );
+  });
+
+  it("by text too, a find that does not match the need is not passed off as the answer", async () => {
+    const w = new World({ caps: { gmail: true, tasks: true } });
+    await toGmailAsk(w);
+    await w.event({ type: "oauth_done", scopes: SCOPES, email: "dana@gmail.com", name: "Dana" });
+    await w.advance(1000);
+    await w.event({
+      type: "scan_done",
+      findings: [
+        {
+          fact: "Your Delta flight to Denver is Sunday, Oct 4 at 7:05 AM.",
+          next: "setting a reminder for the flight",
+          threadId: "delta",
+          related: false,
+        },
+      ],
+      source: "gmail",
+      ms: 1500,
+    });
+    await w.advance(1000);
+    expect(w.last()?.texts.join(" ")).toMatch(
+      /nothing about keeping up with bills in your inbox\. i did spot this: your delta flight/i,
     );
   });
 

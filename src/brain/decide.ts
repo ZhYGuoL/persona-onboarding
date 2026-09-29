@@ -227,7 +227,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         }
         // The finding said on the call comes back in writing: receipts, not just talk.
         if (captured.includes("gmail") && s.inbox.findings[0] && n.reason !== "mic_denied") {
-          acks.push({ kind: "inbox_findings", facts: s.inbox.findings.map((f) => f.fact) });
+          acks.push(findingsAck(s));
         }
         break;
       }
@@ -240,7 +240,7 @@ export function decide(s0: SessionState, input: DecideInput, cfg: BrainConfig): 
         });
         break;
       case "inbox_findings":
-        acks.push({ kind: "inbox_findings", facts: s.inbox.findings.map((f) => f.fact) });
+        acks.push(findingsAck(s));
         break;
       case "scan_failed":
         acks.push({
@@ -866,5 +866,15 @@ export function planFacts(s: SessionState, cfg: BrainConfig): Plan["facts"] {
     language: s.language,
     casing: s.casing,
     timeZone: s.timeZone,
+  };
+}
+
+/** What the scan found, and whether it matched what the user asked for. */
+function findingsAck(s: SessionState): Ack {
+  return {
+    kind: "inbox_findings",
+    facts: s.inbox.findings.map((f) => f.fact),
+    related: s.inbox.findings[0]?.related ?? true,
+    need: s.slots.help_need.value,
   };
 }

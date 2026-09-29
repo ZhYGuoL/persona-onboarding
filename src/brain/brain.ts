@@ -898,7 +898,9 @@ export class Brain {
     s.inbox.scanning = false;
     s.inbox.scannedAt = now;
     s.inbox.failures = 0;
-    s.inbox.findings = findings.slice(0, 3).map((f) => ({
+    // Findings that match the need go first. The scan's order does not promise it.
+    const ordered = [...findings].sort((a, b) => Number(b.related) - Number(a.related));
+    s.inbox.findings = ordered.slice(0, 3).map((f) => ({
       fact: sanitize(f.fact).slice(0, 200),
       next: sanitize(f.next ?? "").slice(0, 80),
       threadId: f.threadId ?? "",
@@ -908,10 +910,15 @@ export class Brain {
     if (s.call.status === "active" && s.call.callId) {
       if (top) {
         const rest = s.inbox.findings.slice(1).map((f) => f.fact);
+        // Live QA: a need the inbox cannot help with got an unrelated finding said as
+        // if it were the answer. Say that nothing matched, then share the other find.
+        const need = s.slots.help_need.value;
         this.pushToCall(
           step,
           "commentary",
-          `The inbox scan found this. Tell them in one sentence, in your own words, keeping the numbers and dates exact: "${top.fact}"`,
+          top.related || !need
+            ? `The inbox scan found this. Tell them in one sentence, in your own words, keeping the numbers and dates exact: "${top.fact}"`
+            : `The inbox scan found nothing about "${need}". Say that plainly in a few words. Then share this other find in one sentence, keeping the numbers and dates exact: "${top.fact}"`,
         );
         if (rest.length) {
           this.pushToCall(
@@ -924,7 +931,9 @@ export class Brain {
         this.pushToCall(
           step,
           "commentary",
-          "The inbox scan found nothing that needs attention right now. Say so in one sentence. Do not promise to watch it.",
+          s.slots.help_need.value
+            ? `The inbox scan found nothing about "${s.slots.help_need.value}" and nothing else that needs attention. Say so in one sentence. Do not promise to watch it.`
+            : "The inbox scan found nothing that needs attention right now. Say so in one sentence. Do not promise to watch it.",
         );
       }
       this.awaitDelivery(step, now, top ? anchorsOf(top.fact) : []);
