@@ -782,3 +782,11 @@ When the scan finds nothing at all, it names the need instead of "Nothing urgent
 - **Why.** Zhiyuan asked whether the emails it pulled up were always about what he said he needed. They were not.
 For "organizing the work calendar", the scan marked a personal flight, a hotel stay, and a dentist visit as related.
 Worse, the brain stored the related flag and never used it, so even a correctly flagged unrelated find was said as if it answered the user.
+
+### D94. The app lives at persona.zygl.dev, and zygl.dev/persona points there
+
+- **Choice.** The app runs at `persona.zygl.dev`, a Railway custom domain. The first Railway address sends pages there with a 308, so the session cookie and Google sign-in stay on one host. Health checks and the WebSocket are not redirected.
+`zygl.dev/persona` is meant to redirect to it from the zygl.dev site.
+- **Why.** Zhiyuan asked for `zygl.dev/persona`. zygl.dev is a Vercel site, and Vercel's proxy to an outside server is not documented to carry WebSockets, which the whole chat runs on.
+Serving the app itself under a path behind that proxy could break the chat without warning. A subdomain keeps the WebSocket on Railway, and a redirect keeps the short address.
+- **Also.** An unnamed agent now greets with "Hey, it's your AI assistant from Persona." instead of saying Persona twice.

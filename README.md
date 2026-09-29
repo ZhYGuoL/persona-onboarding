@@ -3,7 +3,7 @@
 An onboarding for Persona that doesn't feel like onboarding.
 It collects the four things Persona needs (a name for the agent, the user's name, a connected Gmail, and something the user could use help with) by text and by a real voice call, and it holds up when people don't play along.
 
-**Try it:** https://web-production-add64.up.railway.app (Desktop Chrome is the target.)
+**Try it:** https://persona.zygl.dev (Desktop Chrome is the target.)
 
 Text the phone like a new user would.
 Accept its call, pick the sample inbox when it asks for Gmail, and use the reviewer panel on the right to break things: drop the call, add lag, deny Google's consent, jump time forward.

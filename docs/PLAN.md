@@ -219,7 +219,7 @@ Then run everything, fix what fails, and record the results.
 
 ### Status (2026-09-27)
 
-Done. The app is live at https://web-production-add64.up.railway.app on Railway, with SQLite on a volume.
+Done. The app is live at https://persona.zygl.dev on Railway, with SQLite on a volume. The first Railway address redirects there.
 - **UI.** The phone matches the one on yourpersona.com: a light titanium frame, a white page with a soft glow, pill buttons, a back chevron, an "iMessage" label over the first timestamp, and a mic in the empty field. The reviewer panel shows a start hint on an empty session.
 - **Public deploy guards.** A spend cap (`SPEND_CAP_USD`, set to $1.50) turns calls off and falls back to templates when reached. Scripted voice runs are hidden unless the URL has `?qa`.
 - **README.** It covers the thesis, the flow, the architecture, the failure matrix, the stress and voice results, what I would do next, and how it maps to iMessage and real phone numbers.
@@ -232,6 +232,10 @@ Bugs found on the way, each fixed with a test or a live check:
 - The spend cap counted a short call as zero seconds, because the hangup came before GPT-Live's usage report.
 - After a silent call, the model texted "i captured your name as unknown".
 
+Done after M6, on Zhiyuan's request:
+- Google sign-in is published: the OAuth client has the production origins and redirect URIs, and Branding points to persona.zygl.dev.
+- The repo is public at https://github.com/ZhYGuoL/persona-onboarding. Before that, its history was rewritten so the build brief and agent notes never appear.
+- The app moved to persona.zygl.dev, a Railway custom domain.
+
 Left for Zhiyuan:
-- Google sign-in on the hosted URL needs the production origin and the redirect URI `https://web-production-add64.up.railway.app/auth/google/callback` on the OAuth client. Google Branding must also be finished and the app published. Until then, the sample inbox works for everyone, and Google works only for the test users.
-- The repo has no remote yet. The brief asks for a private repo.
+- `zygl.dev/persona` does not redirect yet. The zygl project is on Vercel Hobby, where dashboard redirects are not available, so the redirect has to go in that site's `next.config.ts`.
